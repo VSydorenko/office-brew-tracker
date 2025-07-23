@@ -2,39 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Coffee Brew Tracker Design System - Warm Coffee Theme */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 30 15% 98%;
+    --foreground: 15 12% 8%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 30 15% 100%;
+    --card-foreground: 15 12% 8%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 30 15% 100%;
+    --popover-foreground: 15 12% 8%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 25 75% 35%;
+    --primary-foreground: 30 15% 98%;
+    --primary-glow: 30 85% 60%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 35 25% 88%;
+    --secondary-foreground: 25 75% 35%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 35 15% 92%;
+    --muted-foreground: 15 12% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 25 65% 45%;
+    --accent-foreground: 30 15% 98%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 30 15% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 35 20% 88%;
+    --input: 35 20% 88%;
+    --ring: 25 75% 35%;
+
+    /* Coffee themed gradients */
+    --gradient-coffee: linear-gradient(135deg, hsl(25, 75%, 35%), hsl(30, 85%, 60%));
+    --gradient-brew: linear-gradient(180deg, hsl(30, 15%, 98%), hsl(35, 25%, 88%));
+    --gradient-warmth: linear-gradient(45deg, hsl(30, 85%, 60%), hsl(35, 90%, 70%));
+
+    /* Coffee themed shadows */
+    --shadow-coffee: 0 10px 30px -10px hsl(25 75% 35% / 0.3);
+    --shadow-brew: 0 4px 20px -4px hsl(25 65% 45% / 0.2);
+    --shadow-warmth: 0 0 40px hsl(30 85% 60% / 0.2);
+
+    /* Animations */
+    --transition-brew: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-coffee: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
 
     --radius: 0.5rem;
 
