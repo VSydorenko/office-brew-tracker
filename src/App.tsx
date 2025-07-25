@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Purchases from "./pages/Purchases";
 import CoffeeCatalog from "./pages/CoffeeCatalog";
+import CoffeeDetail from "./pages/CoffeeDetail";
 import Consumption from "./pages/Consumption";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/purchases" element={<Purchases />} />
             <Route path="/coffee-catalog" element={<CoffeeCatalog />} />
+            <Route path="/coffee-catalog/:id" element={<CoffeeDetail />} />
             <Route path="/consumption" element={<Consumption />} />
             <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

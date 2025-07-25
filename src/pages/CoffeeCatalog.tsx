@@ -1,27 +1,23 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import { CoffeeForm } from '@/components/coffee/CoffeeForm';
+import { CoffeeList } from '@/components/coffee/CoffeeList';
 
 const CoffeeCatalog = () => {
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleCoffeeAdded = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-brew p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-primary">Каталог кави</h1>
-          <Button className="bg-gradient-coffee shadow-brew">
-            <Plus className="h-4 w-4 mr-2" />
-            Додати каву
-          </Button>
+          <CoffeeForm onSuccess={handleCoffeeAdded} />
         </div>
         
-        <Card className="shadow-coffee">
-          <CardHeader>
-            <CardTitle>Довідник упаковок кави</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Каталог кави в розробці...</p>
-          </CardContent>
-        </Card>
+        <CoffeeList refreshTrigger={refreshTrigger} />
       </div>
     </div>
   );
