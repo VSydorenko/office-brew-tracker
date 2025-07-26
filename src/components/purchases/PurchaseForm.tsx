@@ -275,12 +275,12 @@ export const PurchaseForm = ({ onSuccess }: PurchaseFormProps) => {
 
             <div className="space-y-2">
               <Label htmlFor="driver">Водій (опційно)</Label>
-              <Select value={formData.driver_id} onValueChange={(value) => setFormData({ ...formData, driver_id: value })}>
+              <Select value={formData.driver_id} onValueChange={(value) => setFormData({ ...formData, driver_id: value === 'none' ? '' : value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Оберіть водія" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Без водія</SelectItem>
+                  <SelectItem value="none">Без водія</SelectItem>
                   {profiles.map((profile) => (
                     <SelectItem key={profile.id} value={profile.id}>
                       {profile.name}
