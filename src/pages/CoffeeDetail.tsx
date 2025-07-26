@@ -10,11 +10,14 @@ import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar } from '
 interface CoffeeType {
   id: string;
   name: string;
-  brand?: string;
   description?: string;
   package_size?: string;
   created_at: string;
   updated_at: string;
+  brands?: { name: string } | null;
+  coffee_varieties?: { name: string } | null;
+  processing_methods?: { name: string } | null;
+  coffee_flavors?: Array<{ flavors: { name: string } }>;
 }
 
 interface PurchaseItem {
@@ -54,7 +57,13 @@ const CoffeeDetail = () => {
       // Fetch coffee details
       const { data: coffeeData, error: coffeeError } = await supabase
         .from('coffee_types')
-        .select('*')
+        .select(`
+          *,
+          brands:brand_id(name),
+          coffee_varieties:variety_id(name),
+          processing_methods:processing_method_id(name),
+          coffee_flavors(flavors(name))
+        `)
         .eq('id', id)
         .single();
 
@@ -171,11 +180,23 @@ const CoffeeDetail = () => {
                   <Coffee className="h-6 w-6 text-coffee-dark" />
                   <CardTitle className="text-2xl text-primary">{coffee.name}</CardTitle>
                 </div>
-                {coffee.brand && (
-                  <Badge variant="secondary" className="bg-coffee-light/20 text-coffee-dark">
-                    {coffee.brand}
-                  </Badge>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {coffee.brands && (
+                    <Badge variant="secondary" className="bg-coffee-light/20 text-coffee-dark">
+                      {coffee.brands.name}
+                    </Badge>
+                  )}
+                  {coffee.coffee_varieties && (
+                    <Badge variant="outline" className="text-coffee-dark">
+                      {coffee.coffee_varieties.name}
+                    </Badge>
+                  )}
+                  {coffee.processing_methods && (
+                    <Badge variant="outline" className="text-coffee-dark">
+                      {coffee.processing_methods.name}
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="text-right text-sm text-muted-foreground">
                 <p>Додано: {new Date(coffee.created_at).toLocaleDateString('uk-UA')}</p>
@@ -195,6 +216,19 @@ const CoffeeDetail = () => {
                 </div>
               )}
             </div>
+            
+            {coffee.coffee_flavors && coffee.coffee_flavors.length > 0 && (
+              <div>
+                <h4 className="font-medium mb-2">Смакові якості:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {coffee.coffee_flavors.map((cf, index) => (
+                    <Badge key={index} variant="outline" className="text-coffee-dark">
+                      {cf.flavors.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {coffee.description && (
               <div>

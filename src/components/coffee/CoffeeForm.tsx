@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus } from 'lucide-react';
+
+interface LookupItem {
+  id: string;
+  name: string;
+}
 
 interface CoffeeFormProps {
   onSuccess?: () => void;
@@ -15,13 +22,52 @@ interface CoffeeFormProps {
 export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [brands, setBrands] = useState<LookupItem[]>([]);
+  const [flavors, setFlavors] = useState<LookupItem[]>([]);
+  const [processingMethods, setProcessingMethods] = useState<LookupItem[]>([]);
+  const [varieties, setVarieties] = useState<LookupItem[]>([]);
+  
   const [formData, setFormData] = useState({
     name: '',
-    brand: '',
+    brand_id: '',
     description: '',
     package_size: '',
+    processing_method_id: '',
+    variety_id: '',
+    flavor_ids: [] as string[],
   });
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchLookupData();
+  }, []);
+
+  const fetchLookupData = async () => {
+    try {
+      const [brandsRes, flavorsRes, methodsRes, varietiesRes] = await Promise.all([
+        supabase.from('brands').select('id, name').order('name'),
+        supabase.from('flavors').select('id, name').order('name'),
+        supabase.from('processing_methods').select('id, name').order('name'),
+        supabase.from('coffee_varieties').select('id, name').order('name'),
+      ]);
+
+      if (brandsRes.error) throw brandsRes.error;
+      if (flavorsRes.error) throw flavorsRes.error;
+      if (methodsRes.error) throw methodsRes.error;
+      if (varietiesRes.error) throw varietiesRes.error;
+
+      setBrands(brandsRes.data || []);
+      setFlavors(flavorsRes.data || []);
+      setProcessingMethods(methodsRes.data || []);
+      setVarieties(varietiesRes.data || []);
+    } catch (error: any) {
+      toast({
+        title: "Помилка",
+        description: "Не вдалося завантажити довідники",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,18 +82,53 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
 
     try {
       setLoading(true);
-      const { error } = await supabase
+      
+      // Insert coffee type
+      const coffeeData = {
+        name: formData.name,
+        brand_id: formData.brand_id || null,
+        description: formData.description,
+        package_size: formData.package_size,
+        processing_method_id: formData.processing_method_id || null,
+        variety_id: formData.variety_id || null,
+      };
+      
+      const { data: coffeeResult, error: coffeeError } = await supabase
         .from('coffee_types')
-        .insert([formData]);
+        .insert([coffeeData])
+        .select('id')
+        .single();
 
-      if (error) throw error;
+      if (coffeeError) throw coffeeError;
+
+      // Insert flavors if selected
+      if (formData.flavor_ids.length > 0 && coffeeResult?.id) {
+        const flavorInserts = formData.flavor_ids.map(flavorId => ({
+          coffee_type_id: coffeeResult.id,
+          flavor_id: flavorId,
+        }));
+        
+        const { error: flavorError } = await supabase
+          .from('coffee_flavors')
+          .insert(flavorInserts);
+          
+        if (flavorError) throw flavorError;
+      }
 
       toast({
         title: "Успіх",
         description: "Кава додана до каталогу",
       });
 
-      setFormData({ name: '', brand: '', description: '', package_size: '' });
+      setFormData({ 
+        name: '', 
+        brand_id: '', 
+        description: '', 
+        package_size: '',
+        processing_method_id: '',
+        variety_id: '',
+        flavor_ids: []
+      });
       setOpen(false);
       onSuccess?.();
     } catch (error: any) {
@@ -59,6 +140,15 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFlavorToggle = (flavorId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      flavor_ids: prev.flavor_ids.includes(flavorId)
+        ? prev.flavor_ids.filter(id => id !== flavorId)
+        : [...prev.flavor_ids, flavorId]
+    }));
   };
 
   return (
@@ -87,12 +177,71 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
 
           <div className="space-y-2">
             <Label htmlFor="brand">Бренд</Label>
-            <Input
-              id="brand"
-              value={formData.brand}
-              onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-              placeholder="Наприклад: Lavazza"
-            />
+            <Select value={formData.brand_id} onValueChange={(value) => setFormData({ ...formData, brand_id: value === 'none' ? '' : value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Оберіть бренд" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Без бренду</SelectItem>
+                {brands.map((brand) => (
+                  <SelectItem key={brand.id} value={brand.id}>
+                    {brand.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="variety">Різновид</Label>
+            <Select value={formData.variety_id} onValueChange={(value) => setFormData({ ...formData, variety_id: value === 'none' ? '' : value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Оберіть різновид" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Не вказано</SelectItem>
+                {varieties.map((variety) => (
+                  <SelectItem key={variety.id} value={variety.id}>
+                    {variety.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="processing">Обробка</Label>
+            <Select value={formData.processing_method_id} onValueChange={(value) => setFormData({ ...formData, processing_method_id: value === 'none' ? '' : value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Оберіть спосіб обробки" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Не вказано</SelectItem>
+                {processingMethods.map((method) => (
+                  <SelectItem key={method.id} value={method.id}>
+                    {method.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Смакові якості</Label>
+            <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+              {flavors.map((flavor) => (
+                <div key={flavor.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`flavor-${flavor.id}`}
+                    checked={formData.flavor_ids.includes(flavor.id)}
+                    onCheckedChange={() => handleFlavorToggle(flavor.id)}
+                  />
+                  <Label htmlFor={`flavor-${flavor.id}`} className="text-sm">
+                    {flavor.name}
+                  </Label>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">

@@ -7,10 +7,13 @@ import { useNavigate } from 'react-router-dom';
 interface CoffeeType {
   id: string;
   name: string;
-  brand?: string;
   description?: string;
   package_size?: string;
   created_at: string;
+  brands?: { name: string } | null;
+  coffee_varieties?: { name: string } | null;
+  processing_methods?: { name: string } | null;
+  coffee_flavors?: Array<{ flavors: { name: string } }>;
 }
 
 interface CoffeeCardProps {
@@ -37,17 +40,36 @@ export const CoffeeCard = ({ coffee }: CoffeeCardProps) => {
             <TrendingUp className="h-4 w-4" />
           </Button>
         </div>
-        {coffee.brand && (
-          <Badge variant="secondary" className="w-fit bg-coffee-light/20 text-coffee-dark">
-            {coffee.brand}
-          </Badge>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {coffee.brands && (
+            <Badge variant="secondary" className="w-fit bg-coffee-light/20 text-coffee-dark">
+              {coffee.brands.name}
+            </Badge>
+          )}
+          {coffee.coffee_varieties && (
+            <Badge variant="outline" className="w-fit">
+              {coffee.coffee_varieties.name}
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {coffee.package_size && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Package className="h-4 w-4" />
             <span>{coffee.package_size}</span>
+          </div>
+        )}
+        
+        {coffee.processing_methods && (
+          <div className="text-sm text-muted-foreground">
+            <span className="font-medium">Обробка:</span> {coffee.processing_methods.name}
+          </div>
+        )}
+
+        {coffee.coffee_flavors && coffee.coffee_flavors.length > 0 && (
+          <div className="text-sm text-muted-foreground">
+            <span className="font-medium">Смаки:</span> {coffee.coffee_flavors.map(cf => cf.flavors.name).join(', ')}
           </div>
         )}
         

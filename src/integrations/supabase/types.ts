@@ -14,33 +14,136 @@ export type Database = {
   }
   public: {
     Tables: {
+      brands: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      coffee_flavors: {
+        Row: {
+          coffee_type_id: string
+          created_at: string
+          flavor_id: string
+          id: string
+        }
+        Insert: {
+          coffee_type_id: string
+          created_at?: string
+          flavor_id: string
+          id?: string
+        }
+        Update: {
+          coffee_type_id?: string
+          created_at?: string
+          flavor_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coffee_flavors_coffee_type_id_fkey"
+            columns: ["coffee_type_id"]
+            isOneToOne: false
+            referencedRelation: "coffee_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coffee_flavors_flavor_id_fkey"
+            columns: ["flavor_id"]
+            isOneToOne: false
+            referencedRelation: "flavors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coffee_types: {
         Row: {
           brand: string | null
+          brand_id: string | null
           created_at: string
           description: string | null
           id: string
           name: string
           package_size: string | null
+          processing_method_id: string | null
           updated_at: string
+          variety_id: string | null
         }
         Insert: {
           brand?: string | null
+          brand_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
           name: string
           package_size?: string | null
+          processing_method_id?: string | null
           updated_at?: string
+          variety_id?: string | null
         }
         Update: {
           brand?: string | null
+          brand_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
           name?: string
           package_size?: string | null
+          processing_method_id?: string | null
           updated_at?: string
+          variety_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coffee_types_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coffee_types_processing_method_id_fkey"
+            columns: ["processing_method_id"]
+            isOneToOne: false
+            referencedRelation: "processing_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coffee_types_variety_id_fkey"
+            columns: ["variety_id"]
+            isOneToOne: false
+            referencedRelation: "coffee_varieties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coffee_varieties: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -107,6 +210,42 @@ export type Database = {
           is_active?: boolean
           name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      flavors: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      processing_methods: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }

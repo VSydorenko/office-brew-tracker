@@ -19,8 +19,8 @@ interface Profile {
 interface CoffeeType {
   id: string;
   name: string;
-  brand?: string;
   package_size?: string;
+  brands?: { name: string } | null;
 }
 
 interface PurchaseItem {
@@ -80,7 +80,12 @@ export const PurchaseForm = ({ onSuccess }: PurchaseFormProps) => {
     try {
       const { data, error } = await supabase
         .from('coffee_types')
-        .select('id, name, brand, package_size')
+        .select(`
+          id, 
+          name, 
+          package_size,
+          brands:brand_id(name)
+        `)
         .order('name');
 
       if (error) throw error;
@@ -346,7 +351,7 @@ export const PurchaseForm = ({ onSuccess }: PurchaseFormProps) => {
                                 <div className="flex items-center gap-2">
                                   <Coffee className="h-4 w-4" />
                                   <span>{coffee.name}</span>
-                                  {coffee.brand && <span className="text-muted-foreground">({coffee.brand})</span>}
+                                  {coffee.brands && <span className="text-muted-foreground">({coffee.brands.name})</span>}
                                 </div>
                               </SelectItem>
                             ))}

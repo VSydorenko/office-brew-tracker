@@ -9,10 +9,13 @@ import { Input } from '@/components/ui/input';
 interface CoffeeType {
   id: string;
   name: string;
-  brand?: string;
   description?: string;
   package_size?: string;
   created_at: string;
+  brands?: { name: string } | null;
+  coffee_varieties?: { name: string } | null;
+  processing_methods?: { name: string } | null;
+  coffee_flavors?: Array<{ flavors: { name: string } }>;
 }
 
 interface CoffeeListProps {
@@ -30,7 +33,13 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
       setLoading(true);
       const { data, error } = await supabase
         .from('coffee_types')
-        .select('*')
+        .select(`
+          *,
+          brands:brand_id(name),
+          coffee_varieties:variety_id(name),
+          processing_methods:processing_method_id(name),
+          coffee_flavors(flavors(name))
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -52,8 +61,11 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
 
   const filteredCoffees = coffees.filter(coffee =>
     coffee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    coffee.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    coffee.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    coffee.brands?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    coffee.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    coffee.coffee_varieties?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    coffee.processing_methods?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    coffee.coffee_flavors?.some(cf => cf.flavors.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {
