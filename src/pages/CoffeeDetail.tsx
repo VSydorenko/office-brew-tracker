@@ -5,7 +5,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar, Edit, Trash2 } from 'lucide-react';
+import { CoffeeEditDialog } from '@/components/coffee/CoffeeEditDialog';
 
 interface CoffeeType {
   id: string;
@@ -41,6 +43,8 @@ const CoffeeDetail = () => {
   const [coffee, setCoffee] = useState<CoffeeType | null>(null);
   const [purchases, setPurchases] = useState<PurchaseItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -98,6 +102,49 @@ const CoffeeDetail = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!coffee) return;
+    
+    try {
+      setDeleteLoading(true);
+      
+      // Delete coffee flavors first
+      const { error: flavorsError } = await supabase
+        .from('coffee_flavors')
+        .delete()
+        .eq('coffee_type_id', coffee.id);
+      
+      if (flavorsError) throw flavorsError;
+      
+      // Delete coffee type
+      const { error: coffeeError } = await supabase
+        .from('coffee_types')
+        .delete()
+        .eq('id', coffee.id);
+      
+      if (coffeeError) throw coffeeError;
+      
+      toast({
+        title: "Успіх",
+        description: "Кава видалена з каталогу",
+      });
+      
+      navigate('/coffee-catalog');
+    } catch (error: any) {
+      toast({
+        title: "Помилка",
+        description: error.message || "Не вдалося видалити каву",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleEditSuccess = () => {
+    fetchCoffeeData();
   };
 
   if (loading) {
@@ -160,7 +207,7 @@ const CoffeeDetail = () => {
     <div className="min-h-screen bg-gradient-brew p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between">
           <Button
             variant="ghost"
             onClick={() => navigate('/coffee-catalog')}
@@ -169,6 +216,49 @@ const CoffeeDetail = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Назад до каталогу
           </Button>
+          
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(true)}
+              className="border-coffee-light hover:bg-coffee-light/10"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Редагувати
+            </Button>
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  disabled={deleteLoading}
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {deleteLoading ? 'Видалення...' : 'Видалити'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Видалити каву?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Ця дія незворотна. Кава "{coffee?.name}" буде повністю видалена з каталогу.
+                    {purchases.length > 0 && (
+                      <span className="block mt-2 text-destructive font-medium">
+                        Увага: Для цієї кави є {purchases.length} закупок. Після видалення кави історія закупок буде недоступна.
+                      </span>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Видалити
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
 
         {/* Coffee Info */}
@@ -361,6 +451,24 @@ const CoffeeDetail = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Edit Dialog */}
+        {coffee && (
+          <CoffeeEditDialog
+            coffee={{
+              id: coffee.id,
+              name: coffee.name,
+              description: coffee.description,
+              package_size: coffee.package_size,
+              brand_id: (coffee as any).brand_id,
+              variety_id: (coffee as any).variety_id,
+              processing_method_id: (coffee as any).processing_method_id,
+            }}
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            onSuccess={handleEditSuccess}
+          />
+        )}
       </div>
     </div>
   );
