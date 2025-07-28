@@ -3,25 +3,43 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, User, Car, Coffee, DollarSign } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { PurchaseEditDialog } from './PurchaseEditDialog';
+import { Calendar, User, Car, Coffee, DollarSign, Trash2, Loader2 } from 'lucide-react';
 
-interface Purchase {
+interface PurchaseItem {
+  quantity: number;
+  unit_price?: number;
+  coffee_type: { name: string; brand?: string };
+}
+
+interface PurchaseListItem {
   id: string;
   date: string;
   total_amount: number;
   notes?: string;
+  buyer_id: string;
+  driver_id?: string;
   buyer: { name: string };
   driver?: { name: string };
-  purchase_items: {
-    quantity: number;
-    unit_price?: number;
-    coffee_type: { name: string; brand?: string };
-  }[];
+  purchase_items: PurchaseItem[];
 }
 
 export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) => {
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [purchases, setPurchases] = useState<PurchaseListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchPurchases = async () => {
@@ -51,6 +69,44 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (purchaseId: string) => {
+    try {
+      setDeletingId(purchaseId);
+
+      // Видалити всі позиції покупки
+      const { error: itemsError } = await supabase
+        .from('purchase_items')
+        .delete()
+        .eq('purchase_id', purchaseId);
+
+      if (itemsError) throw itemsError;
+
+      // Видалити саму покупку
+      const { error: purchaseError } = await supabase
+        .from('purchases')
+        .delete()
+        .eq('id', purchaseId);
+
+      if (purchaseError) throw purchaseError;
+
+      toast({
+        title: "Успіх",
+        description: "Покупку успішно видалено",
+      });
+
+      // Оновити список покупок
+      fetchPurchases();
+    } catch (error: any) {
+      toast({
+        title: "Помилка",
+        description: error.message || "Не вдалося видалити покупку",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -99,6 +155,46 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                     <DollarSign className="h-4 w-4 text-coffee-dark" />
                     <span className="text-xl font-bold text-primary">₴{purchase.total_amount}</span>
                   </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <PurchaseEditDialog 
+                    purchaseId={purchase.id}
+                    onSuccess={fetchPurchases}
+                  />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={deletingId === purchase.id}>
+                        {deletingId === purchase.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Видалити покупку?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Ця дія незворотна. Покупка та всі її позиції будуть видалені назавжди.
+                          <br /><br />
+                          <strong>Дата:</strong> {new Date(purchase.date).toLocaleDateString('uk-UA')}
+                          <br />
+                          <strong>Сума:</strong> ₴{purchase.total_amount}
+                          <br />
+                          <strong>Покупець:</strong> {purchase.buyer.name}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(purchase.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Видалити
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             </CardHeader>
