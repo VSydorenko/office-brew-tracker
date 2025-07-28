@@ -105,7 +105,7 @@ export const PurchaseEditDialog = ({ purchaseId, onSuccess }: PurchaseEditDialog
         total_amount: data.total_amount,
         notes: data.notes || '',
         buyer_id: data.buyer_id,
-        driver_id: data.driver_id || '',
+        driver_id: data.driver_id || 'none',
       });
       setPurchaseItems(data.purchase_items || []);
     } catch (error: any) {
@@ -244,7 +244,7 @@ export const PurchaseEditDialog = ({ purchaseId, onSuccess }: PurchaseEditDialog
           total_amount: formData.total_amount,
           notes: formData.notes || null,
           buyer_id: formData.buyer_id,
-          driver_id: formData.driver_id || null,
+          driver_id: formData.driver_id === 'none' ? null : formData.driver_id,
         })
         .eq('id', purchaseId);
 
@@ -365,7 +365,7 @@ export const PurchaseEditDialog = ({ purchaseId, onSuccess }: PurchaseEditDialog
                   <SelectValue placeholder="Оберіть водія" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Без водія</SelectItem>
+                  <SelectItem value="none">Без водія</SelectItem>
                   {profiles.map((profile) => (
                     <SelectItem key={profile.id} value={profile.id}>
                       {profile.name}
