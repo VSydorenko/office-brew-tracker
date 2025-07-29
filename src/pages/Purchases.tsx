@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PurchaseForm } from '@/components/purchases/PurchaseForm';
+import { PurchaseFormDialog } from '@/components/purchases/PurchaseFormDialog';
 import { PurchaseList } from '@/components/purchases/PurchaseList';
 
 const Purchases = () => {
@@ -14,7 +14,7 @@ const Purchases = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-primary">Покупки кави</h1>
-          <PurchaseForm onSuccess={handlePurchaseAdded} />
+          <PurchaseFormDialog onSuccess={handlePurchaseAdded} />
         </div>
         
         <PurchaseList refreshTrigger={refreshTrigger} />

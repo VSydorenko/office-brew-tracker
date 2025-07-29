@@ -192,11 +192,12 @@ export const CoffeeEditDialog = ({ coffee, open, onOpenChange, onSuccess }: Coff
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-primary">Редагувати каву</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-1">
+          <form onSubmit={handleSubmit} className="space-y-4 pb-20">
           <div className="space-y-2">
             <Label htmlFor="name">Назва кави *</Label>
             <Input
@@ -315,7 +316,12 @@ export const CoffeeEditDialog = ({ coffee, open, onOpenChange, onSuccess }: Coff
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          </form>
+        </div>
+
+        {/* Sticky footer з кнопками */}
+        <div className="border-t bg-background p-4 mt-auto">
+          <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
@@ -328,11 +334,12 @@ export const CoffeeEditDialog = ({ coffee, open, onOpenChange, onSuccess }: Coff
               type="submit"
               disabled={loading}
               className="bg-gradient-coffee"
+              onClick={handleSubmit}
             >
               {loading ? 'Збереження...' : 'Зберегти зміни'}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

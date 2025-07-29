@@ -15,8 +15,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { PurchaseEditDialog } from './PurchaseEditDialog';
-import { Calendar, User, Car, Coffee, DollarSign, Trash2, Loader2 } from 'lucide-react';
+import { PurchaseFormDialog } from './PurchaseFormDialog';
+import { Calendar, User, Car, Coffee, DollarSign, Trash2, Loader2, Edit } from 'lucide-react';
 
 interface PurchaseItem {
   quantity: number;
@@ -156,19 +156,30 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                     <span className="text-xl font-bold text-primary">₴{purchase.total_amount}</span>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <PurchaseEditDialog 
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <PurchaseFormDialog
                     purchaseId={purchase.id}
                     onSuccess={fetchPurchases}
-                  />
+                  >
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                      <Edit className="h-4 w-4 mr-1" />
+                      Редагувати
+                    </Button>
+                  </PurchaseFormDialog>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" disabled={deletingId === purchase.id}>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={deletingId === purchase.id}
+                        className="w-full sm:w-auto"
+                      >
                         {deletingId === purchase.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 mr-1" />
                         )}
+                        Видалити
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>

@@ -166,11 +166,12 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
           Додати каву
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-w-lg max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-primary">Додати новий тип кави</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-1">
+          <form onSubmit={handleSubmit} className="space-y-4 pb-20">
           <div className="space-y-2">
             <Label htmlFor="name">Назва кави *</Label>
             <Input
@@ -289,7 +290,12 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          </form>
+        </div>
+
+        {/* Sticky footer з кнопками */}
+        <div className="border-t bg-background p-4 mt-auto">
+          <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
@@ -302,11 +308,12 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
               type="submit"
               disabled={loading}
               className="bg-gradient-coffee"
+              onClick={handleSubmit}
             >
               {loading ? 'Збереження...' : 'Додати каву'}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
