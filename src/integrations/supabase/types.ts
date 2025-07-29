@@ -76,6 +76,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          origin_id: string | null
           package_size: string | null
           processing_method_id: string | null
           updated_at: string
@@ -88,6 +89,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          origin_id?: string | null
           package_size?: string | null
           processing_method_id?: string | null
           updated_at?: string
@@ -100,6 +102,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          origin_id?: string | null
           package_size?: string | null
           processing_method_id?: string | null
           updated_at?: string
@@ -111,6 +114,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coffee_types_origin_id_fkey"
+            columns: ["origin_id"]
+            isOneToOne: false
+            referencedRelation: "origins"
             referencedColumns: ["id"]
           },
           {
@@ -214,6 +224,24 @@ export type Database = {
         Relationships: []
       }
       flavors: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      origins: {
         Row: {
           created_at: string
           id: string

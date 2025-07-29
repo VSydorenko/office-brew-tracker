@@ -14,6 +14,7 @@ interface CoffeeType {
   created_at: string;
   brands?: { name: string } | null;
   coffee_varieties?: { name: string } | null;
+  origins?: { name: string } | null;
   processing_methods?: { name: string } | null;
   coffee_flavors?: Array<{ flavors: { name: string } }>;
 }
@@ -37,6 +38,7 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
           *,
           brands:brand_id(name),
           coffee_varieties:variety_id(name),
+          origins:origin_id(name),
           processing_methods:processing_method_id(name),
           coffee_flavors(flavors(name))
         `)
@@ -64,6 +66,7 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
     coffee.brands?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     coffee.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     coffee.coffee_varieties?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    coffee.origins?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     coffee.processing_methods?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     coffee.coffee_flavors?.some(cf => cf.flavors.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );

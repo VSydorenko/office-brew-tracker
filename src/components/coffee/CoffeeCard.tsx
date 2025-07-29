@@ -18,6 +18,7 @@ interface CoffeeType {
   created_at: string;
   brands?: { name: string } | null;
   coffee_varieties?: { name: string } | null;
+  origins?: { name: string } | null;
   processing_methods?: { name: string } | null;
   coffee_flavors?: Array<{ flavors: { name: string } }>;
 }
@@ -128,6 +129,11 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
           {coffee.coffee_varieties && (
             <Badge variant="outline" className="w-fit">
               {coffee.coffee_varieties.name}
+            </Badge>
+          )}
+          {coffee.origins && (
+            <Badge variant="outline" className="w-fit">
+              {coffee.origins.name}
             </Badge>
           )}
         </div>

@@ -26,6 +26,7 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
   const [flavors, setFlavors] = useState<LookupItem[]>([]);
   const [processingMethods, setProcessingMethods] = useState<LookupItem[]>([]);
   const [varieties, setVarieties] = useState<LookupItem[]>([]);
+  const [origins, setOrigins] = useState<LookupItem[]>([]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -34,6 +35,7 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
     package_size: '',
     processing_method_id: '',
     variety_id: '',
+    origin_id: '',
     flavor_ids: [] as string[],
   });
   const { toast } = useToast();
@@ -44,22 +46,25 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
 
   const fetchLookupData = async () => {
     try {
-      const [brandsRes, flavorsRes, methodsRes, varietiesRes] = await Promise.all([
+      const [brandsRes, flavorsRes, methodsRes, varietiesRes, originsRes] = await Promise.all([
         supabase.from('brands').select('id, name').order('name'),
         supabase.from('flavors').select('id, name').order('name'),
         supabase.from('processing_methods').select('id, name').order('name'),
         supabase.from('coffee_varieties').select('id, name').order('name'),
+        supabase.from('origins').select('id, name').order('name'),
       ]);
 
       if (brandsRes.error) throw brandsRes.error;
       if (flavorsRes.error) throw flavorsRes.error;
       if (methodsRes.error) throw methodsRes.error;
       if (varietiesRes.error) throw varietiesRes.error;
+      if (originsRes.error) throw originsRes.error;
 
       setBrands(brandsRes.data || []);
       setFlavors(flavorsRes.data || []);
       setProcessingMethods(methodsRes.data || []);
       setVarieties(varietiesRes.data || []);
+      setOrigins(originsRes.data || []);
     } catch (error: any) {
       toast({
         title: "Помилка",
@@ -91,6 +96,7 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
         package_size: formData.package_size,
         processing_method_id: formData.processing_method_id || null,
         variety_id: formData.variety_id || null,
+        origin_id: formData.origin_id || null,
       };
       
       const { data: coffeeResult, error: coffeeError } = await supabase
@@ -127,6 +133,7 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
         package_size: '',
         processing_method_id: '',
         variety_id: '',
+        origin_id: '',
         flavor_ids: []
       });
       setOpen(false);
@@ -220,6 +227,23 @@ export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
                 {processingMethods.map((method) => (
                   <SelectItem key={method.id} value={method.id}>
                     {method.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="origin">Походження</Label>
+            <Select value={formData.origin_id} onValueChange={(value) => setFormData({ ...formData, origin_id: value === 'none' ? '' : value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Оберіть походження" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Не вказано</SelectItem>
+                {origins.map((origin) => (
+                  <SelectItem key={origin.id} value={origin.id}>
+                    {origin.name}
                   </SelectItem>
                 ))}
               </SelectContent>

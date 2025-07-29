@@ -18,6 +18,7 @@ interface CoffeeType {
   updated_at: string;
   brands?: { name: string } | null;
   coffee_varieties?: { name: string } | null;
+  origins?: { name: string } | null;
   processing_methods?: { name: string } | null;
   coffee_flavors?: Array<{ flavors: { name: string } }>;
 }
@@ -65,6 +66,7 @@ const CoffeeDetail = () => {
           *,
           brands:brand_id(name),
           coffee_varieties:variety_id(name),
+          origins:origin_id(name),
           processing_methods:processing_method_id(name),
           coffee_flavors(flavors(name))
         `)
@@ -280,12 +282,17 @@ const CoffeeDetail = () => {
                     <Badge variant="outline" className="text-coffee-dark">
                       {coffee.coffee_varieties.name}
                     </Badge>
-                  )}
-                  {coffee.processing_methods && (
-                    <Badge variant="outline" className="text-coffee-dark">
-                      {coffee.processing_methods.name}
-                    </Badge>
-                  )}
+                   )}
+                   {coffee.origins && (
+                     <Badge variant="outline" className="text-coffee-dark">
+                       {coffee.origins.name}
+                     </Badge>
+                   )}
+                   {coffee.processing_methods && (
+                     <Badge variant="outline" className="text-coffee-dark">
+                       {coffee.processing_methods.name}
+                     </Badge>
+                   )}
                 </div>
               </div>
               <div className="text-right text-sm text-muted-foreground">

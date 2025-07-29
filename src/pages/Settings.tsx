@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ReferenceTableManager } from '@/components/settings/ReferenceTableManager';
-import { Coffee, Award, Palette, Settings2 } from 'lucide-react';
+import { Coffee, Award, Palette, Settings2, MapPin } from 'lucide-react';
 
 const Settings = () => {
   const referenceConfigs = [
@@ -12,8 +12,13 @@ const Settings = () => {
     },
     {
       tableName: 'coffee_varieties', 
-      displayName: 'Сорти кави',
+      displayName: 'Різновиди кави',
       icon: <Coffee className="h-5 w-5" />
+    },
+    {
+      tableName: 'origins', 
+      displayName: 'Походження кави',
+      icon: <MapPin className="h-5 w-5" />
     },
     {
       tableName: 'processing_methods',
