@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Coffee, Trash2, Edit, Loader2 } from 'lucide-react';
+import { UserAvatarPicker } from './UserAvatarPicker';
+import { CoffeeCombobox } from './CoffeeCombobox';
 
 interface Profile {
   id: string;
@@ -58,6 +60,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     buyer_id: '',
     driver_id: '',
   });
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const { toast } = useToast();
 
   const isEditMode = !!purchaseId;
@@ -142,21 +145,35 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     }
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
+  // Отримання поточного користувача
+  const getCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+      return user;
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      return null;
+    }
+  };
+
+  const handleOpenChange = async (newOpen: boolean) => {
     setOpen(newOpen);
     if (newOpen) {
+      const user = await getCurrentUser();
       fetchProfiles();
       fetchCoffeeTypes();
+      
       if (isEditMode) {
         fetchPurchaseData();
       } else {
-        // Скинути форму для нової покупки
+        // Скинути форму для нової покупки з автопідстановкою поточного користувача
         setFormData({
           date: new Date().toISOString().split('T')[0],
           total_amount: 0,
           notes: '',
-          buyer_id: '',
-          driver_id: '',
+          buyer_id: user?.id || '',
+          driver_id: user?.id || '',
         });
         setPurchaseItems([]);
       }
@@ -172,21 +189,50 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     }]);
   };
 
+  // Функція для створення нового типу кави
+  const createNewCoffeeType = async (name: string): Promise<string> => {
+    try {
+      const { data, error } = await supabase
+        .from('coffee_types')
+        .insert([{ name: name.trim() }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Оновити список типів кави
+      await fetchCoffeeTypes();
+      
+      toast({
+        title: "Успіх",
+        description: `Новий тип кави "${name}" створено`,
+      });
+
+      return data.id;
+    } catch (error: any) {
+      toast({
+        title: "Помилка",
+        description: "Не вдалося створити новий тип кави",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   const updatePurchaseItem = (index: number, field: keyof PurchaseItem, value: any) => {
     const updatedItems = [...purchaseItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     
-    // Автоматично розрахувати загальну ціну для позиції
-    if (field === 'quantity' || field === 'unit_price') {
-      const quantity = field === 'quantity' ? value : updatedItems[index].quantity;
-      const unitPrice = field === 'unit_price' ? value : (updatedItems[index].unit_price || 0);
-      updatedItems[index].total_price = quantity * unitPrice;
+    // Автоматично розрахувати загальну ціну для позиції (завжди quantity = 1)
+    if (field === 'unit_price') {
+      updatedItems[index].quantity = 1;
+      updatedItems[index].total_price = value || 0;
     }
     
     setPurchaseItems(updatedItems);
     
     // Оновити загальну суму покупки
-    const totalAmount = updatedItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+    const totalAmount = updatedItems.reduce((sum, item) => sum + (item.unit_price || 0), 0);
     setFormData(prev => ({ ...prev, total_amount: totalAmount }));
   };
 
@@ -194,7 +240,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     const updatedItems = purchaseItems.filter((_, i) => i !== index);
     setPurchaseItems(updatedItems);
     
-    const totalAmount = updatedItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+    const totalAmount = updatedItems.reduce((sum, item) => sum + (item.unit_price || 0), 0);
     setFormData(prev => ({ ...prev, total_amount: totalAmount }));
   };
 
@@ -353,19 +399,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
         
         <div className="flex-1 overflow-y-auto px-1">
           <form onSubmit={handleSubmit} className="space-y-6 pb-20">
-            {/* Основна інформація */}
+            {/* Основна інформація - спочатку сума, потім дата */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Дата покупки *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                  required
-                />
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="total_amount">Загальна сума (₴) *</Label>
                 <Input
@@ -376,42 +411,73 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                   value={formData.total_amount}
                   onChange={(e) => setFormData(prev => ({ ...prev, total_amount: parseFloat(e.target.value) || 0 }))}
                   required
+                  autoFocus={!isEditMode}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="date" className="text-sm text-muted-foreground">Дата покупки</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                  required
+                  className="text-sm"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="buyer_id">Покупець *</Label>
-                <Select value={formData.buyer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, buyer_id: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Оберіть покупця" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {profiles.map((profile) => (
-                      <SelectItem key={profile.id} value={profile.id}>
-                        {profile.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="buyer_id">Покупець *</Label>
+                  <Select value={formData.buyer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, buyer_id: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Оберіть покупця" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profiles.map((profile) => (
+                        <SelectItem key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <UserAvatarPicker
+                  selectedUserId={formData.buyer_id}
+                  onUserSelect={(userId) => setFormData(prev => ({ ...prev, buyer_id: userId }))}
+                  label="Швидкий вибір покупця"
+                  compact
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="driver_id">Водій (опціонально)</Label>
-                <Select value={formData.driver_id} onValueChange={(value) => setFormData(prev => ({ ...prev, driver_id: value === 'none' ? '' : value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Оберіть водія" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Без водія</SelectItem>
-                    {profiles.map((profile) => (
-                      <SelectItem key={profile.id} value={profile.id}>
-                        {profile.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="driver_id">Водій (опціонально)</Label>
+                  <Select value={formData.driver_id} onValueChange={(value) => setFormData(prev => ({ ...prev, driver_id: value === 'none' ? '' : value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Оберіть водія" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Без водія</SelectItem>
+                      {profiles.map((profile) => (
+                        <SelectItem key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <UserAvatarPicker
+                  selectedUserId={formData.driver_id}
+                  onUserSelect={(userId) => setFormData(prev => ({ ...prev, driver_id: userId }))}
+                  label="Швидкий вибір водія"
+                  compact
+                />
               </div>
             </div>
 
@@ -433,38 +499,20 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
               <div className="space-y-3">
                 {purchaseItems.map((item, index) => (
                   <Card key={index} className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-                      <div className="space-y-2">
-                        <Label>Тип кави</Label>
-                        <Select
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Назва кави</Label>
+                        <CoffeeCombobox
+                          coffeeTypes={coffeeTypes}
                           value={item.coffee_type_id}
                           onValueChange={(value) => updatePurchaseItem(index, 'coffee_type_id', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Оберіть каву" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {coffeeTypes.map((coffee) => (
-                              <SelectItem key={coffee.id} value={coffee.id}>
-                                {getCoffeeTypeName(coffee.id)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Кількість</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => updatePurchaseItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                          onCreateNew={createNewCoffeeType}
+                          placeholder="Оберіть або введіть назву кави..."
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Ціна за одиницю (₴)</Label>
+                        <Label>Ціна за упаковку (₴)</Label>
                         <Input
                           type="number"
                           step="0.01"
@@ -475,23 +523,16 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Загальна ціна</Label>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="secondary" className="text-sm">
-                            ₴{(item.total_price || 0).toFixed(2)}
-                          </Badge>
-                        </div>
+                      <div className="flex justify-end items-end">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => removePurchaseItem(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removePurchaseItem(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   </Card>
                 ))}
