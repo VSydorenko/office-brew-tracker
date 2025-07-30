@@ -12,7 +12,8 @@ import {
   Users,
   LogOut,
   Menu,
-  X
+  X,
+  User
 } from 'lucide-react';
 
 const Navigation = () => {
@@ -42,6 +43,7 @@ const Navigation = () => {
     { name: 'Покупки', href: '/purchases', icon: ShoppingCart },
     { name: 'Каталог кави', href: '/coffee-catalog', icon: Coffee },
     { name: 'Розподіл', href: '/consumption', icon: Users },
+    { name: 'Профіль', href: '/profile', icon: User },
     { name: 'Налаштування', href: '/settings', icon: Settings },
   ];
 
