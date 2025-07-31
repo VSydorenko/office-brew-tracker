@@ -7,11 +7,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Coffee, Trash2, Edit, Loader2 } from 'lucide-react';
+import { Plus, Coffee, Trash2, Edit, Loader2, Calculator } from 'lucide-react';
 import { UserAvatarPicker } from './UserAvatarPicker';
 import { CoffeeCombobox } from './CoffeeCombobox';
+import { PurchaseDistributionStep } from './PurchaseDistributionStep';
 
 interface Profile {
   id: string;
@@ -33,6 +35,14 @@ interface PurchaseItem {
   unit_price?: number;
   total_price?: number;
   coffee_type?: CoffeeType;
+}
+
+interface PurchaseDistribution {
+  user_id: string;
+  percentage: number;
+  calculated_amount: number;
+  adjusted_amount?: number;
+  profile?: Profile;
 }
 
 interface PurchaseFormDialogProps {
@@ -60,6 +70,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     buyer_id: '',
     driver_id: '',
   });
+  const [distributions, setDistributions] = useState<PurchaseDistribution[]>([]);
+  const [currentTab, setCurrentTab] = useState('purchase');
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const { toast } = useToast();
 
@@ -353,6 +365,23 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           }
         }
 
+        // Створити розподіл покупки, якщо є
+        if (distributions.length > 0) {
+          const distributionsToInsert = distributions.map(dist => ({
+            purchase_id: purchase.id,
+            user_id: dist.user_id,
+            percentage: dist.percentage,
+            calculated_amount: dist.calculated_amount,
+            adjusted_amount: dist.adjusted_amount || null,
+          }));
+
+          const { error: distributionsError } = await supabase
+            .from('purchase_distributions')
+            .insert(distributionsToInsert);
+
+          if (distributionsError) throw distributionsError;
+        }
+
         toast({
           title: "Успіх",
           description: "Покупка успішно додана",
@@ -397,161 +426,182 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           </DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 overflow-y-auto px-1">
-          <form onSubmit={handleSubmit} className="space-y-6 pb-20">
-            {/* Основна інформація - спочатку сума, потім дата */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="total_amount">Загальна сума (₴) *</Label>
-                <Input
-                  id="total_amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.total_amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, total_amount: parseFloat(e.target.value) || 0 }))}
-                  required
-                  autoFocus={!isEditMode}
-                />
-              </div>
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="purchase" className="flex items-center gap-2">
+              <Coffee className="h-4 w-4" />
+              Покупка
+            </TabsTrigger>
+            <TabsTrigger value="distribution" className="flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Розподіл
+            </TabsTrigger>
+          </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="date" className="text-sm text-muted-foreground">Дата покупки</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                  required
-                  className="text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-1">
+            <TabsContent value="purchase" className="space-y-6 pb-20">
+              {/* Основна інформація - спочатку сума, потім дата */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="buyer_id">Покупець *</Label>
-                  <Select value={formData.buyer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, buyer_id: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Оберіть покупця" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {profiles.map((profile) => (
-                        <SelectItem key={profile.id} value={profile.id}>
-                          {profile.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="total_amount">Загальна сума (₴) *</Label>
+                  <Input
+                    id="total_amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.total_amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, total_amount: parseFloat(e.target.value) || 0 }))}
+                    required
+                    autoFocus={!isEditMode}
+                  />
                 </div>
-                
-                <UserAvatarPicker
-                  selectedUserId={formData.buyer_id}
-                  onUserSelect={(userId) => setFormData(prev => ({ ...prev, buyer_id: userId }))}
-                  label="Швидкий вибір покупця"
-                  compact
-                />
-              </div>
 
-              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="driver_id">Водій (опціонально)</Label>
-                  <Select value={formData.driver_id} onValueChange={(value) => setFormData(prev => ({ ...prev, driver_id: value === 'none' ? '' : value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Оберіть водія" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Без водія</SelectItem>
-                      {profiles.map((profile) => (
-                        <SelectItem key={profile.id} value={profile.id}>
-                          {profile.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="date" className="text-sm text-muted-foreground">Дата покупки</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    required
+                    className="text-sm"
+                  />
                 </div>
-                
-                <UserAvatarPicker
-                  selectedUserId={formData.driver_id}
-                  onUserSelect={(userId) => setFormData(prev => ({ ...prev, driver_id: userId }))}
-                  label="Швидкий вибір водія"
-                  compact
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="buyer_id">Покупець *</Label>
+                    <Select value={formData.buyer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, buyer_id: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Оберіть покупця" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {profiles.map((profile) => (
+                          <SelectItem key={profile.id} value={profile.id}>
+                            {profile.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <UserAvatarPicker
+                    selectedUserId={formData.buyer_id}
+                    onUserSelect={(userId) => setFormData(prev => ({ ...prev, buyer_id: userId }))}
+                    label="Швидкий вибір покупця"
+                    compact
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="driver_id">Водій (опціонально)</Label>
+                    <Select value={formData.driver_id} onValueChange={(value) => setFormData(prev => ({ ...prev, driver_id: value === 'none' ? '' : value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Оберіть водія" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Без водія</SelectItem>
+                        {profiles.map((profile) => (
+                          <SelectItem key={profile.id} value={profile.id}>
+                            {profile.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <UserAvatarPicker
+                    selectedUserId={formData.driver_id}
+                    onUserSelect={(userId) => setFormData(prev => ({ ...prev, driver_id: userId }))}
+                    label="Швидкий вибір водія"
+                    compact
+                  />
+                </div>
+              </div>
+
+              {/* Позиції покупки */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label className="text-base font-medium">Позиції покупки</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addPurchaseItem}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Додати позицію
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {purchaseItems.map((item, index) => (
+                    <Card key={index} className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>Назва кави</Label>
+                          <CoffeeCombobox
+                            coffeeTypes={coffeeTypes}
+                            value={item.coffee_type_id}
+                            onValueChange={(value) => updatePurchaseItem(index, 'coffee_type_id', value)}
+                            onCreateNew={createNewCoffeeType}
+                            placeholder="Оберіть або введіть назву кави..."
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Ціна за упаковку (₴)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.unit_price || ''}
+                            onChange={(e) => updatePurchaseItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                          />
+                        </div>
+
+                        <div className="flex justify-end items-end">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => removePurchaseItem(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              {/* Нотатки */}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Нотатки (опціонально)</Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Додаткова інформація про покупку..."
+                  rows={3}
                 />
               </div>
-            </div>
+            </TabsContent>
 
-            {/* Позиції покупки */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label className="text-base font-medium">Позиції покупки</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addPurchaseItem}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Додати позицію
-                </Button>
-              </div>
-
-              <div className="space-y-3">
-                {purchaseItems.map((item, index) => (
-                  <Card key={index} className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                      <div className="space-y-2 md:col-span-2">
-                        <Label>Назва кави</Label>
-                        <CoffeeCombobox
-                          coffeeTypes={coffeeTypes}
-                          value={item.coffee_type_id}
-                          onValueChange={(value) => updatePurchaseItem(index, 'coffee_type_id', value)}
-                          onCreateNew={createNewCoffeeType}
-                          placeholder="Оберіть або введіть назву кави..."
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Ціна за упаковку (₴)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={item.unit_price || ''}
-                          onChange={(e) => updatePurchaseItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
-                        />
-                      </div>
-
-                      <div className="flex justify-end items-end">
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => removePurchaseItem(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-
-            {/* Нотатки */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Нотатки (опціонально)</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Додаткова інформація про покупку..."
-                rows={3}
+            <TabsContent value="distribution" className="space-y-6 pb-20">
+              <PurchaseDistributionStep
+                totalAmount={formData.total_amount}
+                purchaseDate={formData.date}
+                onDistributionChange={setDistributions}
               />
-            </div>
-          </form>
-        </div>
+            </TabsContent>
+          </div>
+        </Tabs>
 
         {/* Sticky footer з кнопками */}
         <div className="border-t bg-background p-4 mt-auto">
