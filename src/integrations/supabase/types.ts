@@ -223,6 +223,72 @@ export type Database = {
         }
         Relationships: []
       }
+      distribution_template_users: {
+        Row: {
+          created_at: string
+          id: string
+          percentage: number
+          template_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          percentage: number
+          template_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          percentage?: number
+          template_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_template_users_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_template_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distribution_templates: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       flavors: {
         Row: {
           created_at: string
@@ -300,6 +366,63 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      purchase_distributions: {
+        Row: {
+          adjusted_amount: number | null
+          calculated_amount: number
+          created_at: string
+          id: string
+          is_paid: boolean
+          notes: string | null
+          paid_at: string | null
+          percentage: number
+          purchase_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          adjusted_amount?: number | null
+          calculated_amount?: number
+          created_at?: string
+          id?: string
+          is_paid?: boolean
+          notes?: string | null
+          paid_at?: string | null
+          percentage: number
+          purchase_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          adjusted_amount?: number | null
+          calculated_amount?: number
+          created_at?: string
+          id?: string
+          is_paid?: boolean
+          notes?: string | null
+          paid_at?: string | null
+          percentage?: number
+          purchase_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_distributions_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_distributions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       purchase_items: {
         Row: {
