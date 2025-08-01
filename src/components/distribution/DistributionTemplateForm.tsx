@@ -22,12 +22,13 @@ interface TemplateUser {
 interface DistributionTemplateFormProps {
   onSuccess?: () => void;
   children?: React.ReactNode;
+  templateId?: string; // Для редагування
 }
 
 /**
  * Форма для створення та редагування шаблонів розподілу кави
  */
-export const DistributionTemplateForm = ({ onSuccess, children }: DistributionTemplateFormProps) => {
+export const DistributionTemplateForm = ({ onSuccess, children, templateId }: DistributionTemplateFormProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -36,13 +37,19 @@ export const DistributionTemplateForm = ({ onSuccess, children }: DistributionTe
   const [templateUsers, setTemplateUsers] = useState<TemplateUser[]>([]);
   const { toast } = useToast();
 
+  const isEditMode = !!templateId;
+
   useEffect(() => {
     if (open) {
       fetchProfiles();
-      // Ініціалізуємо з одним користувачем
-      setTemplateUsers([{ user_id: '', percentage: 0 }]);
+      if (isEditMode) {
+        fetchTemplateData();
+      } else {
+        // Ініціалізуємо з одним користувачем
+        setTemplateUsers([{ user_id: '', percentage: 0 }]);
+      }
     }
-  }, [open]);
+  }, [open, isEditMode]);
 
   const fetchProfiles = async () => {
     try {
@@ -58,6 +65,37 @@ export const DistributionTemplateForm = ({ onSuccess, children }: DistributionTe
       toast({
         title: "Помилка",
         description: "Не вдалося завантажити список користувачів",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchTemplateData = async () => {
+    if (!templateId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('distribution_templates')
+        .select(`
+          *,
+          distribution_template_users (
+            user_id,
+            percentage
+          )
+        `)
+        .eq('id', templateId)
+        .single();
+
+      if (error) throw error;
+
+      setTemplateName(data.name);
+      setEffectiveFrom(data.effective_from);
+      setTemplateUsers(data.distribution_template_users || []);
+    } catch (error) {
+      console.error('Помилка завантаження шаблону:', error);
+      toast({
+        title: "Помилка",
+        description: "Не вдалося завантажити дані шаблону",
         variant: "destructive",
       });
     }
@@ -106,45 +144,85 @@ export const DistributionTemplateForm = ({ onSuccess, children }: DistributionTe
 
     setLoading(true);
     try {
-      // Створюємо шаблон
-      const { data: template, error: templateError } = await supabase
-        .from('distribution_templates')
-        .insert({
-          name: templateName,
-          effective_from: effectiveFrom,
-          is_active: true
-        })
-        .select()
-        .single();
+      if (isEditMode) {
+        // Оновлюємо шаблон
+        const { error: templateError } = await supabase
+          .from('distribution_templates')
+          .update({
+            name: templateName,
+            effective_from: effectiveFrom,
+          })
+          .eq('id', templateId);
 
-      if (templateError) throw templateError;
+        if (templateError) throw templateError;
 
-      // Додаємо користувачів до шаблону
-      const templateUsersData = validUsers.map(user => ({
-        template_id: template.id,
-        user_id: user.user_id,
-        percentage: user.percentage
-      }));
+        // Видаляємо старих користувачів
+        const { error: deleteError } = await supabase
+          .from('distribution_template_users')
+          .delete()
+          .eq('template_id', templateId);
 
-      const { error: usersError } = await supabase
-        .from('distribution_template_users')
-        .insert(templateUsersData);
+        if (deleteError) throw deleteError;
 
-      if (usersError) throw usersError;
+        // Додаємо нових користувачів
+        const templateUsersData = validUsers.map(user => ({
+          template_id: templateId,
+          user_id: user.user_id,
+          percentage: user.percentage
+        }));
 
-      toast({
-        title: "Успіх",
-        description: "Шаблон розподілу створено успішно",
-      });
+        const { error: usersError } = await supabase
+          .from('distribution_template_users')
+          .insert(templateUsersData);
+
+        if (usersError) throw usersError;
+
+        toast({
+          title: "Успіх",
+          description: "Шаблон розподілу оновлено успішно",
+        });
+      } else {
+        // Створюємо шаблон
+        const { data: template, error: templateError } = await supabase
+          .from('distribution_templates')
+          .insert({
+            name: templateName,
+            effective_from: effectiveFrom,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (templateError) throw templateError;
+
+        // Додаємо користувачів до шаблону
+        const templateUsersData = validUsers.map(user => ({
+          template_id: template.id,
+          user_id: user.user_id,
+          percentage: user.percentage
+        }));
+
+        const { error: usersError } = await supabase
+          .from('distribution_template_users')
+          .insert(templateUsersData);
+
+        if (usersError) throw usersError;
+
+        toast({
+          title: "Успіх",
+          description: "Шаблон розподілу створено успішно",
+        });
+      }
 
       setOpen(false);
       resetForm();
       onSuccess?.();
-    } catch (error) {
-      console.error('Помилка створення шаблону:', error);
+    } catch (error: any) {
+      console.error('Помилка:', error);
+      const errorMessage = error.message || 'Невідома помилка';
       toast({
         title: "Помилка",
-        description: "Не вдалося створити шаблон розподілу",
+        description: `Не вдалося ${isEditMode ? 'оновити' : 'створити'} шаблон розподілу. ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -172,7 +250,7 @@ export const DistributionTemplateForm = ({ onSuccess, children }: DistributionTe
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Створити шаблон розподілу</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Редагувати' : 'Створити'} шаблон розподілу</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -266,7 +344,7 @@ export const DistributionTemplateForm = ({ onSuccess, children }: DistributionTe
               disabled={loading || getTotalPercentage() !== 100}
               className="bg-gradient-coffee shadow-brew"
             >
-              {loading ? 'Збереження...' : 'Створити шаблон'}
+              {loading ? 'Збереження...' : isEditMode ? 'Оновити шаблон' : 'Створити шаблон'}
             </Button>
           </div>
         </form>

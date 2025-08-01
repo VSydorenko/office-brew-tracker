@@ -40,7 +40,7 @@ interface PurchaseDistribution {
 interface PurchaseDistributionStepProps {
   totalAmount: number;
   purchaseDate: string;
-  onDistributionChange: (distributions: PurchaseDistribution[]) => void;
+  onDistributionChange?: (distributions: PurchaseDistribution[], validationData?: any) => void;
 }
 
 /**
@@ -61,9 +61,7 @@ export const PurchaseDistributionStep = ({
     fetchActiveTemplates();
   }, [purchaseDate]);
 
-  useEffect(() => {
-    onDistributionChange(distributions);
-  }, [distributions, onDistributionChange]);
+  // Цей useEffect замінений новим нижче
 
   const fetchActiveTemplates = async () => {
     try {
@@ -160,6 +158,19 @@ export const PurchaseDistributionStep = ({
       sum + (dist.adjusted_amount ?? dist.calculated_amount), 0
     );
   };
+
+  // Експортуємо функції валідації через props
+  useEffect(() => {
+    const validationData = {
+      totalPercentage: getTotalPercentage(),
+      totalCalculatedAmount: getTotalCalculatedAmount(),
+      isValidPercentage: getTotalPercentage() === 100,
+      isValidAmount: Math.abs(getTotalCalculatedAmount() - totalAmount) <= 0.01,
+      distributions
+    };
+    
+    onDistributionChange?.(distributions, validationData);
+  }, [distributions, totalAmount, onDistributionChange]);
 
   if (loading) {
     return (

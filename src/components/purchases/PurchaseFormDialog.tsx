@@ -71,6 +71,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     driver_id: '',
   });
   const [distributions, setDistributions] = useState<PurchaseDistribution[]>([]);
+  const [distributionValidation, setDistributionValidation] = useState<any>(null);
   const [currentTab, setCurrentTab] = useState('purchase');
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const { toast } = useToast();
@@ -277,6 +278,28 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       return;
     }
 
+    // Валідація розподілу, якщо є дані
+    if (distributionValidation && distributions.length > 0) {
+      if (!distributionValidation.isValidPercentage) {
+        toast({
+          title: "Помилка валідації",
+          description: `Сума відсотків повинна дорівнювати 100%. Поточна сума: ${distributionValidation.totalPercentage}%`,
+          variant: "destructive",
+        });
+        setCurrentTab('distribution');
+        return;
+      }
+
+      if (!distributionValidation.isValidAmount) {
+        toast({
+          title: "Попередження",
+          description: `Сума розподілу (${distributionValidation.totalCalculatedAmount.toFixed(2)} ₴) не збігається з загальною сумою (${formData.total_amount.toFixed(2)} ₴). Продовжити?`,
+          variant: "destructive",
+        });
+        // Можна додати підтвердження, але поки що продовжуємо
+      }
+    }
+
     try {
       setLoading(true);
 
@@ -324,6 +347,32 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           }
         }
 
+        // Оновити розподіл покупки, якщо є
+        if (distributions && distributions.length > 0) {
+          // Спочатку видаляємо існуючі розподіли
+          const { error: deleteDistError } = await supabase
+            .from('purchase_distributions')
+            .delete()
+            .eq('purchase_id', purchaseId);
+
+          if (deleteDistError) throw deleteDistError;
+
+          // Додаємо нові розподіли
+          const distributionsToInsert = distributions.map(dist => ({
+            purchase_id: purchaseId,
+            user_id: dist.user_id,
+            percentage: dist.percentage,
+            calculated_amount: dist.calculated_amount,
+            adjusted_amount: dist.adjusted_amount || null,
+          }));
+
+          const { error: distributionsError } = await supabase
+            .from('purchase_distributions')
+            .insert(distributionsToInsert);
+
+          if (distributionsError) throw distributionsError;
+        }
+
         toast({
           title: "Успіх",
           description: "Покупку успішно оновлено",
@@ -366,7 +415,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
         }
 
         // Створити розподіл покупки, якщо є
-        if (distributions.length > 0) {
+        console.log('Distributions to save:', distributions);
+        if (distributions && distributions.length > 0) {
           const distributionsToInsert = distributions.map(dist => ({
             purchase_id: purchase.id,
             user_id: dist.user_id,
@@ -375,11 +425,15 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
             adjusted_amount: dist.adjusted_amount || null,
           }));
 
+          console.log('Inserting distributions:', distributionsToInsert);
           const { error: distributionsError } = await supabase
             .from('purchase_distributions')
             .insert(distributionsToInsert);
 
-          if (distributionsError) throw distributionsError;
+          if (distributionsError) {
+            console.error('Distribution error:', distributionsError);
+            throw distributionsError;
+          }
         }
 
         toast({
@@ -597,7 +651,10 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
               <PurchaseDistributionStep
                 totalAmount={formData.total_amount}
                 purchaseDate={formData.date}
-                onDistributionChange={setDistributions}
+                onDistributionChange={(dists, validation) => {
+                  setDistributions(dists);
+                  setDistributionValidation(validation);
+                }}
               />
             </TabsContent>
           </div>

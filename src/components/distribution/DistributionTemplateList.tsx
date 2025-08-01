@@ -6,6 +6,7 @@ import { Edit, Trash2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DistributionTemplateForm } from './DistributionTemplateForm';
 
 interface TemplateUser {
   user_id: string;
@@ -184,9 +185,14 @@ export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplat
                 >
                   {template.is_active ? 'Деактивувати' : 'Активувати'}
                 </Button>
-                <Button variant="ghost" size="sm">
-                  <Edit className="h-4 w-4" />
-                </Button>
+                <DistributionTemplateForm 
+                  templateId={template.id} 
+                  onSuccess={fetchTemplates}
+                >
+                  <Button variant="ghost" size="sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </DistributionTemplateForm>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
