@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -44,10 +44,16 @@ export const CoffeeCombobox = ({
 
   const selectedCoffee = coffeeTypes.find(coffee => coffee.id === value);
   
-  const filteredCoffees = coffeeTypes.filter(coffee =>
-    coffee.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-    (coffee.brand && coffee.brand.toLowerCase().includes(searchValue.toLowerCase()))
-  );
+  const filteredCoffees = useMemo(() => {
+    if (!searchValue.trim()) return coffeeTypes;
+    
+    const lowerSearch = searchValue.toLowerCase().trim();
+    return coffeeTypes.filter(coffee =>
+      coffee.name.toLowerCase().includes(lowerSearch) ||
+      (coffee.brand && coffee.brand.toLowerCase().includes(lowerSearch)) ||
+      (coffee.package_size && coffee.package_size.toLowerCase().includes(lowerSearch))
+    );
+  }, [coffeeTypes, searchValue]);
 
   const getCoffeeDisplayName = (coffee: CoffeeType) => {
     return coffee.brand ? `${coffee.name} (${coffee.brand})` : coffee.name;
@@ -95,7 +101,7 @@ export const CoffeeCombobox = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent className="w-full p-0 z-50" align="start">
         <Command>
           <CommandInput 
             placeholder="Пошук або введіть назву нової кави..."

@@ -473,7 +473,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       <DialogTrigger asChild>
         {children || defaultTrigger}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+>
         <DialogHeader>
           <DialogTitle className="text-primary">
             {isEditMode ? 'Редагувати покупку' : 'Нова покупка кави'}
@@ -493,7 +494,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           </TabsList>
 
           <div className="flex-1 overflow-y-auto px-1">
-            <TabsContent value="purchase" className="space-y-6 pb-20">
+            <TabsContent value="purchase" className="space-y-4 md:space-y-6 pb-20 px-2 md:px-0">
               {/* Основна інформація - спочатку сума, потім дата */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -523,56 +524,49 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="buyer_id">Покупець *</Label>
-                    <Select value={formData.buyer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, buyer_id: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Оберіть покупця" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {profiles.map((profile) => (
-                          <SelectItem key={profile.id} value={profile.id}>
-                            {profile.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="space-y-3">
                   <UserAvatarPicker
                     selectedUserId={formData.buyer_id}
                     onUserSelect={(userId) => setFormData(prev => ({ ...prev, buyer_id: userId }))}
-                    label="Швидкий вибір покупця"
+                    label="Покупець *"
                     compact
                   />
+                  {profiles.length > 10 && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        // TODO: Відкрити повний список користувачів
+                      }}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Більше користувачів
+                    </Button>
+                  )}
                 </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="driver_id">Водій (опціонально)</Label>
-                    <Select value={formData.driver_id} onValueChange={(value) => setFormData(prev => ({ ...prev, driver_id: value === 'none' ? '' : value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Оберіть водія" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Без водія</SelectItem>
-                        {profiles.map((profile) => (
-                          <SelectItem key={profile.id} value={profile.id}>
-                            {profile.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
+                <div className="space-y-3">
                   <UserAvatarPicker
                     selectedUserId={formData.driver_id}
                     onUserSelect={(userId) => setFormData(prev => ({ ...prev, driver_id: userId }))}
-                    label="Швидкий вибір водія"
+                    label="Водій (опціонально)"
                     compact
                   />
+                  {profiles.length > 10 && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        // TODO: Відкрити повний список користувачів  
+                      }}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Більше користувачів
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -591,12 +585,12 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                   </Button>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {purchaseItems.map((item, index) => (
-                    <Card key={index} className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <div className="space-y-2 md:col-span-2">
-                          <Label>Назва кави</Label>
+                    <div key={index} className="border border-border rounded-lg p-3">
+                      <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
+                        <div className="flex-1 space-y-2">
+                          <Label className="text-sm">Назва кави</Label>
                           <CoffeeCombobox
                             coffeeTypes={coffeeTypes}
                             value={item.coffee_type_id}
@@ -606,8 +600,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                           />
                         </div>
 
-                        <div className="space-y-2">
-                          <Label>Ціна за упаковку (₴)</Label>
+                        <div className="w-full md:w-32 space-y-2">
+                          <Label className="text-sm">Ціна (₴)</Label>
                           <Input
                             type="number"
                             step="0.01"
@@ -615,21 +609,21 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                             value={item.unit_price || ''}
                             onChange={(e) => updatePurchaseItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
                             placeholder="0.00"
+                            className="text-sm"
                           />
                         </div>
 
-                        <div className="flex justify-end items-end">
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => removePurchaseItem(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removePurchaseItem(index)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 p-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </Card>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -647,7 +641,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
               </div>
             </TabsContent>
 
-            <TabsContent value="distribution" className="space-y-6 pb-20">
+            <TabsContent value="distribution" className="space-y-4 md:space-y-6 pb-20 px-2 md:px-0">
               <PurchaseDistributionStep
                 totalAmount={formData.total_amount}
                 purchaseDate={formData.date}
@@ -661,16 +655,16 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
         </Tabs>
 
         {/* Sticky footer з кнопками */}
-        <div className="border-t bg-background p-4 mt-auto">
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+        <div className="border-t bg-background/95 backdrop-blur-sm p-3 md:p-4 mt-auto sticky bottom-0 z-10">
+          <div className="flex flex-col md:flex-row justify-end gap-2 md:space-x-2 md:gap-0">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="order-2 md:order-1">
               Скасувати
             </Button>
             <Button 
               type="submit" 
               disabled={loading}
               onClick={handleSubmit}
-              className="bg-gradient-coffee"
+              className="bg-gradient-coffee order-1 md:order-2"
             >
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {isEditMode ? 'Оновити покупку' : 'Створити покупку'}
