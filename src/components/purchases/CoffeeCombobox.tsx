@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -41,19 +41,29 @@ export const CoffeeCombobox = ({
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [creating, setCreating] = useState(false);
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState('');
 
   const selectedCoffee = coffeeTypes.find(coffee => coffee.id === value);
   
-  const filteredCoffees = useMemo(() => {
-    if (!searchValue.trim()) return coffeeTypes;
+  // Дебаунс для пошуку
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchValue(searchValue);
+    }, 300);
     
-    const lowerSearch = searchValue.toLowerCase().trim();
+    return () => clearTimeout(timer);
+  }, [searchValue]);
+  
+  const filteredCoffees = useMemo(() => {
+    if (!debouncedSearchValue.trim()) return coffeeTypes;
+    
+    const lowerSearch = debouncedSearchValue.toLowerCase().trim();
     return coffeeTypes.filter(coffee =>
       coffee.name.toLowerCase().includes(lowerSearch) ||
       (coffee.brand && coffee.brand.toLowerCase().includes(lowerSearch)) ||
       (coffee.package_size && coffee.package_size.toLowerCase().includes(lowerSearch))
     );
-  }, [coffeeTypes, searchValue]);
+  }, [coffeeTypes, debouncedSearchValue]);
 
   const getCoffeeDisplayName = (coffee: CoffeeType) => {
     return coffee.brand ? `${coffee.name} (${coffee.brand})` : coffee.name;
@@ -81,9 +91,9 @@ export const CoffeeCombobox = ({
     }
   };
 
-  const shouldShowCreateOption = searchValue.trim() && 
+  const shouldShowCreateOption = debouncedSearchValue.trim() && 
     !filteredCoffees.some(coffee => 
-      coffee.name.toLowerCase() === searchValue.toLowerCase()
+      coffee.name.toLowerCase() === debouncedSearchValue.toLowerCase()
     ) && 
     onCreateNew;
 
@@ -134,7 +144,7 @@ export const CoffeeCombobox = ({
                 {filteredCoffees.map((coffee) => (
                   <CommandItem
                     key={coffee.id}
-                    value={coffee.id}
+                    value={getCoffeeDisplayName(coffee)}
                     onSelect={() => handleSelect(coffee.id)}
                   >
                     <Check
@@ -163,7 +173,7 @@ export const CoffeeCombobox = ({
                   disabled={creating}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Створити "{searchValue}"
+                  Створити "{debouncedSearchValue}"
                   {creating && <span className="ml-2 text-xs">(створюється...)</span>}
                 </CommandItem>
               </CommandGroup>

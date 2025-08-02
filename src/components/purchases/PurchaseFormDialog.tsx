@@ -473,8 +473,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       <DialogTrigger asChild>
         {children || defaultTrigger}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
->
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-x-auto overflow-y-hidden flex flex-col min-w-fit">
         <DialogHeader>
           <DialogTitle className="text-primary">
             {isEditMode ? 'Редагувати покупку' : 'Нова покупка кави'}
@@ -493,8 +492,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto px-1">
-            <TabsContent value="purchase" className="space-y-4 md:space-y-6 pb-20 px-2 md:px-0">
+          <div className="flex-1 overflow-auto px-1 min-w-fit">
+            <TabsContent value="purchase" className="space-y-4 md:space-y-6 pb-20 px-2 md:px-0 min-w-fit">
               {/* Основна інформація - спочатку сума, потім дата */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
