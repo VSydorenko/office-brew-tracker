@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { CheckCircle, AlertCircle, TrendingUp, TrendingDown, User, ShoppingCart } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/ui/auth-provider';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +12,7 @@ const MyPayments = () => {
   const [owedToMe, setOwedToMe] = useState([]);
   const [iOwe, setIOwe] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('user'); // 'user' або 'purchase'
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -104,6 +106,74 @@ const MyPayments = () => {
     }
   };
 
+  // Функції групування даних
+  const groupOwedByUser = () => {
+    const grouped = owedToMe.reduce((acc: any, debt: any) => {
+      const userId = debt.user_id;
+      if (!acc[userId]) {
+        acc[userId] = {
+          userName: debt.profiles.name,
+          totalAmount: 0,
+          debts: []
+        };
+      }
+      acc[userId].totalAmount += (debt.adjusted_amount || debt.calculated_amount);
+      acc[userId].debts.push(debt);
+      return acc;
+    }, {});
+    return Object.values(grouped);
+  };
+
+  const groupOwedByPurchase = () => {
+    const grouped = owedToMe.reduce((acc: any, debt: any) => {
+      const purchaseId = debt.purchase_id;
+      if (!acc[purchaseId]) {
+        acc[purchaseId] = {
+          purchaseDate: debt.purchases.date,
+          totalAmount: debt.purchases.total_amount,
+          debts: []
+        };
+      }
+      acc[purchaseId].debts.push(debt);
+      return acc;
+    }, {});
+    return Object.values(grouped);
+  };
+
+  const groupIOweByUser = () => {
+    const grouped = iOwe.reduce((acc: any, debt: any) => {
+      const buyerId = debt.purchases.buyer_id;
+      if (!acc[buyerId]) {
+        acc[buyerId] = {
+          buyerName: debt.purchases.profiles.name,
+          totalAmount: 0,
+          debts: []
+        };
+      }
+      acc[buyerId].totalAmount += (debt.adjusted_amount || debt.calculated_amount);
+      acc[buyerId].debts.push(debt);
+      return acc;
+    }, {});
+    return Object.values(grouped);
+  };
+
+  const groupIOweByPurchase = () => {
+    const grouped = iOwe.reduce((acc: any, debt: any) => {
+      const purchaseId = debt.purchase_id;
+      if (!acc[purchaseId]) {
+        acc[purchaseId] = {
+          purchaseDate: debt.purchases.date,
+          buyerName: debt.purchases.profiles.name,
+          totalAmount: debt.purchases.total_amount,
+          debts: []
+        };
+      }
+      acc[purchaseId].debts.push(debt);
+      return acc;
+    }, {});
+    return Object.values(grouped);
+  };
+
   // Розрахунок підсумків
   const totalOwedToMe = owedToMe.reduce((sum, item: any) => 
     sum + (item.adjusted_amount || item.calculated_amount), 0);
@@ -157,6 +227,27 @@ const MyPayments = () => {
           </Card>
         </div>
 
+        {/* Перемикач режимів відображення */}
+        {(owedToMe.length > 0 || iOwe.length > 0) && (
+          <div className="flex justify-center">
+            <ToggleGroup 
+              type="single" 
+              value={viewMode} 
+              onValueChange={(value) => value && setViewMode(value)}
+              className="bg-background p-1 rounded-lg border"
+            >
+              <ToggleGroupItem value="user" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                По користувачах
+              </ToggleGroupItem>
+              <ToggleGroupItem value="purchase" className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                По покупках
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        )}
+
         {/* Секція "Мені винні" */}
         {owedToMe.length > 0 && (
           <div className="space-y-4">
@@ -164,47 +255,94 @@ const MyPayments = () => {
               <TrendingUp className="h-5 w-5 mr-2" />
               Мені винні ({owedToMe.length})
             </h2>
-            <div className="space-y-3">
-              {owedToMe.map((debt: any) => (
-                <Card key={debt.id} className="shadow-coffee border-l-2 border-l-green-500">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">
-                          {debt.profiles.name}
+            
+            {viewMode === 'user' ? (
+              // Режим "По користувачах" для "Мені винні"
+              <div className="space-y-4">
+                {groupOwedByUser().map((group: any, index: number) => (
+                  <Card key={index} className="shadow-coffee border-l-2 border-l-green-500">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg text-green-700">
+                          {group.userName}
                         </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          Покупка від {new Date(debt.purchases.date).toLocaleDateString('uk-UA')}
-                        </p>
+                        <Badge variant="outline" className="text-green-700 border-green-500">
+                          Загалом: {group.totalAmount.toFixed(2)} ₴
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-green-700 border-green-500">
-                        До отримання
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Частка: {debt.percentage}%
-                        </p>
-                        <p className="text-lg font-semibold text-green-700">
-                          {(debt.adjusted_amount || debt.calculated_amount).toFixed(2)} ₴
-                        </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {group.debts.map((debt: any) => (
+                          <div key={debt.id} className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950 rounded-md">
+                            <div>
+                              <p className="font-medium">
+                                {new Date(debt.purchases.date).toLocaleDateString('uk-UA')}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Частка: {debt.percentage}% • {(debt.adjusted_amount || debt.calculated_amount).toFixed(2)} ₴
+                              </p>
+                            </div>
+                            <Button 
+                              onClick={() => markAsPaid(debt.id)}
+                              variant="outline"
+                              size="sm"
+                              className="border-green-500 text-green-700 hover:bg-green-50"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Отримано
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                      <Button 
-                        onClick={() => markAsPaid(debt.id)}
-                        variant="outline"
-                        className="border-green-500 text-green-700 hover:bg-green-50"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Отримано
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              // Режим "По покупках" для "Мені винні"
+              <div className="space-y-4">
+                {groupOwedByPurchase().map((group: any, index: number) => (
+                  <Card key={index} className="shadow-coffee border-l-2 border-l-green-500">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <CardTitle className="text-lg text-green-700">
+                            Покупка від {new Date(group.purchaseDate).toLocaleDateString('uk-UA')}
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            Загальна сума: {group.totalAmount.toFixed(2)} ₴
+                          </p>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {group.debts.map((debt: any) => (
+                          <div key={debt.id} className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950 rounded-md">
+                            <div>
+                              <p className="font-medium">{debt.profiles.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Частка: {debt.percentage}% • {(debt.adjusted_amount || debt.calculated_amount).toFixed(2)} ₴
+                              </p>
+                            </div>
+                            <Button 
+                              onClick={() => markAsPaid(debt.id)}
+                              variant="outline"
+                              size="sm"
+                              className="border-green-500 text-green-700 hover:bg-green-50"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Отримано
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -215,46 +353,92 @@ const MyPayments = () => {
               <TrendingDown className="h-5 w-5 mr-2" />
               Я винен ({iOwe.length})
             </h2>
-            <div className="space-y-3">
-              {iOwe.map((debt: any) => (
-                <Card key={debt.id} className="shadow-coffee border-l-2 border-l-red-500">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">
-                          {debt.purchases.profiles.name}
+            
+            {viewMode === 'user' ? (
+              // Режим "По користувачах" для "Я винен"
+              <div className="space-y-4">
+                {groupIOweByUser().map((group: any, index: number) => (
+                  <Card key={index} className="shadow-coffee border-l-2 border-l-red-500">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg text-red-700">
+                          {group.buyerName}
                         </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          Покупка від {new Date(debt.purchases.date).toLocaleDateString('uk-UA')}
-                        </p>
+                        <Badge variant="destructive">
+                          Загалом: {group.totalAmount.toFixed(2)} ₴
+                        </Badge>
                       </div>
-                      <Badge variant="destructive">
-                        До сплати
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Моя частка: {debt.percentage}%
-                        </p>
-                        <p className="text-lg font-semibold text-red-700">
-                          {(debt.adjusted_amount || debt.calculated_amount).toFixed(2)} ₴
-                        </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {group.debts.map((debt: any) => (
+                          <div key={debt.id} className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950 rounded-md">
+                            <div>
+                              <p className="font-medium">
+                                {new Date(debt.purchases.date).toLocaleDateString('uk-UA')}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Моя частка: {debt.percentage}% • {(debt.adjusted_amount || debt.calculated_amount).toFixed(2)} ₴
+                              </p>
+                            </div>
+                            <Button 
+                              onClick={() => markAsPaid(debt.id)}
+                              variant="destructive"
+                              size="sm"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Сплачено
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                      <Button 
-                        onClick={() => markAsPaid(debt.id)}
-                        variant="destructive"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Сплачено
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              // Режим "По покупках" для "Я винен"
+              <div className="space-y-4">
+                {groupIOweByPurchase().map((group: any, index: number) => (
+                  <Card key={index} className="shadow-coffee border-l-2 border-l-red-500">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <CardTitle className="text-lg text-red-700">
+                            Покупка від {new Date(group.purchaseDate).toLocaleDateString('uk-UA')}
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            Покупець: {group.buyerName} • Загальна сума: {group.totalAmount.toFixed(2)} ₴
+                          </p>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {group.debts.map((debt: any) => (
+                          <div key={debt.id} className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950 rounded-md">
+                            <div>
+                              <p className="font-medium">Моя частка</p>
+                              <p className="text-sm text-muted-foreground">
+                                {debt.percentage}% • {(debt.adjusted_amount || debt.calculated_amount).toFixed(2)} ₴
+                              </p>
+                            </div>
+                            <Button 
+                              onClick={() => markAsPaid(debt.id)}
+                              variant="destructive"
+                              size="sm"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Сплачено
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
