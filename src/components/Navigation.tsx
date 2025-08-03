@@ -39,13 +39,20 @@ const Navigation = () => {
     }
   };
 
-  const navigation = [
-    { name: 'Дашборд', href: '/', icon: BarChart3 },
+  // Desktop navigation items (без дашборду - він доступний через логотип)
+  const desktopNavigation = [
     { name: 'Покупки', href: '/purchases', icon: ShoppingCart },
     { name: 'Каталог кави', href: '/coffee-catalog', icon: Coffee },
     { name: 'Розподіл', href: '/consumption', icon: Users },
     { name: 'Мої розрахунки', href: '/my-payments', icon: Receipt },
     { name: 'Профіль', href: '/profile', icon: User },
+    { name: 'Налаштування', href: '/settings', icon: Settings },
+  ];
+
+  // Mobile hamburger menu items (з усіма розділами)
+  const mobileHamburgerItems = [
+    { name: 'Дашборд', href: '/', icon: BarChart3 },
+    { name: 'Розподіл', href: '/consumption', icon: Users },
     { name: 'Налаштування', href: '/settings', icon: Settings },
   ];
 
@@ -58,12 +65,16 @@ const Navigation = () => {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <Coffee className="h-8 w-8 text-primary mr-2" />
-              <span className="text-xl font-bold text-primary">Облік кави</span>
-            </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-1">
-              {navigation.map((item) => {
+            {/* Clickable logo для повернення на дашборд */}
+            <Link to="/" className="flex-shrink-0 flex items-center group">
+              <Coffee className="h-8 w-8 text-primary mr-2 group-hover:text-primary-glow transition-colors" />
+              <span className="text-xl font-bold text-primary group-hover:text-primary-glow transition-colors">
+                Облік кави
+              </span>
+            </Link>
+            {/* Desktop navigation - тільки для великих екранів */}
+            <div className="hidden lg:ml-6 lg:flex lg:space-x-1">
+              {desktopNavigation.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link
@@ -83,7 +94,8 @@ const Navigation = () => {
             </div>
           </div>
 
-          <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-4">
+          {/* Desktop user info - тільки для великих екранів */}
+          <div className="hidden lg:ml-6 lg:flex lg:items-center space-x-4">
             <span className="text-sm text-muted-foreground">
               {user.email}
             </span>
@@ -98,12 +110,13 @@ const Navigation = () => {
             </Button>
           </div>
 
-          {/* Mobile menu button */}
-          <div className="sm:hidden flex items-center">
+          {/* Mobile hamburger menu button - тільки для планшетів */}
+          <div className="lg:hidden flex items-center">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2"
             >
               {isMobileMenuOpen ? (
                 <X className="h-6 w-6" />
@@ -115,17 +128,17 @@ const Navigation = () => {
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Hamburger menu dropdown - для планшетів та десктопів без bottom nav */}
       {isMobileMenuOpen && (
-        <div className="sm:hidden">
-          <div className="pt-2 pb-3 space-y-1 bg-card border-t border-border">
-            {navigation.map((item) => {
+        <div className="lg:hidden">
+          <div className="pt-2 pb-3 space-y-1 bg-card border-t border-border shadow-lg">
+            {mobileHamburgerItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center px-4 py-2 text-base font-medium transition-brew ${
+                  className={`flex items-center px-4 py-3 text-base font-medium transition-brew ${
                     isActive(item.href)
                       ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -137,12 +150,15 @@ const Navigation = () => {
                 </Link>
               );
             })}
-            <div className="px-4 py-2 border-t border-border">
-              <div className="text-sm text-muted-foreground mb-2">
+            <div className="px-4 py-3 border-t border-border">
+              <div className="text-sm text-muted-foreground mb-3">
                 {user.email}
               </div>
               <Button
-                onClick={handleSignOut}
+                onClick={() => {
+                  handleSignOut();
+                  setIsMobileMenuOpen(false);
+                }}
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start text-muted-foreground hover:text-foreground"
