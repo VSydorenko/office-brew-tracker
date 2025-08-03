@@ -3,8 +3,28 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useBottomNavigation } from "@/contexts/BottomNavigationContext"
 
-const Dialog = DialogPrimitive.Root
+// Enhanced Dialog component that can hide bottom navigation
+const Dialog = ({ onOpenChange, ...props }: React.ComponentProps<typeof DialogPrimitive.Root> & { hideBottomNav?: boolean }) => {
+  const bottomNav = useBottomNavigation();
+  
+  const handleOpenChange = (open: boolean) => {
+    if (bottomNav) {
+      if (open) {
+        bottomNav.hide();
+      } else {
+        bottomNav.show();
+      }
+    }
+    onOpenChange?.(open);
+  };
+
+  return <DialogPrimitive.Root onOpenChange={handleOpenChange} {...props} />;
+};
+
+// Keep the original root for components that don't need bottom nav control
+const DialogRoot = DialogPrimitive.Root
 
 const DialogTrigger = DialogPrimitive.Trigger
 
@@ -119,6 +139,7 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName
 
 export {
   Dialog,
+  DialogRoot,
   DialogPortal,
   DialogOverlay,
   DialogClose,

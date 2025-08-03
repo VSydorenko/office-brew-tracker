@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { ShoppingCart, Coffee, Receipt, User, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useBottomNavigation } from '@/contexts/BottomNavigationContext';
 
 /**
  * Bottom navigation component для мобільних пристроїв
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button';
  */
 const BottomNavigation = () => {
   const location = useLocation();
+  const { isVisible } = useBottomNavigation();
 
   const navigationItems = [
     { name: 'Покупки', href: '/purchases', icon: ShoppingCart },
@@ -18,8 +20,10 @@ const BottomNavigation = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  if (!isVisible) return null;
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-lg md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-[60] bg-card border-t border-border shadow-lg md:hidden">
       <div className="grid grid-cols-5 h-16">
         {/* Navigation items */}
         {navigationItems.map((item) => {

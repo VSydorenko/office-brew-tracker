@@ -49,7 +49,7 @@ export const CoffeeCombobox = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchValue(searchValue);
-    }, 300);
+    }, 150);
     
     return () => clearTimeout(timer);
   }, [searchValue]);
@@ -91,9 +91,9 @@ export const CoffeeCombobox = ({
     }
   };
 
-  const shouldShowCreateOption = debouncedSearchValue.trim() && 
+  const shouldShowCreateOption = searchValue.trim() && 
     !filteredCoffees.some(coffee => 
-      coffee.name.toLowerCase() === debouncedSearchValue.toLowerCase()
+      coffee.name.toLowerCase() === searchValue.toLowerCase()
     ) && 
     onCreateNew;
 
@@ -173,7 +173,7 @@ export const CoffeeCombobox = ({
                   disabled={creating}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Створити "{debouncedSearchValue}"
+                  Створити "{searchValue}"
                   {creating && <span className="ml-2 text-xs">(створюється...)</span>}
                 </CommandItem>
               </CommandGroup>
