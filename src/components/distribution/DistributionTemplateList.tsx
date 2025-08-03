@@ -2,10 +2,16 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, Users } from 'lucide-react';
+import { Edit, Trash2, Users, MoreVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DistributionTemplateForm } from './DistributionTemplateForm';
 
 interface TemplateUser {
@@ -177,51 +183,58 @@ export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplat
                   Діє з: {new Date(template.effective_from).toLocaleDateString('uk-UA')}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleActiveStatus(template.id, template.is_active)}
-                >
-                  {template.is_active ? 'Деактивувати' : 'Активувати'}
-                </Button>
-                <DistributionTemplateForm 
-                  templateId={template.id} 
-                  onSuccess={fetchTemplates}
-                >
-                  <Button variant="ghost" size="sm">
-                    <Edit className="h-4 w-4" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreVertical className="h-4 w-4" />
                   </Button>
-                </DistributionTemplateForm>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={deletingId === template.id}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Видалити шаблон?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Ця дія незворотна. Шаблон "{template.name}" та всі пов'язані з ним дані будуть видалені.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Скасувати</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => handleDelete(template.id)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-background border border-border">
+                  <DropdownMenuItem 
+                    onClick={() => toggleActiveStatus(template.id, template.is_active)}
+                  >
+                    {template.is_active ? 'Деактивувати' : 'Активувати'}
+                  </DropdownMenuItem>
+                  <DistributionTemplateForm 
+                    templateId={template.id} 
+                    onSuccess={fetchTemplates}
+                  >
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Редагувати
+                    </DropdownMenuItem>
+                  </DistributionTemplateForm>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()}
+                        className="text-destructive focus:text-destructive"
+                        disabled={deletingId === template.id}
                       >
+                        <Trash2 className="h-4 w-4 mr-2" />
                         Видалити
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Видалити шаблон?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Ця дія незворотна. Шаблон "{template.name}" та всі пов'язані з ним дані будуть видалені.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(template.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Видалити
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardHeader>
           <CardContent>

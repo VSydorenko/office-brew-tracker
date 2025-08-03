@@ -15,11 +15,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PurchaseFormDialog } from './PurchaseFormDialog';
 import { SwipeableCard } from '@/components/ui/swipeable-card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { SearchBar } from '@/components/ui/search-bar';
-import { Calendar, User, Car, Coffee, DollarSign, Trash2, Loader2, Edit } from 'lucide-react';
+import { Calendar, User, Car, Coffee, DollarSign, Trash2, Loader2, Edit, MoreVertical } from 'lucide-react';
 
 interface PurchaseItem {
   quantity: number;
@@ -210,57 +216,64 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                     </div>
                   </div>
                   
-                  {/* Desktop actions */}
-                  <div className="hidden sm:flex gap-2">
-                    <PurchaseFormDialog
-                      purchaseId={purchase.id}
-                      onSuccess={fetchPurchases}
-                    >
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-1" />
-                        Редагувати
+                  {/* Actions menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreVertical className="h-4 w-4" />
                       </Button>
-                    </PurchaseFormDialog>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          disabled={deletingId === purchase.id}
-                        >
-                          {deletingId === purchase.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4 mr-1" />
-                          )}
-                          Видалити
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Видалити покупку?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Ця дія незворотна. Покупка та всі її позиції будуть видалені назавжди.
-                            <br /><br />
-                            <strong>Дата:</strong> {new Date(purchase.date).toLocaleDateString('uk-UA')}
-                            <br />
-                            <strong>Сума:</strong> ₴{purchase.total_amount}
-                            <br />
-                            <strong>Покупець:</strong> {purchase.buyer.name}
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Скасувати</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(purchase.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-background border border-border">
+                      <PurchaseFormDialog
+                        purchaseId={purchase.id}
+                        onSuccess={fetchPurchases}
+                      >
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Редагувати
+                        </DropdownMenuItem>
+                      </PurchaseFormDialog>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem 
+                            onSelect={(e) => e.preventDefault()}
+                            className="text-destructive focus:text-destructive"
+                            disabled={deletingId === purchase.id}
                           >
+                            {deletingId === purchase.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 mr-2" />
+                            )}
                             Видалити
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Видалити покупку?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Ця дія незворотна. Покупка та всі її позиції будуть видалені назавжди.
+                              <br /><br />
+                              <strong>Дата:</strong> {new Date(purchase.date).toLocaleDateString('uk-UA')}
+                              <br />
+                              <strong>Сума:</strong> ₴{purchase.total_amount}
+                              <br />
+                              <strong>Покупець:</strong> {purchase.buyer.name}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(purchase.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Видалити
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Details */}
@@ -314,18 +327,6 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                   )}
                 </div>
 
-                {/* Mobile edit button */}
-                <div className="sm:hidden pt-2">
-                  <PurchaseFormDialog
-                    purchaseId={purchase.id}
-                    onSuccess={fetchPurchases}
-                  >
-                    <Button variant="outline" size="sm" className="w-full">
-                      <Edit className="h-4 w-4 mr-2" />
-                      Редагувати покупку
-                    </Button>
-                  </PurchaseFormDialog>
-                </div>
               </div>
             </SwipeableCard>
           ))
