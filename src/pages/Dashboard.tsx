@@ -99,15 +99,16 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-brew p-6">
+      <div className="min-h-screen bg-gradient-brew p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
           <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-muted rounded w-1/3"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="h-6 md:h-8 bg-muted rounded w-1/2 md:w-1/3"></div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-muted rounded"></div>
+                <div key={i} className="h-20 md:h-32 bg-muted rounded"></div>
               ))}
             </div>
+            <div className="h-40 md:h-64 bg-muted rounded"></div>
           </div>
         </div>
       </div>
@@ -116,32 +117,35 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-brew">
-      {/* Hero Section */}
+      {/* Mobile-optimized Hero Section */}
       <div 
-        className="relative h-64 bg-cover bg-center bg-no-repeat"
+        className="relative h-48 md:h-64 lg:h-80 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${heroImage})` }}
       >
         <div className="absolute inset-0 bg-primary/60"></div>
-        <div className="relative max-w-7xl mx-auto px-6 h-full flex items-center">
+        <div className="relative max-w-7xl mx-auto px-4 md:px-6 h-full flex items-center">
           <div className="text-white">
-            <h1 className="text-4xl font-bold mb-4">Система обліку кави</h1>
-            <p className="text-xl text-white/90">
+            <h1 className="text-2xl md:text-4xl font-bold mb-2 md:mb-4">Система обліку кави</h1>
+            <p className="text-base md:text-xl text-white/90 hidden sm:block">
               Відстежуйте покупки, розподіл та аналітику споживання кави в офісі
+            </p>
+            <p className="text-sm text-white/90 sm:hidden">
+              Відстежуйте покупки та споживання кави
             </p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6 space-y-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
+        {/* Mobile-first Stats Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <Card className="shadow-brew transition-coffee hover:shadow-coffee">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Всього покупок</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium">Всього покупок</CardTitle>
               <ShoppingCart className="h-4 w-4 text-primary" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats?.totalPurchases || 0}</div>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="text-lg md:text-2xl font-bold text-primary">{stats?.totalPurchases || 0}</div>
               <p className="text-xs text-muted-foreground">
                 За весь час
               </p>
@@ -149,13 +153,13 @@ const Dashboard = () => {
           </Card>
 
           <Card className="shadow-brew transition-coffee hover:shadow-coffee">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Загальна сума</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium">Загальна сума</CardTitle>
               <DollarSign className="h-4 w-4 text-primary" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">
-                ₴{stats?.totalSpent?.toFixed(2) || '0.00'}
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="text-lg md:text-2xl font-bold text-primary">
+                ₴{stats?.totalSpent?.toFixed(0) || '0'}
               </div>
               <p className="text-xs text-muted-foreground">
                 Витрачено на каву
@@ -164,12 +168,12 @@ const Dashboard = () => {
           </Card>
 
           <Card className="shadow-brew transition-coffee hover:shadow-coffee">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Типів кави</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium">Типів кави</CardTitle>
               <Package className="h-4 w-4 text-primary" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats?.totalCoffeeTypes || 0}</div>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="text-lg md:text-2xl font-bold text-primary">{stats?.totalCoffeeTypes || 0}</div>
               <p className="text-xs text-muted-foreground">
                 В каталозі
               </p>
@@ -177,12 +181,12 @@ const Dashboard = () => {
           </Card>
 
           <Card className="shadow-brew transition-coffee hover:shadow-coffee">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Активних користувачів</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium">Активних користувачів</CardTitle>
               <UserCheck className="h-4 w-4 text-primary" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats?.activeUsers || 0}</div>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="text-lg md:text-2xl font-bold text-primary">{stats?.activeUsers || 0}</div>
               <p className="text-xs text-muted-foreground">
                 Зареєстровано
               </p>
@@ -190,40 +194,40 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Quick Actions */}
+        {/* Mobile-optimized Quick Actions */}
         <Card className="shadow-coffee">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
               <TrendingUp className="h-5 w-5 text-primary" />
               Швидкі дії
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm">
               Основні операції для роботи з системою
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Button asChild className="h-20 bg-gradient-coffee shadow-brew">
-                <Link to="/purchases" className="flex flex-col items-center gap-2">
-                  <ShoppingCart className="h-6 w-6" />
+          <CardContent className="p-4 md:p-6 pt-0">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              <Button asChild className="h-16 md:h-20 bg-gradient-coffee shadow-brew text-xs md:text-sm">
+                <Link to="/purchases" className="flex flex-col items-center gap-1 md:gap-2">
+                  <ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Нова покупка</span>
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="h-20 border-primary hover:bg-primary/10">
-                <Link to="/coffee-catalog" className="flex flex-col items-center gap-2">
-                  <Coffee className="h-6 w-6" />
+              <Button asChild variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm">
+                <Link to="/coffee-catalog" className="flex flex-col items-center gap-1 md:gap-2">
+                  <Coffee className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Каталог кави</span>
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="h-20 border-primary hover:bg-primary/10">
-                <Link to="/consumption" className="flex flex-col items-center gap-2">
-                  <Users className="h-6 w-6" />
+              <Button asChild variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm">
+                <Link to="/consumption" className="flex flex-col items-center gap-1 md:gap-2">
+                  <Users className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Розподіл</span>
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="h-20 border-primary hover:bg-primary/10">
-                <Link to="/settings" className="flex flex-col items-center gap-2">
-                  <TrendingUp className="h-6 w-6" />
+              <Button asChild variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm">
+                <Link to="/settings" className="flex flex-col items-center gap-1 md:gap-2">
+                  <TrendingUp className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Аналітика</span>
                 </Link>
               </Button>
@@ -231,49 +235,49 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Recent Purchases */}
+        {/* Mobile-optimized Recent Purchases */}
         <Card className="shadow-coffee">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
               <Calendar className="h-5 w-5 text-primary" />
               Останні покупки
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm">
               Нещодавні покупки кави в офісі
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 md:p-6 pt-0">
             {stats?.recentPurchases && stats.recentPurchases.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {stats.recentPurchases.map((purchase) => (
                   <div
                     key={purchase.id}
-                    className="flex items-center justify-between p-4 border border-border rounded-lg bg-muted/30"
+                    className="flex items-center justify-between p-3 md:p-4 border border-border rounded-lg bg-muted/30"
                   >
-                    <div>
-                      <p className="font-medium">{purchase.buyer_name}</p>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm md:text-base truncate">{purchase.buyer_name}</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">
                         {new Date(purchase.date).toLocaleDateString('uk-UA')}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-primary">
-                        ₴{purchase.total_amount.toFixed(2)}
+                    <div className="text-right ml-3">
+                      <p className="font-bold text-primary text-sm md:text-base">
+                        ₴{purchase.total_amount.toFixed(0)}
                       </p>
                     </div>
                   </div>
                 ))}
-                <div className="pt-4">
-                  <Button asChild variant="outline" className="w-full">
+                <div className="pt-2 md:pt-4">
+                  <Button asChild variant="outline" className="w-full h-10 md:h-auto">
                     <Link to="/purchases">Переглянути всі покупки</Link>
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8">
+              <div className="text-center py-6 md:py-8">
                 <Coffee className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Покупок ще немає</p>
-                <Button asChild className="mt-4">
+                <p className="text-muted-foreground text-sm md:text-base">Покупок ще немає</p>
+                <Button asChild className="mt-4 h-10 md:h-auto">
                   <Link to="/purchases">Додати першу покупку</Link>
                 </Button>
               </div>

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CoffeeCard } from './CoffeeCard';
 import { Card, CardContent } from '@/components/ui/card';
-import { Coffee, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { SkeletonCard } from '@/components/ui/skeleton-card';
+import { SearchBar } from '@/components/ui/search-bar';
+import { Coffee } from 'lucide-react';
 
 interface CoffeeType {
   id: string;
@@ -25,9 +26,30 @@ interface CoffeeListProps {
 
 export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
   const [coffees, setCoffees] = useState<CoffeeType[]>([]);
+  const [filteredCoffees, setFilteredCoffees] = useState<CoffeeType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
+
+  // Пошук та фільтрація
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setFilteredCoffees(coffees);
+      return;
+    }
+
+    const filtered = coffees.filter(coffee =>
+      coffee.name.toLowerCase().includes(query.toLowerCase()) ||
+      coffee.brands?.name.toLowerCase().includes(query.toLowerCase()) ||
+      coffee.description?.toLowerCase().includes(query.toLowerCase()) ||
+      coffee.coffee_varieties?.name.toLowerCase().includes(query.toLowerCase()) ||
+      coffee.origins?.name.toLowerCase().includes(query.toLowerCase()) ||
+      coffee.processing_methods?.name.toLowerCase().includes(query.toLowerCase()) ||
+      coffee.coffee_flavors?.some(cf => cf.flavors.name.toLowerCase().includes(query.toLowerCase()))
+    );
+    setFilteredCoffees(filtered);
+  }, [coffees]);
 
   const fetchCoffees = async () => {
     try {
@@ -45,7 +67,9 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setCoffees(data || []);
+      const coffeeData = data || [];
+      setCoffees(coffeeData);
+      setFilteredCoffees(coffeeData);
     } catch (error: any) {
       toast({
         title: "Помилка",
@@ -57,61 +81,42 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
     }
   };
 
+  // Оновлювати фільтровані результати при зміні coffees
+  useEffect(() => {
+    handleSearch(searchQuery);
+  }, [coffees, searchQuery, handleSearch]);
+
   useEffect(() => {
     fetchCoffees();
   }, [refreshTrigger]);
 
-  const filteredCoffees = coffees.filter(coffee =>
-    coffee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    coffee.brands?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    coffee.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    coffee.coffee_varieties?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    coffee.origins?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    coffee.processing_methods?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    coffee.coffee_flavors?.some(cf => cf.flavors.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[...Array(6)].map((_, i) => (
-          <Card key={i} className="shadow-coffee animate-pulse">
-            <CardContent className="p-6">
-              <div className="space-y-3">
-                <div className="h-6 bg-muted rounded"></div>
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-4 bg-muted rounded w-1/2"></div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-6">
+        <div className="h-12 md:h-10 bg-muted rounded animate-pulse"></div>
+        <SkeletonCard variant="grid" count={6} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Пошук кави за назвою, брендом або описом..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Mobile-optimized search */}
+      <SearchBar
+        placeholder="Пошук кави за назвою, брендом, походженням..."
+        onSearch={handleSearch}
+      />
 
       {/* Coffee Grid */}
       {filteredCoffees.length === 0 ? (
         <Card className="shadow-coffee">
-          <CardContent className="p-12 text-center">
+          <CardContent className="p-8 md:p-12 text-center">
             <Coffee className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-primary mb-2">
-              {searchTerm ? 'Кава не знайдена' : 'Каталог порожній'}
+              {searchQuery ? 'Кава не знайдена' : 'Каталог порожній'}
             </h3>
             <p className="text-muted-foreground">
-              {searchTerm 
+              {searchQuery 
                 ? 'Спробуйте змінити умови пошуку'
                 : 'Додайте першу каву до каталогу, щоб почати облік'
               }
@@ -119,7 +124,7 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
           {filteredCoffees.map((coffee) => (
                   <CoffeeCard 
                     key={coffee.id} 
