@@ -1,0 +1,28 @@
+{
+  "name": "Office Brew Tracker",
+  "short_name": "BrewTracker",
+  "description": "Трекер споживання кави в офісі",
+  "theme_color": "#8B4513",
+  "background_color": "#FFF8F0",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "lang": "uk",
+  "dir": "ltr"
+}

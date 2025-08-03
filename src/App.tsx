@@ -7,6 +7,7 @@ import { AuthProvider } from "@/components/ui/auth-provider";
 import { BottomNavigationProvider } from "@/contexts/BottomNavigationContext";
 import Navigation from "@/components/Navigation";
 import BottomNavigation from "@/components/BottomNavigation";
+import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Purchases from "./pages/Purchases";
@@ -46,6 +47,7 @@ const App = () => (
                 </Routes>
               </main>
               <BottomNavigation />
+              <PWAInstallPrompt />
             </div>
           </BrowserRouter>
         </TooltipProvider>
