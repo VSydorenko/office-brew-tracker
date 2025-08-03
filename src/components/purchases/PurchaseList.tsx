@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { PurchaseFormDialog } from './PurchaseFormDialog';
-import { SwipeableCard } from '@/components/ui/swipeable-card';
+import { SimpleCard } from '@/components/ui/simple-card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { SearchBar } from '@/components/ui/search-bar';
 import { Calendar, User, Car, Coffee, DollarSign, Trash2, Loader2, Edit, MoreVertical } from 'lucide-react';
@@ -190,12 +190,8 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
           </Card>
         ) : (
           filteredPurchases.map((purchase) => (
-            <SwipeableCard
+            <SimpleCard
               key={purchase.id}
-              onEdit={() => {
-                // Логіка редагування буде в PurchaseFormDialog
-              }}
-              onDelete={() => handleDelete(purchase.id)}
               className="shadow-coffee hover:shadow-coffee-hover"
             >
               <div className="space-y-4">
@@ -328,7 +324,7 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                 </div>
 
               </div>
-            </SwipeableCard>
+            </SimpleCard>
           ))
         )}
       </div>
