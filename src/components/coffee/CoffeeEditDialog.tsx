@@ -192,12 +192,12 @@ export const CoffeeEditDialog = ({ coffee, open, onOpenChange, onSuccess }: Coff
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[95vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-primary">Редагувати каву</DialogTitle>
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[95vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="p-4 md:p-6 border-b">
+          <DialogTitle className="text-lg md:text-xl text-primary">Редагувати каву</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto px-1">
-          <form onSubmit={handleSubmit} className="space-y-4 pb-20">
+        <div className="flex-1 overflow-auto p-4 md:p-6">
+          <form onSubmit={handleSubmit} className="space-y-6 pb-24 md:pb-28">
           <div className="space-y-2">
             <Label htmlFor="name">Назва кави *</Label>
             <Input
@@ -319,21 +319,22 @@ export const CoffeeEditDialog = ({ coffee, open, onOpenChange, onSuccess }: Coff
           </form>
         </div>
 
-        {/* Sticky footer з кнопками */}
-        <div className="border-t bg-background p-4 mt-auto">
-          <div className="flex justify-end gap-2">
+        {/* Mobile-optimized sticky footer */}
+        <div className="border-t bg-background/95 backdrop-blur-sm p-4 md:p-6 sticky bottom-0 z-10">
+          <div className="flex flex-col md:flex-row justify-end gap-3 md:gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="order-2 md:order-1 h-12 md:h-10"
             >
               Скасувати
             </Button>
             <Button
               type="submit"
               disabled={loading}
-              className="bg-gradient-coffee"
+              className="bg-gradient-coffee order-1 md:order-2 h-12 md:h-10"
               onClick={handleSubmit}
             >
               {loading ? 'Збереження...' : 'Зберегти зміни'}
