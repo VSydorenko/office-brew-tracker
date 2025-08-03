@@ -1,75 +1,127 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Loader2 } from 'lucide-react';
 
-interface ReferenceItem {
-  id: string;
-  name: string;
-}
+const referenceItemSchema = z.object({
+  name: z.string().min(1, 'Назва обов\'язкова').max(100, 'Назва занадто довга'),
+  description: z.string().optional(),
+});
+
+type ReferenceItemFormData = z.infer<typeof referenceItemSchema>;
 
 interface ReferenceItemFormProps {
   tableName: string;
-  item?: ReferenceItem;
-  isOpen: boolean;
-  onClose: () => void;
+  itemId?: string;
   onSuccess: () => void;
 }
 
 /**
- * Форма для створення/редагування елементів довідників
+ * Форма для створення та редагування елементів довідкових таблиць
  */
-export const ReferenceItemForm = ({ tableName, item, isOpen, onClose, onSuccess }: ReferenceItemFormProps) => {
-  const [name, setName] = useState(item?.name || '');
-  const [isLoading, setIsLoading] = useState(false);
+export const ReferenceItemForm = ({ tableName, itemId, onSuccess }: ReferenceItemFormProps) => {
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(!!itemId);
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
+  const form = useForm<ReferenceItemFormData>({
+    resolver: zodResolver(referenceItemSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+    },
+  });
+
+  useEffect(() => {
+    if (itemId) {
+      fetchItem();
+    }
+  }, [itemId]);
+
+  const fetchItem = async () => {
+    if (!itemId) return;
+
+    try {
+      setInitialLoading(true);
+      const { data, error } = await (supabase as any)
+        .from(tableName)
+        .select('*')
+        .eq('id', itemId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        form.reset({
+          name: (data as any).name || '',
+          description: (data as any).description || '',
+        });
+      }
+    } catch (error: any) {
       toast({
         title: "Помилка",
-        description: "Назва не може бути порожньою",
+        description: "Не вдалося завантажити дані для редагування",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setInitialLoading(false);
     }
+  };
 
-    setIsLoading(true);
-    
+  const onSubmit = async (data: ReferenceItemFormData) => {
     try {
-      if (item) {
-        // Редагування
-        const { error } = await supabase
-          .from(tableName as any)
-          .update({ name: name.trim() })
-          .eq('id', item.id);
+      setLoading(true);
+
+      if (itemId) {
+        // Оновлення існуючого елемента
+        const { error } = await (supabase as any)
+          .from(tableName)
+          .update({
+            name: data.name,
+            description: data.description || null,
+          })
+          .eq('id', itemId);
 
         if (error) throw error;
 
         toast({
-          title: "Успішно",
-          description: "Елемент оновлено",
+          title: "Успіх",
+          description: "Елемент успішно оновлено",
         });
       } else {
-        // Створення
-        const { error } = await supabase
-          .from(tableName as any)
-          .insert([{ name: name.trim() }]);
+        // Створення нового елемента
+        const { error } = await (supabase as any)
+          .from(tableName)
+          .insert({
+            name: data.name,
+            description: data.description || null,
+          });
 
         if (error) throw error;
 
         toast({
-          title: "Успішно", 
-          description: "Елемент створено",
+          title: "Успіх",
+          description: "Елемент успішно створено",
         });
+
+        form.reset();
       }
 
       onSuccess();
-      onClose();
-      setName('');
     } catch (error: any) {
       toast({
         title: "Помилка",
@@ -77,44 +129,63 @@ export const ReferenceItemForm = ({ tableName, item, isOpen, onClose, onSuccess 
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleClose = () => {
-    onClose();
-    setName(item?.name || '');
-  };
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {item ? 'Редагувати елемент' : 'Додати новий елемент'}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Введіть назву"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              Скасувати
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Збереження...' : 'Зберегти'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Назва *</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="Введіть назву..."
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Опис</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Введіть опис (необов'язково)..."
+                  rows={3}
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex gap-2 pt-4">
+          <Button type="submit" disabled={loading} className="flex-1">
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {itemId ? 'Оновити' : 'Створити'}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 };

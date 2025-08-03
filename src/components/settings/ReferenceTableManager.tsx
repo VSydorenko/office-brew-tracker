@@ -1,82 +1,74 @@
-import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 import { ReferenceItemList } from './ReferenceItemList';
 import { ReferenceItemForm } from './ReferenceItemForm';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
-interface ReferenceItem {
-  id: string;
-  name: string;
-}
-
-interface ReferenceTableConfig {
+interface ReferenceConfig {
   tableName: string;
   displayName: string;
-  icon?: React.ReactNode;
+  icon: React.ReactNode;
 }
 
 interface ReferenceTableManagerProps {
-  config: ReferenceTableConfig;
+  config: ReferenceConfig;
 }
 
 /**
- * Універсальний менеджер для управління довідниками
+ * Менеджер для управління довідковими таблицями
+ * Відображає список елементів та дозволяє їх редагування
  */
 export const ReferenceTableManager = ({ config }: ReferenceTableManagerProps) => {
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<ReferenceItem | undefined>();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  const { data: items = [], isLoading, refetch } = useQuery({
-    queryKey: [config.tableName],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from(config.tableName as any)
-        .select('id, name')
-        .order('name');
-
-      if (error) throw error;
-      return (data as unknown || []) as ReferenceItem[];
-    },
-  });
-
-  const handleAdd = () => {
-    setEditingItem(undefined);
-    setIsFormOpen(true);
-  };
-
-  const handleEdit = (item: ReferenceItem) => {
-    setEditingItem(item);
-    setIsFormOpen(true);
-  };
-
-  const handleFormClose = () => {
-    setIsFormOpen(false);
-    setEditingItem(undefined);
-  };
-
-  const handleFormSuccess = () => {
-    refetch();
+  const handleItemUpdated = () => {
+    setRefreshTrigger(prev => prev + 1);
+    setIsAddDialogOpen(false);
   };
 
   return (
-    <>
-      <ReferenceItemList
-        items={items}
-        tableName={config.tableName}
-        displayName={config.displayName}
-        isLoading={isLoading}
-        onRefresh={refetch}
-        onEdit={handleEdit}
-        onAdd={handleAdd}
-      />
-      
-      <ReferenceItemForm
-        tableName={config.tableName}
-        item={editingItem}
-        isOpen={isFormOpen}
-        onClose={handleFormClose}
-        onSuccess={handleFormSuccess}
-      />
-    </>
+    <Card className="shadow-coffee">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            {config.icon}
+            {config.displayName}
+          </CardTitle>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Додати
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Додати {config.displayName.toLowerCase()}</DialogTitle>
+              </DialogHeader>
+              <ReferenceItemForm
+                tableName={config.tableName}
+                onSuccess={handleItemUpdated}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ReferenceItemList
+          tableName={config.tableName}
+          refreshTrigger={refreshTrigger}
+          onItemUpdated={handleItemUpdated}
+        />
+      </CardContent>
+    </Card>
   );
 };

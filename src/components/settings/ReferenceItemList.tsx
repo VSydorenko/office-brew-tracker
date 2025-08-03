@@ -1,150 +1,101 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, Search, Plus } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ReferenceItemForm } from './ReferenceItemForm';
+import { MoreVertical, Edit, Trash2, Loader2 } from 'lucide-react';
 
 interface ReferenceItem {
   id: string;
   name: string;
+  description?: string;
 }
 
 interface ReferenceItemListProps {
-  items: ReferenceItem[];
   tableName: string;
-  displayName: string;
-  isLoading: boolean;
-  onRefresh: () => void;
-  onEdit: (item: ReferenceItem) => void;
-  onAdd: () => void;
+  refreshTrigger?: number;
+  onItemUpdated: () => void;
 }
 
 /**
- * Список елементів довідника з можливістю пошуку, редагування та видалення
+ * Список елементів довідкової таблиці з можливістю редагування та видалення
  */
-export const ReferenceItemList = ({ 
-  items, 
-  tableName, 
-  displayName, 
-  isLoading, 
-  onRefresh, 
-  onEdit, 
-  onAdd 
-}: ReferenceItemListProps) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [deleteItem, setDeleteItem] = useState<ReferenceItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+export const ReferenceItemList = ({ tableName, refreshTrigger, onItemUpdated }: ReferenceItemListProps) => {
+  const [items, setItems] = useState<ReferenceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<ReferenceItem | null>(null);
   const { toast } = useToast();
 
-  const filteredItems = items.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    fetchItems();
+  }, [refreshTrigger, tableName]);
 
-  const handleDelete = async () => {
-    if (!deleteItem) return;
-
-    setIsDeleting(true);
+  const fetchItems = async () => {
     try {
-      // Перевірка використання елемента в coffee_types
-      if (tableName === 'brands') {
-        const { data, error } = await supabase
-          .from('coffee_types')
-          .select('id')
-          .eq('brand_id', deleteItem.id)
-          .limit(1);
+      setLoading(true);
+      const { data, error } = await (supabase as any)
+        .from(tableName)
+        .select('*')
+        .order('name');
 
-        if (error) throw error;
-        if (data && data.length > 0) {
-          toast({
-            title: "Неможливо видалити",
-            description: "Цей бренд використовується в каталозі кави",
-            variant: "destructive",
-          });
-          setDeleteItem(null);
-          setIsDeleting(false);
-          return;
-        }
-      }
+      if (error) throw error;
+      setItems((data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description
+      })));
+    } catch (error: any) {
+      toast({
+        title: "Помилка",
+        description: `Не вдалося завантажити дані з таблиці ${tableName}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Аналогічні перевірки для інших таблиць
-      if (tableName === 'coffee_varieties') {
-        const { data, error } = await supabase
-          .from('coffee_types')
-          .select('id')
-          .eq('variety_id', deleteItem.id)
-          .limit(1);
-
-        if (error) throw error;
-        if (data && data.length > 0) {
-          toast({
-            title: "Неможливо видалити",
-            description: "Цей сорт використовується в каталозі кави",
-            variant: "destructive",
-          });
-          setDeleteItem(null);
-          setIsDeleting(false);
-          return;
-        }
-      }
-
-      if (tableName === 'processing_methods') {
-        const { data, error } = await supabase
-          .from('coffee_types')
-          .select('id')
-          .eq('processing_method_id', deleteItem.id)
-          .limit(1);
-
-        if (error) throw error;
-        if (data && data.length > 0) {
-          toast({
-            title: "Неможливо видалити",
-            description: "Цей метод обробки використовується в каталозі кави",
-            variant: "destructive",
-          });
-          setDeleteItem(null);
-          setIsDeleting(false);
-          return;
-        }
-      }
-
-      if (tableName === 'flavors') {
-        const { data, error } = await supabase
-          .from('coffee_flavors')
-          .select('id')
-          .eq('flavor_id', deleteItem.id)
-          .limit(1);
-
-        if (error) throw error;
-        if (data && data.length > 0) {
-          toast({
-            title: "Неможливо видалити",
-            description: "Цей смак використовується в каталозі кави",
-            variant: "destructive",
-          });
-          setDeleteItem(null);
-          setIsDeleting(false);
-          return;
-        }
-      }
-
-      // Видалення елемента
-      const { error } = await supabase
-        .from(tableName as any)
+  const handleDelete = async (itemId: string) => {
+    try {
+      setDeletingId(itemId);
+      const { error } = await (supabase as any)
+        .from(tableName)
         .delete()
-        .eq('id', deleteItem.id);
+        .eq('id', itemId);
 
       if (error) throw error;
 
       toast({
-        title: "Успішно",
-        description: "Елемент видалено",
+        title: "Успіх",
+        description: "Елемент успішно видалено",
       });
 
-      onRefresh();
+      onItemUpdated();
     } catch (error: any) {
       toast({
         title: "Помилка",
@@ -152,91 +103,117 @@ export const ReferenceItemList = ({
         variant: "destructive",
       });
     } finally {
-      setIsDeleting(false);
-      setDeleteItem(null);
+      setDeletingId(null);
     }
   };
 
-  return (
-    <Card className="shadow-coffee">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            {displayName}
-            <Badge variant="secondary">{items.length}</Badge>
-          </CardTitle>
-          <Button onClick={onAdd} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Додати
-          </Button>
-        </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Пошук..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="text-center py-4 text-muted-foreground">
-            Завантаження...
-          </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="text-center py-4 text-muted-foreground">
-            {searchTerm ? 'Нічого не знайдено' : 'Немає елементів'}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filteredItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <span className="font-medium">{item.name}</span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onEdit(item)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setDeleteItem(item)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+  const handleEditSuccess = () => {
+    setEditingItem(null);
+    onItemUpdated();
+  };
 
-        <AlertDialog open={!!deleteItem} onOpenChange={() => setDeleteItem(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Підтвердження видалення</AlertDialogTitle>
-              <AlertDialogDescription>
-                Ви впевнені, що хочете видалити "{deleteItem?.name}"? 
-                Цю дію неможливо скасувати.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Скасувати</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {isDeleting ? 'Видалення...' : 'Видалити'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </CardContent>
-    </Card>
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-10 bg-muted rounded animate-pulse"></div>
+        ))}
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <p className="text-muted-foreground text-center py-4">
+        Елементи відсутні
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{item.name}</span>
+                <Badge variant="outline" className="text-xs">
+                  ID: {item.id.slice(0, 8)}...
+                </Badge>
+              </div>
+              {item.description && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {item.description}
+                </p>
+              )}
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-background border border-border">
+                <DropdownMenuItem onClick={() => setEditingItem(item)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Редагувати
+                </DropdownMenuItem>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem 
+                      onSelect={(e) => e.preventDefault()}
+                      className="text-destructive focus:text-destructive"
+                      disabled={deletingId === item.id}
+                    >
+                      {deletingId === item.id ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
+                      Видалити
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Видалити елемент?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Ця дія незворотна. Елемент "{item.name}" буде видалений назавжди.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDelete(item.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Видалити
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ))}
+      </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Редагувати елемент</DialogTitle>
+          </DialogHeader>
+          {editingItem && (
+            <ReferenceItemForm
+              tableName={tableName}
+              itemId={editingItem.id}
+              onSuccess={handleEditSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
