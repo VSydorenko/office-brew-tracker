@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { hapticFeedback } from '@/utils/haptic-feedback';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +48,7 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({
     const isRightSwipe = distance < -minSwipeDistance;
 
     if (isLeftSwipe || isRightSwipe) {
+      hapticFeedback.swipe(); // Додаємо haptic feedback
       setIsSwipeVisible(true);
       // Автоматично приховати через 3 секунди
       setTimeout(() => setIsSwipeVisible(false), 3000);
