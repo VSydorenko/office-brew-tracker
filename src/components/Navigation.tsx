@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/ui/auth-provider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { NotificationCenter } from '@/components/ui/notification-center';
 import { useToast } from '@/hooks/use-toast';
 import {
   Coffee,
@@ -96,6 +97,7 @@ const Navigation = () => {
 
           {/* Desktop user info - тільки для великих екранів */}
           <div className="hidden lg:ml-6 lg:flex lg:items-center space-x-4">
+            <NotificationCenter />
             <span className="text-sm text-muted-foreground">
               {user.email}
             </span>

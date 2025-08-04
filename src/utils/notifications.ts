@@ -9,7 +9,7 @@ export interface NotificationOptions {
   badge?: string;
   tag?: string;
   data?: any;
-  actions?: NotificationAction[];
+  actions?: { action: string; title: string }[];
   silent?: boolean;
   requireInteraction?: boolean;
 }

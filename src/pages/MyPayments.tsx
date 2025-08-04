@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, AlertCircle, TrendingUp, TrendingDown, User, ShoppingCart, Bell, BellOff, RefreshCw, Clock } from 'lucide-react';
+import { CheckCircle, AlertCircle, TrendingUp, TrendingDown, User, ShoppingCart, Bell, BellOff, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/ui/auth-provider';
 import { useToast } from '@/hooks/use-toast';
@@ -15,10 +15,10 @@ import { PaymentRecord } from '@/components/purchases/PaymentRecord';
 const MyPayments = () => {
   const [owedToMe, setOwedToMe] = useState([]);
   const [iOwe, setIOwe] = useState([]);
-  const [allDistributions, setAllDistributions] = useState([]); // Включаючи доплати/повернення
+  const [allDistributions, setAllDistributions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('user'); // 'user' або 'purchase'
-  const [showAll, setShowAll] = useState(false); // Показувати всі записи чи тільки неоплачені
+  const [viewMode, setViewMode] = useState('user');
+  const [showAll, setShowAll] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const { isSupported, isEnabled, enableNotifications, disableNotifications } = useNotifications();
@@ -31,7 +31,7 @@ const MyPayments = () => {
 
   const fetchMyPayments = async () => {
     try {
-      // Запит для "Мені винні" - покупки де я покупець, а інші мають доплатити
+      // Запит для "Мені винні"
       const { data: owedToMeData, error: owedToMeError } = await supabase
         .from('purchase_distributions')
         .select(`
@@ -51,7 +51,7 @@ const MyPayments = () => {
 
       if (owedToMeError) throw owedToMeError;
 
-      // Запит для "Я винен" - покупки де я в розподілі, але не покупець
+      // Запит для "Я винен"
       const { data: iOweData, error: iOweError } = await supabase
         .from('purchase_distributions')
         .select(`
@@ -71,7 +71,7 @@ const MyPayments = () => {
 
       if (iOweError) throw iOweError;
 
-      // Запит для всіх моїх розподілів (включаючи оплачені та доплати/повернення)
+      // Всі мої розподіли
       const { data: allDistributionsData, error: allDistributionsError } = await supabase
         .from('purchase_distributions')
         .select(`
@@ -132,9 +132,25 @@ const MyPayments = () => {
     }
   };
 
-  // Функції групування даних
+  // Фільтрація даних
+  const getFilteredData = () => {
+    if (showAll) {
+      const myOwedToMe = allDistributions.filter(dist => 
+        dist.purchases.buyer_id === user?.id && dist.user_id !== user?.id
+      );
+      const myIOwe = allDistributions.filter(dist => 
+        dist.purchases.buyer_id !== user?.id
+      );
+      return { owedToMe: myOwedToMe, iOwe: myIOwe };
+    }
+    return { owedToMe, iOwe };
+  };
+
+  const { owedToMe: filteredOwedToMe, iOwe: filteredIOwe } = getFilteredData();
+
+  // Групування по користувачах для "Мені винні"
   const groupOwedByUser = () => {
-    const grouped = owedToMe.reduce((acc: any, debt: any) => {
+    const grouped = filteredOwedToMe.reduce((acc: any, debt: any) => {
       const userId = debt.user_id;
       if (!acc[userId]) {
         acc[userId] = {
@@ -150,8 +166,9 @@ const MyPayments = () => {
     return Object.values(grouped);
   };
 
+  // Групування по покупках для "Мені винні"
   const groupOwedByPurchase = () => {
-    const grouped = owedToMe.reduce((acc: any, debt: any) => {
+    const grouped = filteredOwedToMe.reduce((acc: any, debt: any) => {
       const purchaseId = debt.purchase_id;
       if (!acc[purchaseId]) {
         acc[purchaseId] = {
@@ -166,8 +183,9 @@ const MyPayments = () => {
     return Object.values(grouped);
   };
 
+  // Групування по користувачах для "Я винен"
   const groupIOweByUser = () => {
-    const grouped = iOwe.reduce((acc: any, debt: any) => {
+    const grouped = filteredIOwe.reduce((acc: any, debt: any) => {
       const buyerId = debt.purchases.buyer_id;
       if (!acc[buyerId]) {
         acc[buyerId] = {
@@ -183,8 +201,9 @@ const MyPayments = () => {
     return Object.values(grouped);
   };
 
+  // Групування по покупках для "Я винен"
   const groupIOweByPurchase = () => {
-    const grouped = iOwe.reduce((acc: any, debt: any) => {
+    const grouped = filteredIOwe.reduce((acc: any, debt: any) => {
       const purchaseId = debt.purchase_id;
       if (!acc[purchaseId]) {
         acc[purchaseId] = {
@@ -200,30 +219,12 @@ const MyPayments = () => {
     return Object.values(grouped);
   };
 
-  // Фільтрація даних для відображення
-  const getFilteredData = () => {
-    if (showAll) {
-      // Показуємо всі мої розподіли, включаючи доплати/повернення
-      const myOwedToMe = allDistributions.filter(dist => 
-        dist.purchases.buyer_id === user?.id && dist.user_id !== user?.id
-      );
-      const myIOwe = allDistributions.filter(dist => 
-        dist.purchases.buyer_id !== user?.id
-      );
-      return { owedToMe: myOwedToMe, iOwe: myIOwe };
-    }
-    return { owedToMe, iOwe };
-  };
-
-  const { owedToMe: filteredOwedToMe, iOwe: filteredIOwe } = getFilteredData();
-
   // Розрахунок підсумків
   const totalOwedToMe = filteredOwedToMe.reduce((sum, item: any) => 
     sum + (item.adjusted_amount || item.calculated_amount), 0);
   const totalIOwe = filteredIOwe.reduce((sum, item: any) => 
     sum + (item.adjusted_amount || item.calculated_amount), 0);
 
-  // Розрахунок для всіх записів (включаючи оплачені)
   const totalAllOwedToMe = allDistributions
     .filter(dist => dist.purchases.buyer_id === user?.id && dist.user_id !== user?.id)
     .reduce((sum, item: any) => sum + (item.adjusted_amount || item.calculated_amount), 0);
@@ -374,8 +375,6 @@ const MyPayments = () => {
           </div>
         )}
 
-        {/* Функція для рендерингу запису розподілу */}
-
         {/* Секція "Мені винні" */}
         {filteredOwedToMe.length > 0 && (
           <div className="space-y-4">
@@ -385,28 +384,8 @@ const MyPayments = () => {
             </h2>
             
             {viewMode === 'user' ? (
-              // Режим "По користувачах" для "Мені винні"
               <div className="space-y-4">
-                {groupOwedByUser().map((group: any, index: number) => {
-                // Групуємо відфільтровані дані
-                const groupedOwedByUser = () => {
-                  const grouped = filteredOwedToMe.reduce((acc: any, debt: any) => {
-                    const userId = debt.user_id;
-                    if (!acc[userId]) {
-                      acc[userId] = {
-                        userName: debt.profiles.name,
-                        totalAmount: 0,
-                        debts: []
-                      };
-                    }
-                    acc[userId].totalAmount += (debt.adjusted_amount || debt.calculated_amount);
-                    acc[userId].debts.push(debt);
-                    return acc;
-                  }, {});
-                  return Object.values(grouped);
-                };
-
-                return groupedOwedByUser().map((group: any, index: number) => (
+                {groupOwedByUser().map((group: any, index: number) => (
                   <Card key={index} className="shadow-coffee border-l-2 border-l-green-500">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-center">
@@ -432,55 +411,40 @@ const MyPayments = () => {
                       </div>
                     </CardContent>
                   </Card>
-                ))})
+                ))}
               </div>
             ) : (
-              // Режим "По покупках" для "Мені винні"  
-              const groupedOwedByPurchase = () => {
-                const grouped = filteredOwedToMe.reduce((acc: any, debt: any) => {
-                  const purchaseId = debt.purchase_id;
-                  if (!acc[purchaseId]) {
-                    acc[purchaseId] = {
-                      purchaseDate: debt.purchases.date,
-                      totalAmount: debt.purchases.total_amount,
-                      debts: []
-                    };
-                  }
-                  acc[purchaseId].debts.push(debt);
-                  return acc;
-                }, {});
-                return Object.values(grouped);
-              };
-
-              return groupedOwedByPurchase().map((group: any, index: number) => (
-                <Card key={index} className="shadow-coffee border-l-2 border-l-green-500">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <CardTitle className="text-lg text-green-700">
-                          Покупка від {new Date(group.purchaseDate).toLocaleDateString('uk-UA')}
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          Загальна сума: {group.totalAmount.toFixed(2)} ₴
-                        </p>
+              <div className="space-y-4">
+                {groupOwedByPurchase().map((group: any, index: number) => (
+                  <Card key={index} className="shadow-coffee border-l-2 border-l-green-500">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <CardTitle className="text-lg text-green-700">
+                            Покупка від {new Date(group.purchaseDate).toLocaleDateString('uk-UA')}
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            Загальна сума: {group.totalAmount.toFixed(2)} ₴
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {group.debts.map((debt: any) => (
-                        <PaymentRecord
-                          key={debt.id}
-                          debt={debt}
-                          onMarkAsPaid={markAsPaid}
-                          showBuyerInfo={true}
-                          showDateInfo={false}
-                        />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {group.debts.map((debt: any) => (
+                          <PaymentRecord
+                            key={debt.id}
+                            debt={debt}
+                            onMarkAsPaid={markAsPaid}
+                            showBuyerInfo={true}
+                            showDateInfo={false}
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -494,7 +458,6 @@ const MyPayments = () => {
             </h2>
             
             {viewMode === 'user' ? (
-              // Режим "По користувачах" для "Я винен"
               <div className="space-y-4">
                 {groupIOweByUser().map((group: any, index: number) => (
                   <Card key={index} className="shadow-coffee border-l-2 border-l-red-500">
@@ -511,24 +474,13 @@ const MyPayments = () => {
                     <CardContent>
                       <div className="space-y-2">
                         {group.debts.map((debt: any) => (
-                          <div key={debt.id} className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950 rounded-md">
-                            <div>
-                              <p className="font-medium">
-                                {new Date(debt.purchases.date).toLocaleDateString('uk-UA')}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Моя частка: {debt.percentage}% • {(debt.adjusted_amount || debt.calculated_amount).toFixed(2)} ₴
-                              </p>
-                            </div>
-                            <Button 
-                              onClick={() => markAsPaid(debt.id)}
-                              variant="destructive"
-                              size="sm"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Сплачено
-                            </Button>
-                          </div>
+                          <PaymentRecord
+                            key={debt.id}
+                            debt={debt}
+                            onMarkAsPaid={markAsPaid}
+                            showBuyerInfo={false}
+                            showDateInfo={true}
+                          />
                         ))}
                       </div>
                     </CardContent>
@@ -536,7 +488,6 @@ const MyPayments = () => {
                 ))}
               </div>
             ) : (
-              // Режим "По покупках" для "Я винен"
               <div className="space-y-4">
                 {groupIOweByPurchase().map((group: any, index: number) => (
                   <Card key={index} className="shadow-coffee border-l-2 border-l-red-500">
@@ -555,22 +506,13 @@ const MyPayments = () => {
                     <CardContent>
                       <div className="space-y-2">
                         {group.debts.map((debt: any) => (
-                          <div key={debt.id} className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950 rounded-md">
-                            <div>
-                              <p className="font-medium">Моя частка</p>
-                              <p className="text-sm text-muted-foreground">
-                                {debt.percentage}% • {(debt.adjusted_amount || debt.calculated_amount).toFixed(2)} ₴
-                              </p>
-                            </div>
-                            <Button 
-                              onClick={() => markAsPaid(debt.id)}
-                              variant="destructive"
-                              size="sm"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Сплачено
-                            </Button>
-                          </div>
+                          <PaymentRecord
+                            key={debt.id}
+                            debt={debt}
+                            onMarkAsPaid={markAsPaid}
+                            showBuyerInfo={false}
+                            showDateInfo={false}
+                          />
                         ))}
                       </div>
                     </CardContent>
@@ -582,11 +524,13 @@ const MyPayments = () => {
         )}
 
         {/* Повідомлення коли немає боргів */}
-        {owedToMe.length === 0 && iOwe.length === 0 && (
+        {filteredOwedToMe.length === 0 && filteredIOwe.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center">
               <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">Немає неоплачених розрахунків</p>
+              <p className="text-muted-foreground">
+                {showAll ? 'Немає записів в історії' : 'Немає неоплачених розрахунків'}
+              </p>
             </CardContent>
           </Card>
         )}

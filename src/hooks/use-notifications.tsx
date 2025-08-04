@@ -49,6 +49,7 @@ export const useNotifications = () => {
             .select(`
               date,
               total_amount,
+              buyer_id,
               profiles!purchases_buyer_id_fkey(name)
             `)
             .eq('id', distribution.purchase_id)
