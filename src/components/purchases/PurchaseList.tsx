@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { PurchaseFormDialog } from './PurchaseFormDialog';
+import { PurchaseStatusBadge } from './PurchaseStatusBadge';
+import { PurchaseDistributionActions } from './PurchaseDistributionActions';
 import { SimpleCard } from '@/components/ui/simple-card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { SearchBar } from '@/components/ui/search-bar';
@@ -33,6 +35,19 @@ interface PurchaseItem {
   coffee_type: { name: string; brand?: string };
 }
 
+interface PurchaseDistribution {
+  id: string;
+  user_id: string;
+  percentage: number;
+  calculated_amount: number;
+  adjusted_amount?: number;
+  is_paid: boolean;
+  paid_at?: string;
+  version?: number;
+  adjustment_type?: string;
+  profiles: { name: string; email: string };
+}
+
 interface PurchaseListItem {
   id: string;
   date: string;
@@ -40,9 +55,14 @@ interface PurchaseListItem {
   notes?: string;
   buyer_id: string;
   driver_id?: string;
+  distribution_status?: string;
+  locked_at?: string;
+  locked_by?: string;
+  original_total_amount?: number;
   buyer: { name: string };
   driver?: { name: string };
   purchase_items: PurchaseItem[];
+  purchase_distributions?: PurchaseDistribution[];
 }
 
 export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) => {
@@ -88,6 +108,18 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
             quantity,
             unit_price,
             coffee_type:coffee_types(name, brand)
+          ),
+          purchase_distributions(
+            id,
+            user_id,
+            percentage,
+            calculated_amount,
+            adjusted_amount,
+            is_paid,
+            paid_at,
+            version,
+            adjustment_type,
+            profiles(name, email)
           )
         `)
         .order('date', { ascending: false });
@@ -110,6 +142,14 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
   const handleDelete = async (purchaseId: string) => {
     try {
       setDeletingId(purchaseId);
+
+      // Видалити розподіли покупки
+      const { error: distributionsError } = await supabase
+        .from('purchase_distributions')
+        .delete()
+        .eq('purchase_id', purchaseId);
+
+      if (distributionsError) throw distributionsError;
 
       // Видалити всі позиції покупки
       const { error: itemsError } = await supabase
@@ -198,17 +238,23 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                 {/* Header info */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Calendar className="h-4 w-4 text-coffee-dark" />
                       <span className="font-medium text-sm md:text-base">
                         {new Date(purchase.date).toLocaleDateString('uk-UA')}
                       </span>
+                      <PurchaseStatusBadge status={purchase.distribution_status as any || 'draft'} />
                     </div>
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-coffee-dark" />
                       <span className="text-lg md:text-xl font-bold text-primary">
                         ₴{purchase.total_amount}
                       </span>
+                      {purchase.original_total_amount && purchase.original_total_amount !== purchase.total_amount && (
+                        <Badge variant="outline" className="text-xs">
+                          Було: ₴{purchase.original_total_amount}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   
@@ -234,7 +280,7 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                           <DropdownMenuItem 
                             onSelect={(e) => e.preventDefault()}
                             className="text-destructive focus:text-destructive"
-                            disabled={deletingId === purchase.id}
+                            disabled={deletingId === purchase.id || purchase.distribution_status === 'locked'}
                           >
                             {deletingId === purchase.id ? (
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -248,7 +294,10 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                           <AlertDialogHeader>
                             <AlertDialogTitle>Видалити покупку?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Ця дія незворотна. Покупка та всі її позиції будуть видалені назавжди.
+                              {purchase.distribution_status === 'locked' 
+                                ? "Неможливо видалити заблоковану покупку. Спочатку розблокуйте розподіл."
+                                : "Ця дія незворотна. Покупка та всі її позиції будуть видалені назавжди."
+                              }
                               <br /><br />
                               <strong>Дата:</strong> {new Date(purchase.date).toLocaleDateString('uk-UA')}
                               <br />
@@ -259,17 +308,29 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Скасувати</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(purchase.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Видалити
-                            </AlertDialogAction>
+                            {purchase.distribution_status !== 'locked' && (
+                              <AlertDialogAction
+                                onClick={() => handleDelete(purchase.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Видалити
+                              </AlertDialogAction>
+                            )}
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                </div>
+
+                {/* Distribution Actions */}
+                <div className="mb-4">
+                  <PurchaseDistributionActions
+                    purchaseId={purchase.id}
+                    currentStatus={purchase.distribution_status || 'draft'}
+                    totalAmount={purchase.total_amount}
+                    onStatusUpdate={fetchPurchases}
+                  />
                 </div>
 
                 {/* Details */}
@@ -307,6 +368,58 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                             <Badge variant="secondary" className="text-xs">
                               {item.quantity} уп.
                             </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Purchase Distributions */}
+                  {purchase.purchase_distributions && purchase.purchase_distributions.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 text-muted-foreground">
+                        Розподіл оплати:
+                      </h4>
+                      <div className="space-y-2">
+                        {purchase.purchase_distributions.map((dist) => (
+                          <div key={dist.id} className="flex justify-between items-center text-sm bg-muted/50 rounded px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {dist.profiles?.name || 'Невідомо'}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {dist.percentage}%
+                              </Badge>
+                              {dist.version && dist.version > 1 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  v{dist.version}
+                                </Badge>
+                              )}
+                              {dist.adjustment_type && (
+                                <Badge 
+                                  variant={dist.adjustment_type === 'charge' ? 'destructive' : 
+                                          dist.adjustment_type === 'refund' ? 'secondary' : 'outline'} 
+                                  className="text-xs"
+                                >
+                                  {dist.adjustment_type === 'charge' ? 'Доплата' : 
+                                   dist.adjustment_type === 'refund' ? 'Повернення' : 'Перерозподіл'}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                ₴{dist.adjusted_amount || dist.calculated_amount}
+                              </span>
+                              {dist.is_paid ? (
+                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
+                                  Оплачено
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs">
+                                  Не оплачено
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
