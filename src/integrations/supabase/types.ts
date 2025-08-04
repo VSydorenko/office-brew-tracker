@@ -367,9 +367,40 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_amount_changes: {
+        Row: {
+          change_reason: string | null
+          changed_by: string
+          created_at: string
+          id: string
+          new_amount: number
+          old_amount: number
+          purchase_id: string
+        }
+        Insert: {
+          change_reason?: string | null
+          changed_by: string
+          created_at?: string
+          id?: string
+          new_amount: number
+          old_amount: number
+          purchase_id: string
+        }
+        Update: {
+          change_reason?: string | null
+          changed_by?: string
+          created_at?: string
+          id?: string
+          new_amount?: number
+          old_amount?: number
+          purchase_id?: string
+        }
+        Relationships: []
+      }
       purchase_distributions: {
         Row: {
           adjusted_amount: number | null
+          adjustment_type: string | null
           calculated_amount: number
           created_at: string
           id: string
@@ -377,12 +408,15 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           percentage: number
+          previous_amount: number | null
           purchase_id: string
           updated_at: string
           user_id: string
+          version: number | null
         }
         Insert: {
           adjusted_amount?: number | null
+          adjustment_type?: string | null
           calculated_amount?: number
           created_at?: string
           id?: string
@@ -390,12 +424,15 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           percentage: number
+          previous_amount?: number | null
           purchase_id: string
           updated_at?: string
           user_id: string
+          version?: number | null
         }
         Update: {
           adjusted_amount?: number | null
+          adjustment_type?: string | null
           calculated_amount?: number
           created_at?: string
           id?: string
@@ -403,9 +440,11 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           percentage?: number
+          previous_amount?: number | null
           purchase_id?: string
           updated_at?: string
           user_id?: string
+          version?: number | null
         }
         Relationships: [
           {
@@ -474,9 +513,13 @@ export type Database = {
           buyer_id: string
           created_at: string
           date: string
+          distribution_status: string | null
           driver_id: string | null
           id: string
+          locked_at: string | null
+          locked_by: string | null
           notes: string | null
+          original_total_amount: number | null
           total_amount: number
           updated_at: string
         }
@@ -484,9 +527,13 @@ export type Database = {
           buyer_id: string
           created_at?: string
           date: string
+          distribution_status?: string | null
           driver_id?: string | null
           id?: string
+          locked_at?: string | null
+          locked_by?: string | null
           notes?: string | null
+          original_total_amount?: number | null
           total_amount: number
           updated_at?: string
         }
@@ -494,9 +541,13 @@ export type Database = {
           buyer_id?: string
           created_at?: string
           date?: string
+          distribution_status?: string | null
           driver_id?: string | null
           id?: string
+          locked_at?: string | null
+          locked_by?: string | null
           notes?: string | null
+          original_total_amount?: number | null
           total_amount?: number
           updated_at?: string
         }
