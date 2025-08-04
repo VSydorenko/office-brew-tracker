@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Lock, Unlock, RefreshCw } from "lucide-react";
@@ -26,8 +27,37 @@ export const PurchaseDistributionActions = ({
 }: PurchaseDistributionActionsProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [newAmount, setNewAmount] = useState(totalAmount.toString());
-  const [amountDialogOpen, setAmountDialogOpen] = useState(false);
+  const [showAmountChangeDialog, setShowAmountChangeDialog] = useState(false);
+  const [purchase, setPurchase] = useState<any>(null);
   const { toast } = useToast();
+
+  // Оновлюємо newAmount при зміні totalAmount
+  useEffect(() => {
+    setNewAmount(totalAmount.toString());
+  }, [totalAmount]);
+
+  // Завантажуємо дані покупки при зміні статусу
+  useEffect(() => {
+    if (currentStatus === 'amount_changed') {
+      fetchPurchaseData();
+      setShowAmountChangeDialog(true);
+    }
+  }, [currentStatus, purchaseId]);
+
+  const fetchPurchaseData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('purchases')
+        .select('*')
+        .eq('id', purchaseId)
+        .single();
+
+      if (error) throw error;
+      setPurchase(data);
+    } catch (error) {
+      console.error('Error fetching purchase data:', error);
+    }
+  };
 
   /**
    * Зафіксувати розподіл (перевести в статус locked)
@@ -97,25 +127,81 @@ export const PurchaseDistributionActions = ({
     }
   };
 
+  const handleCreateAdditionalPayments = async (oldAmount: number, newAmount: number) => {
+    try {
+      // Отримати поточні розподіли
+      const { data: currentDistributions, error: fetchError } = await supabase
+        .from('purchase_distributions')
+        .select('*')
+        .eq('purchase_id', purchaseId);
+
+      if (fetchError) throw fetchError;
+
+      if (!currentDistributions || currentDistributions.length === 0) {
+        throw new Error('Розподіли не знайдено');
+      }
+
+      const difference = newAmount - oldAmount;
+      const isIncrease = difference > 0;
+
+      // Створити додаткові записи для кожного користувача
+      const additionalPayments = currentDistributions.map(dist => {
+        const additionalAmount = (Math.abs(difference) * dist.percentage) / 100;
+        
+        return {
+          purchase_id: purchaseId,
+          user_id: dist.user_id,
+          percentage: dist.percentage,
+          calculated_amount: additionalAmount,
+          adjusted_amount: null,
+          is_paid: false,
+          version: (dist.version || 1) + 1,
+          adjustment_type: isIncrease ? 'charge' : 'refund',
+          notes: isIncrease 
+            ? `Доплата через збільшення суми покупки з ₴${oldAmount} до ₴${newAmount}`
+            : `Повернення через зменшення суми покупки з ₴${oldAmount} до ₴${newAmount}`
+        };
+      });
+
+      // Вставити додаткові платежі
+      const { error: insertError } = await supabase
+        .from('purchase_distributions')
+        .insert(additionalPayments);
+
+      if (insertError) throw insertError;
+
+      toast({
+        title: "Успіх",
+        description: isIncrease 
+          ? "Створено записи доплати для всіх користувачів"
+          : "Створено записи повернення для всіх користувачів",
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error('Error creating additional payments:', error);
+      toast({
+        title: "Помилка",
+        description: error.message || "Не вдалося створити додаткові платежі",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   /**
    * Змінити загальну суму покупки
    */
   const handleAmountChange = async () => {
-    const amount = parseFloat(newAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast({
-        title: "Помилка",
-        description: "Введіть коректну суму",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
       const { error } = await supabase
         .from('purchases')
-        .update({ total_amount: amount })
+        .update({ 
+          total_amount: totalAmount,
+          distribution_status: 'active',
+          original_total_amount: null
+        })
         .eq('id', purchaseId);
 
       if (error) throw error;
@@ -125,7 +211,7 @@ export const PurchaseDistributionActions = ({
         description: "Загальна сума покупки змінена",
       });
       
-      setAmountDialogOpen(false);
+      setShowAmountChangeDialog(false);
       onStatusUpdate();
     } catch (error) {
       console.error('Error updating amount:', error);
@@ -139,10 +225,7 @@ export const PurchaseDistributionActions = ({
     }
   };
 
-  /**
-   * Перерозподілити після зміни суми
-   */
-  const handleRedistribute = async () => {
+  const handleRedistribute = async (newTotalAmount: number) => {
     setIsLoading(true);
     try {
       // Отримуємо поточний розподіл
@@ -153,51 +236,56 @@ export const PurchaseDistributionActions = ({
 
       if (fetchError) throw fetchError;
 
-      // Перераховуємо суми на основі відсотків
-      const updates = distributions?.map(dist => ({
+      if (!distributions || distributions.length === 0) {
+        throw new Error('Розподіли не знайдено');
+      }
+
+      // Перераховуємо суми на основі відсотків та нової суми
+      const updates = distributions.map(dist => ({
         id: dist.id,
-        calculated_amount: (parseFloat(newAmount) * dist.percentage / 100).toFixed(2),
+        calculated_amount: (newTotalAmount * dist.percentage) / 100,
         version: (dist.version || 1) + 1
       }));
 
-      if (updates && updates.length > 0) {
-        for (const update of updates) {
-          const { error: updateError } = await supabase
-            .from('purchase_distributions')
-            .update({
-              calculated_amount: parseFloat(update.calculated_amount),
-              version: update.version,
-              adjustment_type: 'reallocation'
-            })
-            .eq('id', update.id);
+      // Оновлюємо всі розподіли
+      for (const update of updates) {
+        const { error: updateError } = await supabase
+          .from('purchase_distributions')
+          .update({
+            calculated_amount: update.calculated_amount,
+            adjusted_amount: null, // Скидаємо ручні коригування
+            version: update.version,
+            adjustment_type: 'reallocation'
+          })
+          .eq('id', update.id);
 
-          if (updateError) throw updateError;
-        }
+        if (updateError) throw updateError;
       }
 
-      // Оновлюємо статус покупки
-      const { error: statusError } = await supabase
+      // Оновлюємо покупку
+      const { error: purchaseError } = await supabase
         .from('purchases')
         .update({ 
-          total_amount: parseFloat(newAmount),
-          distribution_status: 'active'
+          total_amount: newTotalAmount,
+          distribution_status: 'active',
+          original_total_amount: null
         })
         .eq('id', purchaseId);
 
-      if (statusError) throw statusError;
+      if (purchaseError) throw purchaseError;
 
       toast({
         title: "Перерозподіл завершено",
         description: "Суми перераховані відповідно до нової загальної суми",
       });
       
-      setAmountDialogOpen(false);
+      setShowAmountChangeDialog(false);
       onStatusUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error redistributing:', error);
       toast({
         title: "Помилка",
-        description: "Не вдалося виконати перерозподіл",
+        description: error.message || "Не вдалося виконати перерозподіл",
         variant: "destructive",
       });
     } finally {
@@ -262,52 +350,85 @@ export const PurchaseDistributionActions = ({
       )}
 
       {currentStatus === 'amount_changed' && (
-        <div className="flex gap-2">
-          <Dialog open={amountDialogOpen} onOpenChange={setAmountDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="default" size="sm" disabled={isLoading}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Перерозподілити
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Перерозподіл після зміни суми</DialogTitle>
-                <DialogDescription>
-                  Загальна сума покупки була змінена. Оберіть спосіб обробки зміни.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="amount">Нова загальна сума</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    value={newAmount}
-                    onChange={(e) => setNewAmount(e.target.value)}
-                    step="0.01"
-                    min="0"
-                  />
+        <Dialog open={showAmountChangeDialog} onOpenChange={setShowAmountChangeDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Зміна суми покупки</DialogTitle>
+              <DialogDescription>
+                Сума покупки була змінена. Оберіть дію для оновлення розподілу:
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="p-4 border rounded-lg bg-muted/50">
+                <h4 className="font-medium mb-2">Інформація про зміну:</h4>
+                <div className="space-y-1 text-sm">
+                  <div>Попередня сума: <strong>₴{(purchase?.original_total_amount || 0).toFixed(2)}</strong></div>
+                  <div>Нова сума: <strong>₴{totalAmount.toFixed(2)}</strong></div>
+                  <div>Різниця: <strong className={totalAmount > (purchase?.original_total_amount || 0) ? "text-red-600" : "text-green-600"}>
+                    {totalAmount > (purchase?.original_total_amount || 0) ? '+' : ''}₴{(totalAmount - (purchase?.original_total_amount || 0)).toFixed(2)}
+                  </strong></div>
                 </div>
               </div>
-              <DialogFooter className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={handleAmountChange}
-                  disabled={isLoading}
-                >
-                  Зберегти без перерозподілу
-                </Button>
-                <Button 
-                  onClick={handleRedistribute}
-                  disabled={isLoading}
-                >
-                  Перерозподілити пропорційно
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="p-4">
+                  <h4 className="font-medium mb-2 text-green-700">Зберегти нову суму</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Просто оновити загальну суму покупки без зміни розподілу
+                  </p>
+                  <Button 
+                    onClick={handleAmountChange}
+                    className="w-full"
+                    variant="outline"
+                    disabled={isLoading}
+                  >
+                    Зберегти суму
+                  </Button>
+                </Card>
+
+                <Card className="p-4">
+                  <h4 className="font-medium mb-2 text-blue-700">Перерозподілити</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Автоматично перерахувати розподіл за існуючими відсотками
+                  </p>
+                  <Button 
+                    onClick={() => handleRedistribute(totalAmount)}
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    Перерозподілити
+                  </Button>
+                </Card>
+
+                <Card className="p-4">
+                  <h4 className="font-medium mb-2 text-orange-700">Створити доплату/повернення</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Створити окремі записи доплати або повернення для кожного користувача
+                  </p>
+                  <Button 
+                    onClick={async () => {
+                      const success = await handleCreateAdditionalPayments(
+                        purchase?.original_total_amount || 0, 
+                        totalAmount
+                      );
+                      if (success) {
+                        await handleAmountChange();
+                        onStatusUpdate();
+                        setShowAmountChangeDialog(false);
+                      }
+                    }}
+                    className="w-full"
+                    variant="secondary"
+                    disabled={isLoading}
+                  >
+                    Створити доплату/повернення
+                  </Button>
+                </Card>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

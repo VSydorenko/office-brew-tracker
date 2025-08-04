@@ -24,6 +24,7 @@ import {
 import { PurchaseFormDialog } from './PurchaseFormDialog';
 import { PurchaseStatusBadge } from './PurchaseStatusBadge';
 import { PurchaseDistributionActions } from './PurchaseDistributionActions';
+import { PurchaseDistributionPayments } from './PurchaseDistributionPayments';
 import { SimpleCard } from '@/components/ui/simple-card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { SearchBar } from '@/components/ui/search-bar';
@@ -143,6 +144,24 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
     try {
       setDeletingId(purchaseId);
 
+      // Перевірити, чи є оплачені розподіли
+      const { data: paidDistributions, error: checkError } = await supabase
+        .from('purchase_distributions')
+        .select('id')
+        .eq('purchase_id', purchaseId)
+        .eq('is_paid', true);
+
+      if (checkError) throw checkError;
+
+      if (paidDistributions && paidDistributions.length > 0) {
+        toast({
+          title: "Помилка",
+          description: "Неможливо видалити покупку з оплаченими розподілами. Спочатку скасуйте оплати.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Видалити розподіли покупки
       const { error: distributionsError } = await supabase
         .from('purchase_distributions')
@@ -158,6 +177,14 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
         .eq('purchase_id', purchaseId);
 
       if (itemsError) throw itemsError;
+
+      // Видалити записи змін суми
+      const { error: changesError } = await supabase
+        .from('purchase_amount_changes')
+        .delete()
+        .eq('purchase_id', purchaseId);
+
+      if (changesError) throw changesError;
 
       // Видалити саму покупку
       const { error: purchaseError } = await supabase
@@ -280,7 +307,11 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                           <DropdownMenuItem 
                             onSelect={(e) => e.preventDefault()}
                             className="text-destructive focus:text-destructive"
-                            disabled={deletingId === purchase.id || purchase.distribution_status === 'locked'}
+                            disabled={
+                              deletingId === purchase.id || 
+                              purchase.distribution_status === 'locked' ||
+                              (purchase.purchase_distributions && purchase.purchase_distributions.some(dist => dist.is_paid))
+                            }
                           >
                             {deletingId === purchase.id ? (
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -296,6 +327,8 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                             <AlertDialogDescription>
                               {purchase.distribution_status === 'locked' 
                                 ? "Неможливо видалити заблоковану покупку. Спочатку розблокуйте розподіл."
+                                : (purchase.purchase_distributions && purchase.purchase_distributions.some(dist => dist.is_paid))
+                                ? "Неможливо видалити покупку з оплаченими розподілами. Спочатку скасуйте оплати."
                                 : "Ця дія незворотна. Покупка та всі її позиції будуть видалені назавжди."
                               }
                               <br /><br />
@@ -308,7 +341,8 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Скасувати</AlertDialogCancel>
-                            {purchase.distribution_status !== 'locked' && (
+                            {purchase.distribution_status !== 'locked' && 
+                             !(purchase.purchase_distributions && purchase.purchase_distributions.some(dist => dist.is_paid)) && (
                               <AlertDialogAction
                                 onClick={() => handleDelete(purchase.id)}
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -376,53 +410,63 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
 
                   {/* Purchase Distributions */}
                   {purchase.purchase_distributions && purchase.purchase_distributions.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium mb-2 text-muted-foreground">
-                        Розподіл оплати:
-                      </h4>
-                      <div className="space-y-2">
-                        {purchase.purchase_distributions.map((dist) => (
-                          <div key={dist.id} className="flex justify-between items-center text-sm bg-muted/50 rounded px-3 py-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                {dist.profiles?.name || 'Невідомо'}
-                              </span>
-                              <Badge variant="outline" className="text-xs">
-                                {dist.percentage}%
-                              </Badge>
-                              {dist.version && dist.version > 1 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  v{dist.version}
-                                </Badge>
-                              )}
-                              {dist.adjustment_type && (
-                                <Badge 
-                                  variant={dist.adjustment_type === 'charge' ? 'destructive' : 
-                                          dist.adjustment_type === 'refund' ? 'secondary' : 'outline'} 
-                                  className="text-xs"
-                                >
-                                  {dist.adjustment_type === 'charge' ? 'Доплата' : 
-                                   dist.adjustment_type === 'refund' ? 'Повернення' : 'Перерозподіл'}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                ₴{dist.adjusted_amount || dist.calculated_amount}
-                              </span>
-                              {dist.is_paid ? (
-                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
-                                  Оплачено
-                                </Badge>
-                              ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-sm font-medium mb-2 text-muted-foreground">
+                          Розподіл оплати:
+                        </h4>
+                        <div className="space-y-2">
+                          {purchase.purchase_distributions.map((dist) => (
+                            <div key={dist.id} className="flex justify-between items-center text-sm bg-muted/50 rounded px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  {dist.profiles?.name || 'Невідомо'}
+                                </span>
                                 <Badge variant="outline" className="text-xs">
-                                  Не оплачено
+                                  {dist.percentage}%
                                 </Badge>
-                              )}
+                                {dist.version && dist.version > 1 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    v{dist.version}
+                                  </Badge>
+                                )}
+                                {dist.adjustment_type && (
+                                  <Badge 
+                                    variant={dist.adjustment_type === 'charge' ? 'destructive' : 
+                                            dist.adjustment_type === 'refund' ? 'secondary' : 'outline'} 
+                                    className="text-xs"
+                                  >
+                                    {dist.adjustment_type === 'charge' ? 'Доплата' : 
+                                     dist.adjustment_type === 'refund' ? 'Повернення' : 'Перерозподіл'}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  ₴{dist.adjusted_amount || dist.calculated_amount}
+                                </span>
+                                {dist.is_paid ? (
+                                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
+                                    Оплачено
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs">
+                                    Не оплачено
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
+                      
+                      {/* Payment Management */}
+                      <PurchaseDistributionPayments
+                        purchaseId={purchase.id}
+                        distributions={purchase.purchase_distributions}
+                        currentStatus={purchase.distribution_status || 'draft'}
+                        onPaymentUpdate={fetchPurchases}
+                      />
                     </div>
                   )}
 
