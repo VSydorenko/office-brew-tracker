@@ -408,66 +408,15 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                     </div>
                   )}
 
-                  {/* Purchase Distributions */}
+                  {/* Purchase Distribution Payments */}
                   {purchase.purchase_distributions && purchase.purchase_distributions.length > 0 && (
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 text-muted-foreground">
-                          Розподіл оплати:
-                        </h4>
-                        <div className="space-y-2">
-                          {purchase.purchase_distributions.map((dist) => (
-                            <div key={dist.id} className="flex justify-between items-center text-sm bg-muted/50 rounded px-3 py-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">
-                                  {dist.profiles?.name || 'Невідомо'}
-                                </span>
-                                <Badge variant="outline" className="text-xs">
-                                  {dist.percentage}%
-                                </Badge>
-                                {dist.version && dist.version > 1 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    v{dist.version}
-                                  </Badge>
-                                )}
-                                {dist.adjustment_type && (
-                                  <Badge 
-                                    variant={dist.adjustment_type === 'charge' ? 'destructive' : 
-                                            dist.adjustment_type === 'refund' ? 'secondary' : 'outline'} 
-                                    className="text-xs"
-                                  >
-                                    {dist.adjustment_type === 'charge' ? 'Доплата' : 
-                                     dist.adjustment_type === 'refund' ? 'Повернення' : 'Перерозподіл'}
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">
-                                  ₴{dist.adjusted_amount || dist.calculated_amount}
-                                </span>
-                                {dist.is_paid ? (
-                                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
-                                    Оплачено
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-xs">
-                                    Не оплачено
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Payment Management */}
-                      <PurchaseDistributionPayments
-                        purchaseId={purchase.id}
-                        distributions={purchase.purchase_distributions}
-                        currentStatus={purchase.distribution_status || 'draft'}
-                        onPaymentUpdate={fetchPurchases}
-                      />
-                    </div>
+                    <PurchaseDistributionPayments
+                      purchaseId={purchase.id}
+                      distributions={purchase.purchase_distributions}
+                      currentStatus={purchase.distribution_status || 'draft'}
+                      buyerId={purchase.buyer_id}
+                      onPaymentUpdate={fetchPurchases}
+                    />
                   )}
 
                   {/* Notes */}

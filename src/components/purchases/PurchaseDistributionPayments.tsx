@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -30,6 +30,7 @@ interface PurchaseDistributionPaymentsProps {
   purchaseId: string;
   distributions: PurchaseDistribution[];
   currentStatus: string;
+  buyerId: string;
   onPaymentUpdate: () => void;
 }
 
@@ -40,9 +41,11 @@ export const PurchaseDistributionPayments = ({
   purchaseId,
   distributions,
   currentStatus,
+  buyerId,
   onPaymentUpdate
 }: PurchaseDistributionPaymentsProps) => {
   const [loadingPayment, setLoadingPayment] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     distributionId: string;
@@ -51,6 +54,14 @@ export const PurchaseDistributionPayments = ({
     amount: number;
   } | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+    getCurrentUser();
+  }, []);
 
   const handlePaymentChange = async (distributionId: string, isPaid: boolean) => {
     try {
@@ -114,6 +125,14 @@ export const PurchaseDistributionPayments = ({
   };
 
   const isLocked = currentStatus === 'locked';
+  
+  // Логіка видимості кнопок:
+  // - Якщо поточний користувач є покупцем → показувати всі кнопки оплати
+  // - Якщо поточний користувач не є покупцем → показувати тільки свої борги
+  const canManagePayment = (distributionUserId: string) => {
+    if (currentUserId === buyerId) return true; // Покупець може керувати всіма оплатами
+    return currentUserId === distributionUserId; // Інші можуть керувати тільки своїми оплатами
+  };
 
   return (
     <div className="space-y-4">
@@ -175,7 +194,7 @@ export const PurchaseDistributionPayments = ({
                       <Check className="h-3 w-3 mr-1" />
                       Оплачено
                     </Badge>
-                    {!isLocked && (
+                    {!isLocked && canManagePayment(dist.user_id) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -195,7 +214,7 @@ export const PurchaseDistributionPayments = ({
                     <Badge variant="outline" className="text-xs">
                       Не оплачено
                     </Badge>
-                    {!isLocked && (
+                    {!isLocked && canManagePayment(dist.user_id) && (
                       <Button
                         variant="default"
                         size="sm"
