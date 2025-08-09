@@ -44,6 +44,29 @@ function getDateRangeForMonths(months: number) {
   return { start: fmt(start), end: fmt(endDate) };
 }
 
+// Режими вибору періоду
+export type PeriodMode = 'months' | 'all' | 'custom';
+export interface PeriodValue {
+  mode: PeriodMode;
+  months?: number;
+  from?: Date | null;
+  to?: Date | null;
+}
+
+const fmtIso = (d: Date) => d.toISOString().slice(0, 10);
+
+function getRangeFromPeriod(p: PeriodValue): { startDate: string | null; endDate: string | null } {
+  if (p.mode === 'all') return { startDate: null, endDate: null };
+  if (p.mode === 'custom') {
+    return {
+      startDate: p.from ? fmtIso(p.from) : null,
+      endDate: p.to ? fmtIso(p.to) : null,
+    };
+  }
+  const { start, end } = getDateRangeForMonths(p.months || 6);
+  return { startDate: start, endDate: end };
+}
+
 interface Kpis {
   purchases_count: number;
   total_spent: number;
@@ -54,7 +77,7 @@ interface Kpis {
 }
 
 const Dashboard = () => {
-  const [months, setMonths] = useState<number>(6);
+  const [period, setPeriod] = useState<PeriodValue>({ mode: 'months', months: 6 });
   const [loading, setLoading] = useState<boolean>(true);
 
   const [kpis, setKpis] = useState<Kpis | null>(null);
@@ -68,12 +91,12 @@ const Dashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const { start, end } = useMemo(() => getDateRangeForMonths(months), [months]);
+  const { startDate, endDate } = useMemo(() => getRangeFromPeriod(period), [period]);
 
   useEffect(() => {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [start, end]);
+  }, [startDate, endDate]);
 
   /**
    * Завантаження всіх даних дашборда паралельно через RPC.
@@ -83,34 +106,34 @@ const Dashboard = () => {
     try {
       // KPIs
       const kpisReq = supabase.rpc('get_dashboard_kpis', {
-        start_date: start,
-        end_date: end,
+        start_date: startDate,
+        end_date: endDate,
       });
 
       // Timeseries
       const spendingReq = supabase.rpc('get_spending_timeseries', {
-        start_date: start,
-        end_date: end,
+        start_date: startDate,
+        end_date: endDate,
       });
 
       // Top coffees by qty (5)
       const topCoffeesReq = supabase.rpc('get_top_coffees_by_qty', {
-        start_date: start,
-        end_date: end,
+        start_date: startDate,
+        end_date: endDate,
         limit_n: 5,
       });
 
       // Top drivers monthly (5)
       const topDriversReq = supabase.rpc('get_top_drivers_with_monthly', {
-        start_date: start,
-        end_date: end,
+        start_date: startDate,
+        end_date: endDate,
         limit_n: 5,
       });
 
       // Status breakdown
       const statusReq = supabase.rpc('get_status_breakdown', {
-        start_date: start,
-        end_date: end,
+        start_date: startDate,
+        end_date: endDate,
       });
 
       // Recent purchases enriched (5)
@@ -278,7 +301,7 @@ const Dashboard = () => {
               Огляд ключових метрик, боргів, ТОПів та активності
             </p>
           </div>
-          <PeriodSelector value={months} onChange={setMonths} />
+          <PeriodSelector value={period} onChange={setPeriod} />
         </div>
 
         {/* KPI картки (клікабельні) */}

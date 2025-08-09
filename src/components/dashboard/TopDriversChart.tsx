@@ -27,9 +27,13 @@ export const TopDriversChart: React.FC<{
     const hue = 200 + idx * 30;
     return `hsl(${hue} 80% 45%)`;
   });
+  const config = driverKeys.reduce((acc, key) => {
+    acc[key] = { label: key };
+    return acc;
+  }, {} as Record<string, { label: string }>)
 
   return (
-    <ChartContainer config={{}} className="w-full h-72">
+    <ChartContainer config={config} className="w-full h-72">
       <BarChart data={data}>
         <CartesianGrid vertical={false} strokeDasharray="4 4" />
         <XAxis dataKey="month" tickLine={false} axisLine={false} />
