@@ -609,7 +609,65 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_dashboard_kpis: {
+        Args: { start_date: string; end_date: string }
+        Returns: {
+          purchases_count: number
+          total_spent: number
+          average_check: number
+          unpaid_total: number
+          my_unpaid_total: number
+          active_users: number
+        }[]
+      }
+      get_recent_purchases_enriched: {
+        Args: { limit_n?: number }
+        Returns: {
+          id: string
+          date: string
+          total_amount: number
+          distribution_status: string
+          buyer_name: string
+          participants_count: number
+          paid_count: number
+          unpaid_count: number
+          amount_paid: number
+          amount_unpaid: number
+        }[]
+      }
+      get_spending_timeseries: {
+        Args: { start_date: string; end_date: string }
+        Returns: {
+          month_start: string
+          purchases_count: number
+          total_spent: number
+        }[]
+      }
+      get_status_breakdown: {
+        Args: { start_date: string; end_date: string }
+        Returns: {
+          status: string
+          cnt: number
+        }[]
+      }
+      get_top_coffees_by_qty: {
+        Args: { start_date: string; end_date: string; limit_n?: number }
+        Returns: {
+          coffee_type_id: string
+          coffee_name: string
+          total_qty: number
+        }[]
+      }
+      get_top_drivers_with_monthly: {
+        Args: { start_date: string; end_date: string; limit_n?: number }
+        Returns: {
+          driver_id: string
+          driver_name: string
+          month_start: string
+          trips: number
+          total_trips: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

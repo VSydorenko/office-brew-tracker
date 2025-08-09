@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Coffee,
   ShoppingCart,
@@ -12,98 +13,239 @@ import {
   Calendar,
   DollarSign,
   Package,
-  UserCheck
+  UserCheck,
+  Wallet,
+  PercentCircle,
+  ActivitySquare,
 } from 'lucide-react';
-import heroImage from '@/assets/hero-coffee.jpg';
 import { PurchaseFormDialog } from '@/components/purchases/PurchaseFormDialog';
 import { CoffeeForm } from '@/components/coffee/CoffeeForm';
 import { DistributionTemplateForm } from '@/components/distribution/DistributionTemplateForm';
 
-interface DashboardStats {
-  totalPurchases: number;
-  totalSpent: number;
-  totalCoffeeTypes: number;
-  activeUsers: number;
-  recentPurchases: Array<{
-    id: string;
-    date: string;
-    total_amount: number;
-    buyer_name: string;
-  }>;
+import { KpiCard } from '@/components/dashboard/KpiCard';
+import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
+import { SpendingChart, SpendingPoint } from '@/components/dashboard/SpendingChart';
+import { TopCoffeesBar, TopCoffeeItem } from '@/components/dashboard/TopCoffeesBar';
+import { TopDriversChart, DriversStackPoint } from '@/components/dashboard/TopDriversChart';
+import { StatusDonut, StatusItem } from '@/components/dashboard/StatusDonut';
+import { RecentPurchasesList, EnrichedPurchase } from '@/components/dashboard/RecentPurchasesList';
+
+/**
+ * Допоміжна функція: отримати дати початку і кінця періоду в місяцях від сьогодні.
+ */
+function getDateRangeForMonths(months: number) {
+  const end = new Date();
+  const start = new Date();
+  start.setMonth(start.getMonth() - months + 1);
+  start.setDate(1);
+  // Кінець поточного місяця
+  const endDate = new Date(end.getFullYear(), end.getMonth() + 1, 0);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { start: fmt(start), end: fmt(endDate) };
+}
+
+interface Kpis {
+  purchases_count: number;
+  total_spent: number;
+  average_check: number;
+  unpaid_total: number;
+  my_unpaid_total: number;
+  active_users: number;
 }
 
 const Dashboard = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [months, setMonths] = useState<number>(6);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  const [kpis, setKpis] = useState<Kpis | null>(null);
+  const [spending, setSpending] = useState<SpendingPoint[]>([]);
+  const [topCoffees, setTopCoffees] = useState<TopCoffeeItem[]>([]);
+  const [statusData, setStatusData] = useState<StatusItem[]>([]);
+  const [recent, setRecent] = useState<EnrichedPurchase[]>([]);
+  const [driversData, setDriversData] = useState<DriversStackPoint[]>([]);
+  const [driverKeys, setDriverKeys] = useState<string[]>([]);
+
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const { start, end } = useMemo(() => getDateRangeForMonths(months), [months]);
 
   useEffect(() => {
-    fetchDashboardStats();
-  }, []);
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, end]);
 
-  const fetchDashboardStats = async () => {
+  /**
+   * Завантаження всіх даних дашборда паралельно через RPC.
+   */
+  const fetchAll = async () => {
+    setLoading(true);
     try {
+      // KPIs
+      const kpisReq = supabase.rpc('get_dashboard_kpis', {
+        start_date: start,
+        end_date: end,
+      });
+
+      // Timeseries
+      const spendingReq = supabase.rpc('get_spending_timeseries', {
+        start_date: start,
+        end_date: end,
+      });
+
+      // Top coffees by qty (5)
+      const topCoffeesReq = supabase.rpc('get_top_coffees_by_qty', {
+        start_date: start,
+        end_date: end,
+        limit_n: 5,
+      });
+
+      // Top drivers monthly (5)
+      const topDriversReq = supabase.rpc('get_top_drivers_with_monthly', {
+        start_date: start,
+        end_date: end,
+        limit_n: 5,
+      });
+
+      // Status breakdown
+      const statusReq = supabase.rpc('get_status_breakdown', {
+        start_date: start,
+        end_date: end,
+      });
+
+      // Recent purchases enriched (5)
+      const recentReq = supabase.rpc('get_recent_purchases_enriched', {
+        limit_n: 5,
+      });
+
       const [
+        kpisRes,
+        spendingRes,
+        topCoffeesRes,
+        topDriversRes,
+        statusRes,
         recentRes,
-        purchasesCountRes,
-        totalAmountsRes,
-        coffeeTypesCountRes,
-        activeUsersCountRes
       ] = await Promise.all([
-        supabase
-          .from('purchases')
-          .select(`
-            id,
-            date,
-            total_amount,
-            profiles!buyer_id(name)
-          `)
-          .order('date', { ascending: false })
-          .limit(5),
-        supabase
-          .from('purchases')
-          .select('*', { count: 'exact', head: true }),
-        supabase
-          .from('purchases')
-          .select('total_amount'),
-        supabase
-          .from('coffee_types')
-          .select('*', { count: 'exact', head: true }),
-        supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true })
+        kpisReq,
+        spendingReq,
+        topCoffeesReq,
+        topDriversReq,
+        statusReq,
+        recentReq,
       ]);
 
+      if (kpisRes.error) throw kpisRes.error;
+      if (spendingRes.error) throw spendingRes.error;
+      if (topCoffeesRes.error) throw topCoffeesRes.error;
+      if (topDriversRes.error) throw topDriversRes.error;
+      if (statusRes.error) throw statusRes.error;
       if (recentRes.error) throw recentRes.error;
-      if (purchasesCountRes.error) throw purchasesCountRes.error;
-      if (totalAmountsRes.error) throw totalAmountsRes.error;
-      if (coffeeTypesCountRes.error) throw coffeeTypesCountRes.error;
-      if (activeUsersCountRes.error) throw activeUsersCountRes.error;
 
-      const totalPurchases = purchasesCountRes.count || 0;
-      const totalSpent = (totalAmountsRes.data || []).reduce(
-        (sum: number, row: any) => sum + Number(row.total_amount || 0),
-        0
-      );
+      const kpisRow = (kpisRes.data || [])[0] || null;
+      if (kpisRow) {
+        setKpis({
+          purchases_count: Number(kpisRow.purchases_count || 0),
+          total_spent: Number(kpisRow.total_spent || 0),
+          average_check: Number(kpisRow.average_check || 0),
+          unpaid_total: Number(kpisRow.unpaid_total || 0),
+          my_unpaid_total: Number(kpisRow.my_unpaid_total || 0),
+          active_users: Number(kpisRow.active_users || 0),
+        });
+      } else {
+        setKpis(null);
+      }
 
-      const recentPurchases = (recentRes.data || []).map((p: any) => ({
-        id: p.id,
-        date: p.date,
-        total_amount: Number(p.total_amount),
-        buyer_name: (p.profiles as any)?.name || 'Невідомо',
+      const spendingData: SpendingPoint[] = (spendingRes.data || []).map((r: any) => ({
+        month: new Date(r.month_start).toLocaleDateString('uk-UA', { month: 'short', year: 'numeric' }),
+        total_spent: Number(r.total_spent || 0),
       }));
+      setSpending(spendingData);
 
-      setStats({
-        totalPurchases,
-        totalSpent,
-        totalCoffeeTypes: coffeeTypesCountRes.count || 0,
-        activeUsers: activeUsersCountRes.count || 0,
-        recentPurchases,
+      const topCoffeesData: TopCoffeeItem[] = (topCoffeesRes.data || []).map((r: any) => ({
+        coffee_name: r.coffee_name,
+        total_qty: Number(r.total_qty || 0),
+      }));
+      setTopCoffees(topCoffeesData);
+
+      const rawDrivers = (topDriversRes.data || []) as Array<{
+        driver_id: string;
+        driver_name: string;
+        month_start: string | null;
+        trips: number | null;
+        total_trips: number;
+      }>;
+
+      // Отримуємо всі унікальні місяці у форматі 'MMM YYYY'
+      const monthsSet = new Set<string>();
+      // Ключі (імена водіїв)
+      const driverNamesSet = new Set<string>();
+      rawDrivers.forEach((row) => {
+        if (row.driver_name) driverNamesSet.add(row.driver_name);
+        if (row.month_start) {
+          monthsSet.add(
+            new Date(row.month_start).toLocaleDateString('uk-UA', {
+              month: 'short',
+              year: 'numeric',
+            })
+          );
+        }
       });
+      const monthLabels = Array.from(monthsSet).sort((a, b) => {
+        // Сортування за реальними датами
+        const parse = (label: string) => {
+          const [monText, yearText] = label.split(' ');
+          const date = new Date(`${yearText}-${monText}-01`);
+          return date.getTime();
+        };
+        return parse(a) - parse(b);
+      });
+      const driverNames = Array.from(driverNamesSet);
+      // Ініціалізуємо рядки з нулями
+      const stack: DriversStackPoint[] = monthLabels.map((m) => {
+        const base: DriversStackPoint = { month: m };
+        driverNames.forEach((n) => (base[n] = 0));
+        return base;
+      });
+
+      rawDrivers.forEach((row) => {
+        if (!row.month_start || !row.driver_name) return;
+        const label = new Date(row.month_start).toLocaleDateString('uk-UA', {
+          month: 'short',
+          year: 'numeric',
+        });
+        const idx = stack.findIndex((x) => x.month === label);
+        if (idx >= 0) {
+          stack[idx][row.driver_name] = Number(row.trips || 0);
+        }
+      });
+
+      setDriversData(stack);
+      setDriverKeys(driverNames);
+
+      const statusItems: StatusItem[] = (statusRes.data || []).map((r: any) => ({
+        status: r.status || 'draft',
+        cnt: Number(r.cnt || 0),
+      }));
+      setStatusData(statusItems);
+
+      const recentData: EnrichedPurchase[] = (recentRes.data || []).map((r: any) => ({
+        id: r.id,
+        date: r.date,
+        total_amount: Number(r.total_amount || 0),
+        distribution_status: r.distribution_status,
+        buyer_name: r.buyer_name,
+        participants_count: Number(r.participants_count || 0),
+        paid_count: Number(r.paid_count || 0),
+        unpaid_count: Number(r.unpaid_count || 0),
+        amount_paid: Number(r.amount_paid || 0),
+        amount_unpaid: Number(r.amount_unpaid || 0),
+      }));
+      setRecent(recentData);
     } catch (error: any) {
+      console.error('Dashboard fetch error', error);
       toast({
         title: 'Помилка завантаження',
-        description: error.message,
+        description: error?.message || 'Не вдалося завантажити дані дашборда',
         variant: 'destructive',
       });
     } finally {
@@ -111,18 +253,28 @@ const Dashboard = () => {
     }
   };
 
+  const formatCurrency0 = (n?: number) =>
+    `₴${Number(n || 0).toLocaleString('uk-UA', { maximumFractionDigits: 0 })}`;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-brew p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
           <div className="animate-pulse space-y-6">
             <div className="h-6 md:h-8 bg-muted rounded w-1/2 md:w-1/3"></div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-20 md:h-32 bg-muted rounded"></div>
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-20 md:h-28 bg-muted rounded"></div>
               ))}
             </div>
-            <div className="h-40 md:h-64 bg-muted rounded"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+              <div className="h-72 bg-muted rounded"></div>
+              <div className="h-72 bg-muted rounded"></div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+              <div className="h-72 bg-muted rounded"></div>
+              <div className="h-72 bg-muted rounded"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -131,84 +283,64 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-brew">
-      {/* Mobile-optimized Hero Section */}
-      <div 
-        className="relative h-48 md:h-64 lg:h-80 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${heroImage})` }}
-      >
-        <div className="absolute inset-0 bg-primary/60"></div>
-        <div className="relative max-w-7xl mx-auto px-4 md:px-6 h-full flex items-center">
-          <div className="text-white">
-            <h1 className="text-2xl md:text-4xl font-bold mb-2 md:mb-4">Система обліку кави</h1>
-            <p className="text-base md:text-xl text-white/90 hidden sm:block">
-              Відстежуйте покупки, розподіл та аналітику споживання кави в офісі
-            </p>
-            <p className="text-sm text-white/90 sm:hidden">
-              Відстежуйте покупки та споживання кави
+      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-primary">Дашборд</h1>
+            <p className="text-sm text-muted-foreground">
+              Огляд ключових метрик, боргів, ТОПів та активності
             </p>
           </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
-        {/* Mobile-first Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <Card className="shadow-brew transition-coffee hover:shadow-coffee">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
-              <CardTitle className="text-xs md:text-sm font-medium">Всього покупок</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
-              <div className="text-lg md:text-2xl font-bold text-primary">{stats?.totalPurchases || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                За весь час
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-brew transition-coffee hover:shadow-coffee">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
-              <CardTitle className="text-xs md:text-sm font-medium">Загальна сума</CardTitle>
-              <DollarSign className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
-              <div className="text-lg md:text-2xl font-bold text-primary">
-                ₴{stats?.totalSpent?.toFixed(0) || '0'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Витрачено на каву
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-brew transition-coffee hover:shadow-coffee">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
-              <CardTitle className="text-xs md:text-sm font-medium">Типів кави</CardTitle>
-              <Package className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
-              <div className="text-lg md:text-2xl font-bold text-primary">{stats?.totalCoffeeTypes || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                В каталозі
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-brew transition-coffee hover:shadow-coffee">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
-              <CardTitle className="text-xs md:text-sm font-medium">Активних користувачів</CardTitle>
-              <UserCheck className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
-              <div className="text-lg md:text-2xl font-bold text-primary">{stats?.activeUsers || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                Зареєстровано
-              </p>
-            </CardContent>
-          </Card>
+          <PeriodSelector value={months} onChange={setMonths} />
         </div>
 
-        {/* Mobile-optimized Quick Actions */}
+        {/* KPI картки (клікабельні) */}
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6">
+          <KpiCard
+            title="Всього покупок"
+            value={kpis?.purchases_count ?? 0}
+            subtitle="За обраний період"
+            icon={<ShoppingCart className="h-4 w-4 text-primary" />}
+            onClick={() => navigate('/purchases')}
+          />
+          <KpiCard
+            title="Загальна сума"
+            value={formatCurrency0(kpis?.total_spent)}
+            subtitle="Сума витрат"
+            icon={<DollarSign className="h-4 w-4 text-primary" />}
+            onClick={() => navigate('/purchases')}
+          />
+          <KpiCard
+            title="Середній чек"
+            value={formatCurrency0(kpis?.average_check)}
+            subtitle="Середня сума покупки"
+            icon={<PercentCircle className="h-4 w-4 text-primary" />}
+            onClick={() => navigate('/purchases')}
+          />
+          <KpiCard
+            title="Борги (всього)"
+            value={formatCurrency0(kpis?.unpaid_total)}
+            subtitle="Несплачені розподіли"
+            icon={<Wallet className="h-4 w-4 text-primary" />}
+            onClick={() => navigate('/mypayments')}
+          />
+          <KpiCard
+            title="Мої борги"
+            value={formatCurrency0(kpis?.my_unpaid_total)}
+            subtitle="Особисті несплати"
+            icon={<ActivitySquare className="h-4 w-4 text-primary" />}
+            onClick={() => navigate('/mypayments')}
+          />
+          <KpiCard
+            title="Активні користувачі"
+            value={kpis?.active_users ?? 0}
+            subtitle="Унікальні учасники"
+            icon={<UserCheck className="h-4 w-4 text-primary" />}
+            onClick={() => navigate('/settings')}
+          />
+        </div>
+
+        {/* Швидкі дії */}
         <Card className="shadow-coffee">
           <CardHeader className="p-4 md:p-6">
             <CardTitle className="flex items-center gap-2 text-base md:text-lg">
@@ -221,19 +353,19 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="p-4 md:p-6 pt-0">
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-              <PurchaseFormDialog onSuccess={fetchDashboardStats}>
+              <PurchaseFormDialog onSuccess={fetchAll}>
                 <Button className="h-16 md:h-20 bg-gradient-coffee shadow-brew text-xs md:text-sm w-full">
                   <ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Нова покупка</span>
                 </Button>
               </PurchaseFormDialog>
-              <CoffeeForm onSuccess={fetchDashboardStats}>
+              <CoffeeForm onSuccess={fetchAll}>
                 <Button variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm w-full">
                   <Coffee className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Додати каву</span>
                 </Button>
               </CoffeeForm>
-              <DistributionTemplateForm onSuccess={fetchDashboardStats}>
+              <DistributionTemplateForm onSuccess={fetchAll}>
                 <Button variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm w-full">
                   <Users className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Новий шаблон</span>
@@ -243,55 +375,74 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Mobile-optimized Recent Purchases */}
-        <Card className="shadow-coffee">
-          <CardHeader className="p-4 md:p-6">
-            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Calendar className="h-5 w-5 text-primary" />
-              Останні покупки
-            </CardTitle>
-            <CardDescription className="text-sm">
-              Нещодавні покупки кави в офісі
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 md:p-6 pt-0">
-            {stats?.recentPurchases && stats.recentPurchases.length > 0 ? (
-              <div className="space-y-3 md:space-y-4">
-                {stats.recentPurchases.map((purchase) => (
-                  <div
-                    key={purchase.id}
-                    className="flex items-center justify-between p-3 md:p-4 border border-border rounded-lg bg-muted/30"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm md:text-base truncate">{purchase.buyer_name}</p>
-                      <p className="text-xs md:text-sm text-muted-foreground">
-                        {new Date(purchase.date).toLocaleDateString('uk-UA')}
-                      </p>
-                    </div>
-                    <div className="text-right ml-3">
-                      <p className="font-bold text-primary text-sm md:text-base">
-                        ₴{purchase.total_amount.toFixed(0)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                <div className="pt-2 md:pt-4">
-                  <Button asChild variant="outline" className="w-full h-10 md:h-auto">
-                    <Link to="/purchases">Переглянути всі покупки</Link>
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-6 md:py-8">
-                <Coffee className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground text-sm md:text-base">Покупок ще немає</p>
-                <Button asChild className="mt-4 h-10 md:h-auto">
-                  <Link to="/purchases">Додати першу покупку</Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Графіки: витрати та статуси */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <Card className="shadow-coffee">
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Calendar className="h-5 w-5 text-primary" />
+                Динаміка витрат
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Суми покупок по місяцях
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6 pt-0">
+              <SpendingChart data={spending} />
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-coffee">
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Package className="h-5 w-5 text-primary" />
+                Розподіл статусів
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Частка покупок за статусами
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6 pt-0">
+              <StatusDonut data={statusData} />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ТОРи: Кава і Водії */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <Card className="shadow-coffee">
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Coffee className="h-5 w-5 text-primary" />
+                ТОП-5 кави за кількістю
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Найчастіше купувані позиції
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6 pt-0">
+              <TopCoffeesBar data={topCoffees} />
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-coffee">
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <Users className="h-5 w-5 text-primary" />
+                Хто частіше їздить (помісячно)
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Стек поїздок топ-водіїв за період
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6 pt-0">
+              <TopDriversChart data={driversData} driverKeys={driverKeys} />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Останні покупки (збагачені) */}
+        <RecentPurchasesList data={recent} />
       </div>
     </div>
   );
