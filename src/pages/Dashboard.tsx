@@ -15,6 +15,9 @@ import {
   UserCheck
 } from 'lucide-react';
 import heroImage from '@/assets/hero-coffee.jpg';
+import { PurchaseFormDialog } from '@/components/purchases/PurchaseFormDialog';
+import { CoffeeForm } from '@/components/coffee/CoffeeForm';
+import { DistributionTemplateForm } from '@/components/distribution/DistributionTemplateForm';
 
 interface DashboardStats {
   totalPurchases: number;
@@ -40,57 +43,68 @@ const Dashboard = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      // Fetch purchases count and total spent
-      const { data: purchases, error: purchasesError } = await supabase
-        .from('purchases')
-        .select(`
-          id,
-          date,
-          total_amount,
-          profiles!buyer_id(name)
-        `)
-        .order('date', { ascending: false })
-        .limit(5);
+      const [
+        recentRes,
+        purchasesCountRes,
+        totalAmountsRes,
+        coffeeTypesCountRes,
+        activeUsersCountRes
+      ] = await Promise.all([
+        supabase
+          .from('purchases')
+          .select(`
+            id,
+            date,
+            total_amount,
+            profiles!buyer_id(name)
+          `)
+          .order('date', { ascending: false })
+          .limit(5),
+        supabase
+          .from('purchases')
+          .select('*', { count: 'exact', head: true }),
+        supabase
+          .from('purchases')
+          .select('total_amount'),
+        supabase
+          .from('coffee_types')
+          .select('*', { count: 'exact', head: true }),
+        supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+      ]);
 
-      if (purchasesError) throw purchasesError;
+      if (recentRes.error) throw recentRes.error;
+      if (purchasesCountRes.error) throw purchasesCountRes.error;
+      if (totalAmountsRes.error) throw totalAmountsRes.error;
+      if (coffeeTypesCountRes.error) throw coffeeTypesCountRes.error;
+      if (activeUsersCountRes.error) throw activeUsersCountRes.error;
 
-      // Fetch coffee types count
-      const { count: coffeeTypesCount, error: coffeeTypesError } = await supabase
-        .from('coffee_types')
-        .select('*', { count: 'exact' });
+      const totalPurchases = purchasesCountRes.count || 0;
+      const totalSpent = (totalAmountsRes.data || []).reduce(
+        (sum: number, row: any) => sum + Number(row.total_amount || 0),
+        0
+      );
 
-      if (coffeeTypesError) throw coffeeTypesError;
-
-      // Fetch active users count
-      const { count: activeUsersCount, error: usersError } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact' });
-
-      if (usersError) throw usersError;
-
-      // Calculate totals
-      const totalPurchases = purchases?.length || 0;
-      const totalSpent = purchases?.reduce((sum, p) => sum + Number(p.total_amount), 0) || 0;
-
-      const recentPurchases = purchases?.map(p => ({
+      const recentPurchases = (recentRes.data || []).map((p: any) => ({
         id: p.id,
         date: p.date,
         total_amount: Number(p.total_amount),
-        buyer_name: (p.profiles as any)?.name || 'Невідомо'
-      })) || [];
+        buyer_name: (p.profiles as any)?.name || 'Невідомо',
+      }));
 
       setStats({
         totalPurchases,
         totalSpent,
-        totalCoffeeTypes: coffeeTypesCount || 0,
-        activeUsers: activeUsersCount || 0,
-        recentPurchases
+        totalCoffeeTypes: coffeeTypesCountRes.count || 0,
+        activeUsers: activeUsersCountRes.count || 0,
+        recentPurchases,
       });
     } catch (error: any) {
       toast({
-        title: "Помилка завантаження",
+        title: 'Помилка завантаження',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -206,31 +220,25 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 md:p-6 pt-0">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-              <Button asChild className="h-16 md:h-20 bg-gradient-coffee shadow-brew text-xs md:text-sm">
-                <Link to="/purchases" className="flex flex-col items-center gap-1 md:gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+              <PurchaseFormDialog onSuccess={fetchDashboardStats}>
+                <Button className="h-16 md:h-20 bg-gradient-coffee shadow-brew text-xs md:text-sm w-full">
                   <ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Нова покупка</span>
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm">
-                <Link to="/coffee-catalog" className="flex flex-col items-center gap-1 md:gap-2">
+                </Button>
+              </PurchaseFormDialog>
+              <CoffeeForm onSuccess={fetchDashboardStats}>
+                <Button variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm w-full">
                   <Coffee className="h-5 w-5 md:h-6 md:w-6" />
-                  <span>Каталог кави</span>
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm">
-                <Link to="/consumption" className="flex flex-col items-center gap-1 md:gap-2">
+                  <span>Додати каву</span>
+                </Button>
+              </CoffeeForm>
+              <DistributionTemplateForm onSuccess={fetchDashboardStats}>
+                <Button variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm w-full">
                   <Users className="h-5 w-5 md:h-6 md:w-6" />
-                  <span>Розподіл</span>
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm">
-                <Link to="/settings" className="flex flex-col items-center gap-1 md:gap-2">
-                  <TrendingUp className="h-5 w-5 md:h-6 md:w-6" />
-                  <span>Аналітика</span>
-                </Link>
-              </Button>
+                  <span>Новий шаблон</span>
+                </Button>
+              </DistributionTemplateForm>
             </div>
           </CardContent>
         </Card>
