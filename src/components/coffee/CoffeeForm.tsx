@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,9 +17,10 @@ interface LookupItem {
 
 interface CoffeeFormProps {
   onSuccess?: () => void;
+  children?: ReactNode;
 }
 
-export const CoffeeForm = ({ onSuccess }: CoffeeFormProps) => {
+export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [brands, setBrands] = useState<LookupItem[]>([]);
