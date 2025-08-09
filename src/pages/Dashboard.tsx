@@ -175,45 +175,32 @@ const Dashboard = () => {
         total_trips: number;
       }>;
 
-      // Отримуємо всі унікальні місяці у форматі 'MMM YYYY'
-      const monthsSet = new Set<string>();
-      // Ключі (імена водіїв)
+      // Отримуємо унікальні місяці як ISO-дати та імена водіїв
+      const monthsIsoSet = new Set<string>();
       const driverNamesSet = new Set<string>();
       rawDrivers.forEach((row) => {
         if (row.driver_name) driverNamesSet.add(row.driver_name);
-        if (row.month_start) {
-          monthsSet.add(
-            new Date(row.month_start).toLocaleDateString('uk-UA', {
-              month: 'short',
-              year: 'numeric',
-            })
-          );
-        }
+        if (row.month_start) monthsIsoSet.add(row.month_start);
       });
-      const monthLabels = Array.from(monthsSet).sort((a, b) => {
-        // Сортування за реальними датами
-        const parse = (label: string) => {
-          const [monText, yearText] = label.split(' ');
-          const date = new Date(`${yearText}-${monText}-01`);
-          return date.getTime();
-        };
-        return parse(a) - parse(b);
-      });
+      const monthsIso = Array.from(monthsIsoSet).sort(
+        (a, b) => new Date(a).getTime() - new Date(b).getTime()
+      );
       const driverNames = Array.from(driverNamesSet);
+
       // Ініціалізуємо рядки з нулями
-      const stack: DriversStackPoint[] = monthLabels.map((m) => {
-        const base: DriversStackPoint = { month: m };
+      const stack: DriversStackPoint[] = monthsIso.map((iso) => {
+        const label = new Date(iso).toLocaleDateString('uk-UA', {
+          month: 'short',
+          year: 'numeric',
+        });
+        const base: DriversStackPoint = { month: label };
         driverNames.forEach((n) => (base[n] = 0));
         return base;
       });
 
       rawDrivers.forEach((row) => {
         if (!row.month_start || !row.driver_name) return;
-        const label = new Date(row.month_start).toLocaleDateString('uk-UA', {
-          month: 'short',
-          year: 'numeric',
-        });
-        const idx = stack.findIndex((x) => x.month === label);
+        const idx = monthsIso.indexOf(row.month_start);
         if (idx >= 0) {
           stack[idx][row.driver_name] = Number(row.trips || 0);
         }
@@ -322,14 +309,14 @@ const Dashboard = () => {
             value={formatCurrency0(kpis?.unpaid_total)}
             subtitle="Несплачені розподіли"
             icon={<Wallet className="h-4 w-4 text-primary" />}
-            onClick={() => navigate('/mypayments')}
+            onClick={() => navigate('/my-payments')}
           />
           <KpiCard
             title="Мої борги"
             value={formatCurrency0(kpis?.my_unpaid_total)}
             subtitle="Особисті несплати"
             icon={<ActivitySquare className="h-4 w-4 text-primary" />}
-            onClick={() => navigate('/mypayments')}
+            onClick={() => navigate('/my-payments')}
           />
           <KpiCard
             title="Активні користувачі"

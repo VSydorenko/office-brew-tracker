@@ -162,10 +162,14 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-coffee shadow-brew">
-          <Plus className="h-4 w-4 mr-2" />
-          Додати каву
-        </Button>
+        {children ? (
+          children as React.ReactElement
+        ) : (
+          <Button className="bg-gradient-coffee shadow-brew">
+            <Plus className="h-4 w-4 mr-2" />
+            Додати каву
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>

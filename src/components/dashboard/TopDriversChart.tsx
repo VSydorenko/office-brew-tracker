@@ -23,27 +23,19 @@ export const TopDriversChart: React.FC<{
   data: DriversStackPoint[];
   driverKeys: string[];
 }> = ({ data, driverKeys }) => {
-  const config = driverKeys.reduce((acc, key, idx) => {
-    // Невеликі варіації кольорів через HSL
+  const colors = driverKeys.map((_, idx) => {
     const hue = 200 + idx * 30;
-    acc[key] = {
-      label: key,
-      theme: {
-        light: `hsl(${hue} 80% 45%)`,
-        dark: `hsl(${hue} 80% 45%)`,
-      },
-    };
-    return acc;
-  }, {} as Record<string, { label: string; theme: Record<"light" | "dark", string> }>);
+    return `hsl(${hue} 80% 45%)`;
+  });
 
   return (
-    <ChartContainer config={config} className="w-full h-72">
-      <BarChart data={data} stackOffset="expand">
+    <ChartContainer config={{}} className="w-full h-72">
+      <BarChart data={data}>
         <CartesianGrid vertical={false} strokeDasharray="4 4" />
         <XAxis dataKey="month" tickLine={false} axisLine={false} />
         <YAxis hide />
-        {driverKeys.map((k) => (
-          <Bar key={k} dataKey={k} stackId="drivers" fill={`var(--color-${k})`} />
+        {driverKeys.map((k, idx) => (
+          <Bar key={k} dataKey={k} stackId="drivers" fill={colors[idx]} />
         ))}
         <ChartTooltip
           content={
