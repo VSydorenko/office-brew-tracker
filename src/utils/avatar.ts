@@ -6,9 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 const urlCache = new Map<string, string>();
 
 /**
- * Генерує URL для аватара користувача
+ * Генерує URL для аватара користувача зі Supabase Storage
  * @param avatarPath - Шлях до файлу аватара в storage
- * @returns URL для аватара або null
+ * @returns URL для аватара або null якщо помилка
  */
 export function getAvatarUrl(avatarPath?: string | null): string | null {
   if (!avatarPath) return null;
@@ -33,10 +33,30 @@ export function getAvatarUrl(avatarPath?: string | null): string | null {
 }
 
 /**
- * Завантажує файл аватара в storage
- * @param file - Файл для завантаження
- * @param userId - ID користувача
- * @returns Шлях до завантаженого файлу
+ * Оптимізує Google Avatar URL додавши параметри розміру
+ * @param googleAvatarUrl - Оригінальний URL Google аватара
+ * @param size - Бажаний розмір (за замовчуванням 200px)
+ * @returns Оптимізований URL або оригінальний
+ */
+export function optimizeGoogleAvatarUrl(googleAvatarUrl?: string | null, size: number = 200): string | null {
+  if (!googleAvatarUrl) return null;
+  
+  // Перевіряємо чи це Google Avatar URL
+  if (googleAvatarUrl.includes('googleusercontent.com') || googleAvatarUrl.includes('lh3.googleusercontent.com')) {
+    // Видаляємо існуючі параметри розміру та додаємо новий
+    const baseUrl = googleAvatarUrl.split('=')[0];
+    return `${baseUrl}=s${size}-c`;
+  }
+  
+  return googleAvatarUrl;
+}
+
+/**
+ * Завантажує файл аватара в Supabase Storage
+ * @param file - Файл зображення для завантаження
+ * @param userId - ID користувача для створення унікального шляху
+ * @returns Шлях до завантаженого файлу в storage
+ * @throws Error якщо завантаження не вдалося
  */
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
   const rawExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -58,8 +78,9 @@ export async function uploadAvatar(file: File, userId: string): Promise<string> 
 }
 
 /**
- * Видаляє аватар користувача
- * @param avatarPath - Шлях до файлу аватара
+ * Видаляє аватар користувача з Supabase Storage
+ * @param avatarPath - Шлях до файлу аватара в storage
+ * @throws Error якщо видалення не вдалося
  */
 export async function removeAvatar(avatarPath: string): Promise<void> {
   const { error } = await supabase.storage
@@ -75,11 +96,11 @@ export async function removeAvatar(avatarPath: string): Promise<void> {
 }
 
 /**
- * Стискає зображення на клієнті
- * @param file - Файл зображення
- * @param maxWidth - Максимальна ширина
- * @param quality - Якість стиснення (0-1)
- * @returns Стиснутий файл
+ * Стискає зображення на клієнті для економії місця
+ * @param file - Файл зображення для стиснення
+ * @param maxWidth - Максимальна ширина в пікселях (за замовчуванням 200)
+ * @param quality - Якість стиснення від 0 до 1 (за замовчуванням 0.8)
+ * @returns Promise з стиснутим файлом у форматі JPEG
  */
 export function compressImage(
   file: File, 

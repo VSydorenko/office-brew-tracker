@@ -1,5 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { getAvatarUrl, optimizeGoogleAvatarUrl } from '@/utils/avatar';
 import { CheckCircle, Clock, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface PaymentRecordProps {
@@ -31,17 +33,48 @@ export const PaymentRecord = ({ debt, onMarkAsPaid, showBuyerInfo = false, showD
 
   const adjustmentInfo = getAdjustmentInfo();
 
+  /**
+   * Генерує ініціали з імені користувача
+   */
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const buyerName = debt.purchases?.profiles?.name || 'Невідомо';
+  
   return (
     <div className={`flex justify-between items-center p-3 rounded-md ${
       debt.is_paid ? 'bg-green-50 dark:bg-green-950' : 
       isOverdue ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800' :
       'bg-muted/50'
     }`}>
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-1">
-          {showBuyerInfo && debt.purchases?.profiles?.name && (
+      <div className="flex items-center gap-3 flex-1">
+        {showBuyerInfo && (
+          <Avatar className="w-8 h-8">
+            <AvatarImage 
+              src={getAvatarUrl(debt.purchases?.profiles?.avatar_path) || optimizeGoogleAvatarUrl(debt.purchases?.profiles?.avatar_url, 32) || undefined} 
+              alt={buyerName}
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <AvatarFallback className="text-xs">
+              {getInitials(buyerName)}
+            </AvatarFallback>
+          </Avatar>
+        )}
+        
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+          {showBuyerInfo && (
             <span className="font-medium text-sm">
-              {debt.purchases.profiles.name}
+              {buyerName}
             </span>
           )}
           
@@ -88,6 +121,7 @@ export const PaymentRecord = ({ debt, onMarkAsPaid, showBuyerInfo = false, showD
             {debt.notes}
           </p>
         )}
+        </div>
       </div>
       
       <div className="flex items-center gap-2">

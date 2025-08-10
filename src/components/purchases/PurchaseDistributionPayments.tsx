@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getAvatarUrl, optimizeGoogleAvatarUrl } from '@/utils/avatar';
 import { Check, CreditCard, Clock, Loader2 } from 'lucide-react';
 
 interface PurchaseDistribution {
@@ -23,7 +25,7 @@ interface PurchaseDistribution {
   paid_at?: string;
   version?: number;
   adjustment_type?: string;
-  profiles: { name: string; email: string };
+  profiles: { name: string; email: string; avatar_path?: string; avatar_url?: string };
 }
 
 interface PurchaseDistributionPaymentsProps {
@@ -156,31 +158,61 @@ export const PurchaseDistributionPayments = ({
         {distributions.map((dist) => {
           const finalAmount = dist.adjusted_amount || dist.calculated_amount;
           const isCurrentlyLoading = loadingPayment === dist.id;
+          const userName = dist.profiles?.name || 'Невідомо';
+          
+          /**
+           * Генерує ініціали з імені користувача
+           */
+          const getInitials = (name: string): string => {
+            return name
+              .split(' ')
+              .map(word => word.charAt(0))
+              .join('')
+              .toUpperCase()
+              .slice(0, 2);
+          };
           
           return (
             <div key={dist.id} className="flex justify-between items-center p-3 border rounded-lg bg-muted/30">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">
-                  {dist.profiles?.name || 'Невідомо'}
-                </span>
-                <Badge variant="outline" className="text-xs">
-                  {dist.percentage}%
-                </Badge>
-                {dist.version && dist.version > 1 && (
-                  <Badge variant="secondary" className="text-xs">
-                    v{dist.version}
-                  </Badge>
-                )}
-                {dist.adjustment_type && (
-                  <Badge 
-                    variant={dist.adjustment_type === 'charge' ? 'destructive' : 
-                            dist.adjustment_type === 'refund' ? 'secondary' : 'outline'} 
-                    className="text-xs"
-                  >
-                    {dist.adjustment_type === 'charge' ? 'Доплата' : 
-                     dist.adjustment_type === 'refund' ? 'Повернення' : 'Перерозподіл'}
-                  </Badge>
-                )}
+              <div className="flex items-center gap-3">
+                <Avatar className="w-8 h-8">
+                  <AvatarImage 
+                    src={getAvatarUrl(dist.profiles?.avatar_path) || optimizeGoogleAvatarUrl(dist.profiles?.avatar_url, 32) || undefined} 
+                    alt={userName}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <AvatarFallback className="text-xs">
+                    {getInitials(userName)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="font-medium text-sm">
+                    {userName}
+                  </span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <Badge variant="outline" className="text-xs">
+                      {dist.percentage}%
+                    </Badge>
+                    {dist.version && dist.version > 1 && (
+                      <Badge variant="secondary" className="text-xs">
+                        v{dist.version}
+                      </Badge>
+                    )}
+                    {dist.adjustment_type && (
+                      <Badge 
+                        variant={dist.adjustment_type === 'charge' ? 'destructive' : 
+                                dist.adjustment_type === 'refund' ? 'secondary' : 'outline'} 
+                        className="text-xs"
+                      >
+                        {dist.adjustment_type === 'charge' ? 'Доплата' : 
+                         dist.adjustment_type === 'refund' ? 'Повернення' : 'Перерозподіл'}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
               </div>
               
               <div className="flex items-center gap-3">

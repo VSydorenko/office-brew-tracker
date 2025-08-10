@@ -46,7 +46,7 @@ interface PurchaseDistribution {
   paid_at?: string;
   version?: number;
   adjustment_type?: string;
-  profiles: { name: string; email: string };
+  profiles: { name: string; email: string; avatar_path?: string; avatar_url?: string };
 }
 
 interface PurchaseListItem {
@@ -120,7 +120,7 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
             paid_at,
             version,
             adjustment_type,
-            profiles(name, email)
+            profiles(name, email, avatar_path, avatar_url)
           )
         `)
         .order('date', { ascending: false });

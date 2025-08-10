@@ -4,7 +4,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { getAvatarUrl } from '@/utils/avatar';
+import { getAvatarUrl, optimizeGoogleAvatarUrl } from '@/utils/avatar';
 import { useDebounce } from '@/hooks/use-debounce';
 
 interface Profile {
@@ -176,12 +176,20 @@ export const UserAvatarPicker = ({
                 onClick={() => onUserSelect(profile.id)}
               >
                 <AvatarImage 
-                  src={getAvatarUrl(profile.avatar_path) || profile.avatar_url || undefined} 
+                  src={getAvatarUrl(profile.avatar_path) || optimizeGoogleAvatarUrl(profile.avatar_url, 48) || undefined} 
                   alt={profile.name}
                   loading="lazy"
                   onError={(e) => {
-                    // Fallback при помилці завантаження
+                    // Fallback при помилці завантаження зображення
                     e.currentTarget.style.display = 'none';
+                  }}
+                  onLoad={(e) => {
+                    // Плавна поява коли зображення завантажилось
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  style={{
+                    transition: 'opacity 0.2s ease-in-out',
+                    opacity: profile.avatar_path || profile.avatar_url ? '0' : '1'
                   }}
                 />
                 <AvatarFallback className="text-sm">
@@ -205,11 +213,20 @@ export const UserAvatarPicker = ({
               onClick={() => onUserSelect(profile.id)}
             >
               <AvatarImage 
-                src={getAvatarUrl(profile.avatar_path) || profile.avatar_url || undefined} 
+                src={getAvatarUrl(profile.avatar_path) || optimizeGoogleAvatarUrl(profile.avatar_url, 40) || undefined} 
                 alt={profile.name}
                 loading="lazy"
                 onError={(e) => {
+                  // Fallback при помилці завантаження зображення
                   e.currentTarget.style.display = 'none';
+                }}
+                onLoad={(e) => {
+                  // Плавна поява коли зображення завантажилось
+                  e.currentTarget.style.opacity = '1';
+                }}
+                style={{
+                  transition: 'opacity 0.2s ease-in-out',
+                  opacity: profile.avatar_path || profile.avatar_url ? '0' : '1'
                 }}
               />
               <AvatarFallback className="text-xs">

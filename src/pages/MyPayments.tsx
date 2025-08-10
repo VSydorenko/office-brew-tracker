@@ -42,7 +42,7 @@ const MyPayments = () => {
             total_amount,
             buyer_id
           ),
-          profiles!purchase_distributions_user_id_fkey(name)
+          profiles!purchase_distributions_user_id_fkey(name, avatar_path, avatar_url)
         `)
         .eq('purchases.buyer_id', user?.id)
         .neq('user_id', user?.id)
@@ -61,7 +61,7 @@ const MyPayments = () => {
             date,
             total_amount,
             buyer_id,
-            profiles!purchases_buyer_id_fkey(name)
+            profiles!purchases_buyer_id_fkey(name, avatar_path, avatar_url)
           )
         `)
         .eq('user_id', user?.id)
@@ -81,7 +81,7 @@ const MyPayments = () => {
             date,
             total_amount,
             buyer_id,
-            profiles!purchases_buyer_id_fkey(name)
+            profiles!purchases_buyer_id_fkey(name, avatar_path, avatar_url)
           )
         `)
         .eq('user_id', user?.id)

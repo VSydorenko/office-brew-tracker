@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { compressImage, uploadAvatar, removeAvatar, getAvatarUrl } from '@/utils/avatar';
+import { compressImage, uploadAvatar, removeAvatar, getAvatarUrl, optimizeGoogleAvatarUrl } from '@/utils/avatar';
 import { useToast } from '@/hooks/use-toast';
 
 interface AvatarUploaderProps {
@@ -119,8 +119,8 @@ export function AvatarUploader({
     }
   };
 
-  // Пріоритет: локальне посилання зі storage -> зовнішній URL -> фолбек
-  const avatarUrl = getAvatarUrl(currentAvatarPath || undefined) || currentAvatarUrl || null;
+  // Пріоритет: локальне посилання зі storage -> оптимізований Google URL -> фолбек
+  const avatarUrl = getAvatarUrl(currentAvatarPath || undefined) || optimizeGoogleAvatarUrl(currentAvatarUrl, 96) || null;
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -134,6 +134,14 @@ export function AvatarUploader({
             onError={(e) => {
               console.warn('Помилка завантаження аватара', e);
               e.currentTarget.style.display = 'none';
+            }}
+            onLoad={(e) => {
+              // Плавна поява коли зображення завантажилось
+              e.currentTarget.style.opacity = '1';
+            }}
+            style={{
+              transition: 'opacity 0.3s ease-in-out',
+              opacity: avatarUrl ? '0' : '1'
             }}
           />
           <AvatarFallback className="text-lg">
