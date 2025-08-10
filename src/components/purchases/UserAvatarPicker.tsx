@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import { getAvatarUrl } from '@/utils/avatar';
-
+import { useDebounce } from '@/hooks/use-debounce';
 interface Profile {
   id: string;
   name: string;
@@ -14,6 +16,8 @@ interface UserAvatarPickerProps {
   onUserSelect: (userId: string) => void;
   label?: string;
   compact?: boolean;
+  searchable?: boolean;
+  pageSize?: number;
 }
 
 /**
@@ -23,35 +27,41 @@ export const UserAvatarPicker = ({
   selectedUserId, 
   onUserSelect, 
   label = "Швидкий вибір",
-  compact = false 
+  compact = false,
+  searchable = true,
+  pageSize = 30,
 }: UserAvatarPickerProps) => {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
 
-  useEffect(() => {
-    fetchProfilesWithAvatars();
-  }, []);
-
-  const fetchProfilesWithAvatars = async () => {
-    setLoading(true);
-    try {
+  const {
+    data,
+    isLoading,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['profiles-picker', debouncedSearch, pageSize],
+    queryFn: async ({ pageParam = 0 }) => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name, avatar_path')
-        .order('name');
+        .rpc('get_profiles_for_picker' as any, {
+          search: debouncedSearch && debouncedSearch.trim() !== '' ? debouncedSearch : null,
+          limit_n: pageSize,
+          offset_n: pageParam,
+        });
+      if (error) throw error;
+      return (data as unknown as Profile[]) ?? [];
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((sum: number, p: Profile[]) => sum + p.length, 0);
+      return lastPage.length === pageSize ? loaded : undefined;
+    },
+    staleTime: 60 * 1000,
+  });
 
-      if (error) {
-        console.error('Error fetching profiles:', error);
-        return;
-      }
-
-      setProfiles(data || []);
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const profiles = useMemo(() => (data?.pages ? (data.pages as Profile[][]).flat() : []), [data]);
 
   /**
    * Генерує ініціали з імені користувача
@@ -65,7 +75,7 @@ export const UserAvatarPicker = ({
       .slice(0, 2);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-2">
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
@@ -84,6 +94,25 @@ export const UserAvatarPicker = ({
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium text-muted-foreground">{label}</p>
+
+      {searchable && (
+        <div className="mb-2">
+          <Input
+            placeholder="Пошук за ім'ям"
+            value={search}
+            onChange={(e) => {
+              const v = e.target.value;
+              setSearch(v);
+            }}
+            aria-label="Пошук користувачів"
+          />
+        </div>
+      )}
+
+      {isError && (
+        <p className="text-sm text-destructive">Не вдалося завантажити користувачів.</p>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {!compact ? (
           profiles.map((profile) => (
@@ -140,6 +169,23 @@ export const UserAvatarPicker = ({
           ))
         )}
       </div>
+
+      {profiles.length === 0 && !isLoading && (
+        <p className="text-sm text-muted-foreground">Нічого не знайдено.</p>
+      )}
+
+      {hasNextPage && (
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="text-sm underline text-primary disabled:opacity-50"
+          >
+            {isFetchingNextPage ? 'Завантаження...' : 'Показати ще'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
