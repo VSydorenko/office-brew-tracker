@@ -623,6 +623,14 @@ export type Database = {
           active_users: number
         }[]
       }
+      get_profiles_for_picker: {
+        Args: { search?: string; limit_n?: number; offset_n?: number }
+        Returns: {
+          id: string
+          name: string
+          avatar_path: string
+        }[]
+      }
       get_recent_purchases_enriched: {
         Args: { limit_n?: number }
         Returns: {

@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -62,6 +62,51 @@ export const UserAvatarPicker = ({
   });
 
   const profiles = useMemo(() => (data?.pages ? (data.pages as Profile[][]).flat() : []), [data]);
+
+  // Підтримка Realtime та авто-підвантаження
+  const queryClient = useQueryClient();
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    /**
+     * Підписка на Realtime оновлення таблиці profiles
+     * Інвалідовуємо кеш запиту при будь-яких змінах (INSERT/UPDATE/DELETE)
+     */
+    const channel = supabase
+      .channel('profiles-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['profiles-picker'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  useEffect(() => {
+    /**
+     * Автозавантаження наступної сторінки при наближенні до кінця списку
+     */
+    if (!loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      const [entry] = entries;
+      if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    });
+
+    observer.observe(loadMoreRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   /**
    * Генерує ініціали з імені користувача
@@ -186,6 +231,9 @@ export const UserAvatarPicker = ({
           </button>
         </div>
       )}
+
+      <div ref={loadMoreRef} aria-hidden="true" className="h-px" />
+
     </div>
   );
 };
