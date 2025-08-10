@@ -124,6 +124,11 @@ export function AvatarUploader({
             src={avatarUrl || undefined} 
             alt="Аватар користувача"
             className="object-cover"
+            loading="lazy"
+            onError={(e) => {
+              console.warn('Помилка завантаження аватара', e);
+              e.currentTarget.style.display = 'none';
+            }}
           />
           <AvatarFallback className="text-lg">
             {fallbackText}

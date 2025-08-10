@@ -39,13 +39,15 @@ export function getAvatarUrl(avatarPath?: string | null): string | null {
  * @returns Шлях до завантаженого файлу
  */
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}/avatar.${fileExt}`;
+  const rawExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const fileExt = rawExt === 'jpeg' ? 'jpg' : rawExt;
+  const timestamp = Date.now();
+  const fileName = `${userId}/avatar_${timestamp}.${fileExt}`;
   
   const { error } = await supabase.storage
     .from('avatars')
-    .upload(fileName, file, { 
-      upsert: true // Замінюємо попередній файл
+    .upload(fileName, file, {
+      upsert: true // Дозволяємо заміну, але ім'я унікальне для кеш-бастингу
     });
   
   if (error) {
@@ -89,12 +91,18 @@ export function compressImage(
     const ctx = canvas.getContext('2d')!;
     const img = new Image();
     
+    const objectUrl = URL.createObjectURL(file);
+
     img.onload = () => {
-      // Зберігаємо пропорції
-      const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
-      canvas.width = img.width * ratio;
-      canvas.height = img.height * ratio;
+      // Зберігаємо пропорції, не масштабуємо вгору
+      const ratio = Math.min(1, maxWidth / Math.max(img.width, img.height));
+      canvas.width = Math.round(img.width * ratio);
+      canvas.height = Math.round(img.height * ratio);
       
+      // Якісне згладжування
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
       // Малюємо стиснуте зображення
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       
@@ -104,6 +112,7 @@ export function compressImage(
             type: 'image/jpeg',
             lastModified: Date.now(),
           });
+          URL.revokeObjectURL(objectUrl);
           resolve(compressedFile);
         },
         'image/jpeg',
@@ -111,6 +120,6 @@ export function compressImage(
       );
     };
     
-    img.src = URL.createObjectURL(file);
+    img.src = objectUrl;
   });
 }
