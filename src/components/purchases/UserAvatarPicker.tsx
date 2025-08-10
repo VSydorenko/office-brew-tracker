@@ -1,22 +1,18 @@
-import { useState, useEffect } from 'react';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { getAvatarUrl } from '@/utils/avatar';
 
 interface Profile {
   id: string;
   name: string;
-  email: string;
-  avatar_url?: string;
+  avatar_path?: string;
 }
 
 interface UserAvatarPickerProps {
-  /** Обраний користувач ID */
   selectedUserId?: string;
-  /** Колбек при виборі користувача */
   onUserSelect: (userId: string) => void;
-  /** Лейбл для компонента */
   label?: string;
-  /** Чи потрібна компактна версія */
   compact?: boolean;
 }
 
@@ -37,27 +33,30 @@ export const UserAvatarPicker = ({
   }, []);
 
   const fetchProfilesWithAvatars = async () => {
+    setLoading(true);
     try {
-      // Поки що отримуємо тільки профілі без аватарів
-      // В майбутньому можна додати avatar_url до таблиці profiles
-      const { data: profilesData, error: profilesError } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, email')
+        .select('id, name, avatar_path')
         .order('name');
 
-      if (profilesError) throw profilesError;
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        return;
+      }
 
-      // Поки використовуємо профілі без аватарів
-      setProfiles(profilesData || []);
+      setProfiles(data || []);
     } catch (error) {
-      console.error('Error fetching profiles:', error);
-      setProfiles([]);
+      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const getInitials = (name: string) => {
+  /**
+   * Генерує ініціали з імені користувача
+   */
+  const getInitials = (name: string): string => {
     return name
       .split(' ')
       .map(word => word.charAt(0))
@@ -74,7 +73,7 @@ export const UserAvatarPicker = ({
           {[1, 2, 3].map((i) => (
             <div 
               key={i}
-              className={`${compact ? 'h-8 w-8' : 'h-10 w-10'} rounded-full bg-muted animate-pulse`}
+              className={`${compact ? 'h-10 w-10' : 'h-12 w-12'} rounded-full bg-muted animate-pulse`}
             />
           ))}
         </div>
@@ -86,32 +85,60 @@ export const UserAvatarPicker = ({
     <div className="space-y-2">
       <p className="text-sm font-medium text-muted-foreground">{label}</p>
       <div className="flex flex-wrap gap-2">
-        {profiles.map((profile) => (
-          <button
-            key={profile.id}
-            type="button"
-            onClick={() => onUserSelect(profile.id)}
-            className={`
-              ${compact ? 'h-8 w-8' : 'h-10 w-10'} 
-              rounded-full ring-2 transition-all hover:scale-105
-              ${selectedUserId === profile.id 
-                ? 'ring-primary ring-offset-2 ring-offset-background' 
-                : 'ring-transparent hover:ring-muted-foreground/30'
-              }
-            `}
-            title={profile.name}
-          >
-            <Avatar className={compact ? 'h-8 w-8' : 'h-10 w-10'}>
+        {!compact ? (
+          profiles.map((profile) => (
+            <div key={profile.id} className="flex flex-col items-center space-y-1">
+              <Avatar
+                className={`w-12 h-12 border-2 cursor-pointer transition-all ${
+                  selectedUserId === profile.id
+                    ? 'border-primary ring-2 ring-primary/20'
+                    : 'border-border hover:border-primary/50'
+                }`}
+                onClick={() => onUserSelect(profile.id)}
+              >
+                <AvatarImage 
+                  src={getAvatarUrl(profile.avatar_path) || undefined} 
+                  alt={profile.name}
+                  loading="lazy"
+                  onError={(e) => {
+                    // Fallback при помилці завантаження
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <AvatarFallback className="text-sm">
+                  {getInitials(profile.name)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-xs text-center max-w-[60px] truncate">
+                {profile.name.split(' ')[0]}
+              </span>
+            </div>
+          ))
+        ) : (
+          profiles.map((profile) => (
+            <Avatar
+              key={profile.id}
+              className={`w-10 h-10 border-2 cursor-pointer transition-all ${
+                selectedUserId === profile.id
+                  ? 'border-primary ring-2 ring-primary/20'
+                  : 'border-border hover:border-primary/50'
+              }`}
+              onClick={() => onUserSelect(profile.id)}
+            >
               <AvatarImage 
-                src={profile.avatar_url} 
+                src={getAvatarUrl(profile.avatar_path) || undefined} 
                 alt={profile.name}
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
               />
-              <AvatarFallback className="text-xs font-medium">
+              <AvatarFallback className="text-xs">
                 {getInitials(profile.name)}
               </AvatarFallback>
             </Avatar>
-          </button>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
