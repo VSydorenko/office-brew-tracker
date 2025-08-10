@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -5,10 +6,12 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { getAvatarUrl } from '@/utils/avatar';
 import { useDebounce } from '@/hooks/use-debounce';
+
 interface Profile {
   id: string;
   name: string;
   avatar_path?: string;
+  avatar_url?: string;
 }
 
 interface UserAvatarPickerProps {
@@ -110,6 +113,8 @@ export const UserAvatarPicker = ({
 
   /**
    * Генерує ініціали з імені користувача
+   * @param name - Ім'я користувача
+   * @returns Два перші символи ініціалів у верхньому регістрі
    */
   const getInitials = (name: string): string => {
     return name
@@ -171,7 +176,7 @@ export const UserAvatarPicker = ({
                 onClick={() => onUserSelect(profile.id)}
               >
                 <AvatarImage 
-                  src={getAvatarUrl(profile.avatar_path) || undefined} 
+                  src={getAvatarUrl(profile.avatar_path) || profile.avatar_url || undefined} 
                   alt={profile.name}
                   loading="lazy"
                   onError={(e) => {
@@ -200,7 +205,7 @@ export const UserAvatarPicker = ({
               onClick={() => onUserSelect(profile.id)}
             >
               <AvatarImage 
-                src={getAvatarUrl(profile.avatar_path) || undefined} 
+                src={getAvatarUrl(profile.avatar_path) || profile.avatar_url || undefined} 
                 alt={profile.name}
                 loading="lazy"
                 onError={(e) => {

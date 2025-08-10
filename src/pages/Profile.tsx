@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/ui/auth-provider';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +15,7 @@ interface Profile {
   name: string;
   email: string;
   avatar_path?: string;
+  avatar_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -39,7 +41,7 @@ export default function Profile() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, avatar_path, created_at, updated_at')
+        .select('id, name, avatar_path, avatar_url, created_at, updated_at')
         .eq('id', user.id)
         .single();
 
@@ -59,7 +61,7 @@ export default function Profile() {
         email: user.email || ''
       };
       
-      setProfile(profileWithEmail);
+      setProfile(profileWithEmail as Profile);
       setName(profileWithEmail.name);
     } catch (error) {
       console.error('Error:', error);
@@ -110,13 +112,23 @@ export default function Profile() {
     }
   };
 
+  /**
+   * Оновлює шлях до аватара в профілі.
+   * - Якщо передано новий шлях (avatar_path), очищаємо avatar_url, щоб використовувати локальний storage.
+   * - Якщо видаляємо аватар (null), залишаємо avatar_url недоторканим, щоб повернутися до Google-аватара.
+   * @param newAvatarPath - Новий шлях у storage або null для видалення
+   */
   const handleAvatarUpdate = async (newAvatarPath: string | null) => {
     if (!user || !profile) return;
     
     try {
+      const updatePayload = newAvatarPath !== null
+        ? { avatar_path: newAvatarPath, avatar_url: null }
+        : { avatar_path: null };
+
       const { error } = await supabase
         .from('profiles')
-        .update({ avatar_path: newAvatarPath })
+        .update(updatePayload)
         .eq('id', user.id);
 
       if (error) {
@@ -129,7 +141,12 @@ export default function Profile() {
         return;
       }
 
-      setProfile({ ...profile, avatar_path: newAvatarPath });
+      setProfile({
+        ...profile,
+        ...(newAvatarPath !== null
+          ? { avatar_path: newAvatarPath, avatar_url: null }
+          : { avatar_path: null })
+      });
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -185,6 +202,7 @@ export default function Profile() {
               <AvatarUploader
                 userId={user.id}
                 currentAvatarPath={profile.avatar_path}
+                currentAvatarUrl={profile.avatar_url}
                 fallbackText={getInitials(profile.name)}
                 onAvatarUpdate={handleAvatarUpdate}
               />

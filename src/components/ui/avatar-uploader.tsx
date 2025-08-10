@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -8,16 +9,20 @@ import { useToast } from '@/hooks/use-toast';
 interface AvatarUploaderProps {
   userId: string;
   currentAvatarPath?: string | null;
+  currentAvatarUrl?: string | null;
   fallbackText: string;
   onAvatarUpdate: (newAvatarPath: string | null) => void;
 }
 
 /**
  * Компонент для завантаження та редагування аватара користувача
+ * - Якщо існує шлях у storage (avatar_path), використовується він
+ * - Інакше використовується зовнішній URL (avatar_url), наприклад з Google
  */
 export function AvatarUploader({ 
   userId, 
   currentAvatarPath, 
+  currentAvatarUrl,
   fallbackText, 
   onAvatarUpdate 
 }: AvatarUploaderProps) {
@@ -114,7 +119,8 @@ export function AvatarUploader({
     }
   };
 
-  const avatarUrl = getAvatarUrl(currentAvatarPath);
+  // Пріоритет: локальне посилання зі storage -> зовнішній URL -> фолбек
+  const avatarUrl = getAvatarUrl(currentAvatarPath || undefined) || currentAvatarUrl || null;
 
   return (
     <div className="flex flex-col items-center gap-4">
