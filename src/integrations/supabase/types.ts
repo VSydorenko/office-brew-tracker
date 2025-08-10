@@ -382,6 +382,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_path: string | null
+          avatar_url: string | null
           created_at: string
           email: string
           id: string
@@ -390,6 +391,7 @@ export type Database = {
         }
         Insert: {
           avatar_path?: string | null
+          avatar_url?: string | null
           created_at?: string
           email: string
           id: string
@@ -398,6 +400,7 @@ export type Database = {
         }
         Update: {
           avatar_path?: string | null
+          avatar_url?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -629,6 +632,7 @@ export type Database = {
           id: string
           name: string
           avatar_path: string
+          avatar_url: string
         }[]
       }
       get_recent_purchases_enriched: {

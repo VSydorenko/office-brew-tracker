@@ -57,7 +57,7 @@ export default function Profile() {
 
       // Додаємо email з auth сесії
       const profileWithEmail = {
-        ...data,
+        ...data!,
         email: user.email || ''
       };
       
