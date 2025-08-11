@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/components/ui/auth-provider';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,8 +40,24 @@ const Navigation = () => {
     }
   };
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active) setIsAdmin(data?.role === 'admin');
+      });
+    return () => { active = false; };
+  }, [user]);
+
   // Desktop navigation items (без дашборду - він доступний через логотип)
-  const desktopNavigation = [
+  const baseDesktopNavigation = [
     { name: 'Покупки', href: '/purchases', icon: ShoppingCart },
     { name: 'Каталог кави', href: '/coffee-catalog', icon: Coffee },
     { name: 'Розподіл', href: '/consumption', icon: Users },
@@ -49,13 +65,19 @@ const Navigation = () => {
     { name: 'Профіль', href: '/profile', icon: User },
     { name: 'Налаштування', href: '/settings', icon: Settings },
   ];
+  const desktopNavigation = isAdmin
+    ? [...baseDesktopNavigation, { name: 'Користувачі', href: '/user-management', icon: Users }]
+    : baseDesktopNavigation;
 
   // Mobile hamburger menu items (з усіма розділами)
-  const mobileHamburgerItems = [
+  const baseMobileHamburgerItems = [
     { name: 'Дашборд', href: '/', icon: BarChart3 },
     { name: 'Розподіл', href: '/consumption', icon: Users },
     { name: 'Налаштування', href: '/settings', icon: Settings },
   ];
+  const mobileHamburgerItems = isAdmin
+    ? [...baseMobileHamburgerItems, { name: 'Користувачі', href: '/user-management', icon: Users }]
+    : baseMobileHamburgerItems;
 
   const isActive = (path: string) => location.pathname === path;
 

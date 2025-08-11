@@ -36,7 +36,7 @@ const Index = () => {
           <p className="text-xl text-muted-foreground mb-8">
             Відстежуйте покупки та споживання кави в офісі
           </p>
-          <Button asChild className="bg-gradient-coffee shadow-brew">
+          <Button asChild className="bg-gradient-coffee shadow-brew" aria-label="Увійти до системи">
             <Link to="/auth">Увійти до системи</Link>
           </Button>
         </div>

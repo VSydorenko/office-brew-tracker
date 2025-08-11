@@ -32,8 +32,8 @@ const Auth = () => {
             emailRedirectTo: redirectUrl,
             data: {
               name: name,
-            }
-          }
+            },
+          },
         });
 
         if (error) {

@@ -381,33 +381,53 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           avatar_path: string | null
           avatar_url: string | null
           created_at: string
           email: string
           id: string
           name: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: Database["public"]["Enums"]["user_status"]
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_path?: string | null
           avatar_url?: string | null
           created_at?: string
           email: string
           id: string
           name: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           avatar_path?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string
           id?: string
           name?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       purchase_amount_changes: {
         Row: {
@@ -683,9 +703,18 @@ export type Database = {
           total_trips: number
         }[]
       }
+      is_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      is_approved: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      user_status: "pending" | "approved" | "rejected" | "blocked"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -812,6 +841,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      user_status: ["pending", "approved", "rejected", "blocked"],
+    },
   },
 } as const

@@ -20,7 +20,9 @@ import MyPayments from "./pages/MyPayments";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-
+import RequireApproved from "@/components/auth/RequireApproved";
+import WaitingApproval from "./pages/WaitingApproval";
+import UserManagement from "./pages/UserManagement";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -36,19 +38,28 @@ const App = () => (
             <div className="min-h-screen flex flex-col">
               <Navigation />
               <main className="flex-1 pb-16 md:pb-0">
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/purchases" element={<Purchases />} />
-                  <Route path="/coffee-catalog" element={<CoffeeCatalog />} />
-                  <Route path="/coffee-catalog/:id" element={<CoffeeDetail />} />
-                  <Route path="/consumption" element={<Consumption />} />
-                  <Route path="/my-payments" element={<MyPayments />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/settings" element={<Settings />} />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                  <Routes>
+                    {/* Публічні маршрути */}
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="/waiting-approval" element={<WaitingApproval />} />
+
+                    {/* Захищені маршрути: лише для підтверджених користувачів */}
+                    <Route element={<RequireApproved />}>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/purchases" element={<Purchases />} />
+                      <Route path="/coffee-catalog" element={<CoffeeCatalog />} />
+                      <Route path="/coffee-catalog/:id" element={<CoffeeDetail />} />
+                      <Route path="/consumption" element={<Consumption />} />
+                      <Route path="/my-payments" element={<MyPayments />} />
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/user-management" element={<UserManagement />} />
+                    </Route>
+
+                    {/* Інші маршрути */}
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
               </main>
               <BottomNavigation />
               <PWAInstallPrompt />
