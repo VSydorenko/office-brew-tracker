@@ -474,15 +474,15 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       <DialogTrigger asChild>
         {children || defaultTrigger}
       </DialogTrigger>
-      <DialogContent mobileFullScreen className="max-w-6xl lg:max-w-7xl max-h-[95vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="p-4 md:p-6 border-b">
-          <DialogTitle className="text-lg md:text-xl text-primary">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl text-primary">
             {isEditMode ? 'Редагувати покупку' : 'Нова покупка кави'}
           </DialogTitle>
         </DialogHeader>
         
-        <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2 mx-4 md:mx-6 my-3 h-12">
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 h-12">
             <TabsTrigger value="purchase" className="flex items-center gap-2 h-10">
               <Coffee className="h-4 w-4" />
               <span className="hidden sm:inline">Покупка</span>
@@ -493,10 +493,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-auto">
-            <TabsContent value="purchase" className="space-y-4 md:space-y-6 p-4 md:p-6 pb-24 md:pb-28 m-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=active]:h-full">
-              {/* Responsive form grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TabsContent value="purchase" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="total_amount">Загальна сума (₴) *</Label>
                   <Input
@@ -642,7 +640,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
               </div>
             </TabsContent>
 
-            <TabsContent value="distribution" className="space-y-4 md:space-y-6 pb-20 px-2 md:px-0">
+            <TabsContent value="distribution" className="space-y-6">
               <PurchaseDistributionStep
                 totalAmount={parseFloat(formData.total_amount) || 0}
                 purchaseDate={formData.date}
@@ -652,31 +650,26 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                 }}
               />
             </TabsContent>
-          </div>
         </Tabs>
 
-        {/* Mobile-optimized sticky footer */}
-        <div className="border-t bg-background/95 backdrop-blur-sm p-4 md:p-6 sticky bottom-0 z-10">
-          <div className="flex flex-col md:flex-row justify-end gap-3 md:gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setOpen(false)} 
-              disabled={loading}
-              className="order-2 md:order-1 h-12 md:h-10"
-            >
-              Скасувати
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={loading}
-              onClick={handleSubmit}
-              className="bg-gradient-coffee order-1 md:order-2 h-12 md:h-10"
-            >
-              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {isEditMode ? 'Оновити покупку' : 'Створити покупку'}
-            </Button>
-          </div>
+        <div className="flex justify-end gap-2 pt-6">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => setOpen(false)} 
+            disabled={loading}
+          >
+            Скасувати
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={loading}
+            onClick={handleSubmit}
+            className="bg-gradient-coffee"
+          >
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isEditMode ? 'Оновити покупку' : 'Створити покупку'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
