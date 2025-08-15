@@ -65,7 +65,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
-    total_amount: 0,
+    total_amount: '',
     notes: '',
     buyer_id: '',
     driver_id: '',
@@ -102,7 +102,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
 
       setFormData({
         date: data.date,
-        total_amount: data.total_amount,
+        total_amount: data.total_amount.toString(),
         notes: data.notes || '',
         buyer_id: data.buyer_id,
         driver_id: data.driver_id || '',
@@ -183,7 +183,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
         // Скинути форму для нової покупки з автопідстановкою поточного користувача
         setFormData({
           date: new Date().toISOString().split('T')[0],
-          total_amount: 0,
+          total_amount: '',
           notes: '',
           buyer_id: user?.id || '',
           driver_id: user?.id || '',
@@ -246,7 +246,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     
     // Оновити загальну суму покупки
     const totalAmount = updatedItems.reduce((sum, item) => sum + (item.unit_price || 0), 0);
-    setFormData(prev => ({ ...prev, total_amount: totalAmount }));
+    setFormData(prev => ({ ...prev, total_amount: totalAmount.toString() }));
   };
 
   const removePurchaseItem = (index: number) => {
@@ -254,7 +254,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     setPurchaseItems(updatedItems);
     
     const totalAmount = updatedItems.reduce((sum, item) => sum + (item.unit_price || 0), 0);
-    setFormData(prev => ({ ...prev, total_amount: totalAmount }));
+    setFormData(prev => ({ ...prev, total_amount: totalAmount.toString() }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -269,7 +269,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       return;
     }
 
-    if (formData.total_amount <= 0) {
+    const totalAmountNumber = parseFloat(formData.total_amount) || 0;
+    if (totalAmountNumber <= 0) {
       toast({
         title: "Помилка",
         description: "Загальна сума повинна бути більше 0",
@@ -293,7 +294,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       if (!distributionValidation.isValidAmount) {
         toast({
           title: "Попередження",
-          description: `Сума розподілу (${distributionValidation.totalCalculatedAmount.toFixed(2)} ₴) не збігається з загальною сумою (${formData.total_amount.toFixed(2)} ₴). Продовжити?`,
+          description: `Сума розподілу (${distributionValidation.totalCalculatedAmount.toFixed(2)} ₴) не збігається з загальною сумою (${totalAmountNumber.toFixed(2)} ₴). Продовжити?`,
           variant: "destructive",
         });
         // Можна додати підтвердження, але поки що продовжуємо
@@ -309,7 +310,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           .from('purchases')
           .update({
             date: formData.date,
-            total_amount: formData.total_amount,
+            total_amount: totalAmountNumber,
             notes: formData.notes || null,
             buyer_id: formData.buyer_id,
             driver_id: formData.driver_id || null,
@@ -385,7 +386,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
             date: formData.date,
             buyer_id: formData.buyer_id,
             driver_id: formData.driver_id || null,
-            total_amount: formData.total_amount,
+            total_amount: totalAmountNumber,
             notes: formData.notes || null,
           }])
           .select()
@@ -473,7 +474,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       <DialogTrigger asChild>
         {children || defaultTrigger}
       </DialogTrigger>
-      <DialogContent mobileFullScreen className="max-w-4xl max-h-[95vh] flex flex-col p-0 gap-0">
+      <DialogContent mobileFullScreen className="max-w-6xl lg:max-w-7xl max-h-[95vh] flex flex-col p-0 gap-0">
         <DialogHeader className="p-4 md:p-6 border-b">
           <DialogTitle className="text-lg md:text-xl text-primary">
             {isEditMode ? 'Редагувати покупку' : 'Нова покупка кави'}
@@ -504,7 +505,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                     step="0.01"
                     min="0"
                     value={formData.total_amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, total_amount: parseFloat(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, total_amount: e.target.value }))}
+                    placeholder="0.00"
                     required
                     autoFocus={!isEditMode}
                   />
@@ -642,7 +644,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
 
             <TabsContent value="distribution" className="space-y-4 md:space-y-6 pb-20 px-2 md:px-0">
               <PurchaseDistributionStep
-                totalAmount={formData.total_amount}
+                totalAmount={parseFloat(formData.total_amount) || 0}
                 purchaseDate={formData.date}
                 onDistributionChange={(dists, validation) => {
                   setDistributions(dists);
