@@ -41,6 +41,8 @@ interface PurchaseDistributionStepProps {
   totalAmount: number;
   purchaseDate: string;
   onDistributionChange?: (distributions: PurchaseDistribution[], validationData?: any) => void;
+  initialDistributions?: PurchaseDistribution[];
+  initialSelectedTemplate?: string;
 }
 
 /**
@@ -49,7 +51,9 @@ interface PurchaseDistributionStepProps {
 export const PurchaseDistributionStep = ({ 
   totalAmount, 
   purchaseDate, 
-  onDistributionChange 
+  onDistributionChange,
+  initialDistributions,
+  initialSelectedTemplate
 }: PurchaseDistributionStepProps) => {
   const [templates, setTemplates] = useState<DistributionTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
@@ -61,7 +65,16 @@ export const PurchaseDistributionStep = ({
     fetchActiveTemplates();
   }, [purchaseDate]);
 
-  // Цей useEffect замінений новим нижче
+  // Автоматичний перерахунок при зміні totalAmount
+  useEffect(() => {
+    if (distributions.length > 0 && totalAmount > 0) {
+      const updatedDistributions = distributions.map(dist => ({
+        ...dist,
+        calculated_amount: (totalAmount * dist.percentage) / 100
+      }));
+      setDistributions(updatedDistributions);
+    }
+  }, [totalAmount]);
 
   const fetchActiveTemplates = async () => {
     try {
@@ -89,8 +102,14 @@ export const PurchaseDistributionStep = ({
       const templatesData = data || [];
       setTemplates(templatesData);
 
-      // Автоматично обираємо найактуальніший шаблон
-      if (templatesData.length > 0) {
+      // Ініціалізуємо початкові дані якщо передані
+      if (initialDistributions && initialDistributions.length > 0) {
+        setDistributions(initialDistributions);
+        if (initialSelectedTemplate) {
+          setSelectedTemplate(initialSelectedTemplate);
+        }
+      } else if (templatesData.length > 0) {
+        // Автоматично обираємо найактуальніший шаблон тільки якщо немає початкових даних
         const latestTemplate = templatesData[0];
         setSelectedTemplate(latestTemplate.id);
         applyTemplate(latestTemplate);
@@ -166,11 +185,12 @@ export const PurchaseDistributionStep = ({
       totalCalculatedAmount: getTotalCalculatedAmount(),
       isValidPercentage: getTotalPercentage() === 100,
       isValidAmount: Math.abs(getTotalCalculatedAmount() - totalAmount) <= 0.01,
+      selectedTemplate: selectedTemplate,
       distributions
     };
     
     onDistributionChange?.(distributions, validationData);
-  }, [distributions, totalAmount, onDistributionChange]);
+  }, [distributions, totalAmount, selectedTemplate, onDistributionChange]);
 
   if (loading) {
     return (

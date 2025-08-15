@@ -74,6 +74,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const [distributionValidation, setDistributionValidation] = useState<any>(null);
   const [currentTab, setCurrentTab] = useState('purchase');
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const { toast } = useToast();
 
   const isEditMode = !!purchaseId;
@@ -93,6 +94,17 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
             quantity,
             unit_price,
             total_price
+          ),
+          purchase_distributions(
+            user_id,
+            percentage,
+            calculated_amount,
+            adjusted_amount,
+            profiles(
+              id,
+              name,
+              email
+            )
           )
         `)
         .eq('id', purchaseId)
@@ -108,6 +120,18 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
         driver_id: data.driver_id || '',
       });
       setPurchaseItems(data.purchase_items || []);
+      
+      // Завантажити існуючі розподіли
+      if (data.purchase_distributions && data.purchase_distributions.length > 0) {
+        const existingDistributions = data.purchase_distributions.map((dist: any) => ({
+          user_id: dist.user_id,
+          percentage: dist.percentage,
+          calculated_amount: dist.calculated_amount,
+          adjusted_amount: dist.adjusted_amount,
+          profile: dist.profiles
+        }));
+        setDistributions(existingDistributions);
+      }
     } catch (error: any) {
       toast({
         title: "Помилка",
@@ -189,6 +213,10 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           driver_id: user?.id || '',
         });
         setPurchaseItems([]);
+        setDistributions([]);
+        setSelectedTemplate('');
+        setDistributionValidation(null);
+        setCurrentTab('purchase');
       }
     }
   };
@@ -644,9 +672,15 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
               <PurchaseDistributionStep
                 totalAmount={parseFloat(formData.total_amount) || 0}
                 purchaseDate={formData.date}
+                initialDistributions={distributions.length > 0 ? distributions : undefined}
+                initialSelectedTemplate={selectedTemplate || undefined}
                 onDistributionChange={(dists, validation) => {
                   setDistributions(dists);
                   setDistributionValidation(validation);
+                  // Зберігаємо обраний шаблон для відновлення стану
+                  if (validation?.selectedTemplate) {
+                    setSelectedTemplate(validation.selectedTemplate);
+                  }
                 }}
               />
             </TabsContent>
