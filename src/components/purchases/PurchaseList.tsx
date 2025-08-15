@@ -239,7 +239,7 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
       />
 
       {/* Results */}
-      <div className="space-y-4">
+      <div className="space-y-4 lg:space-y-6 xl:space-y-8">
         {filteredPurchases.length === 0 ? (
           <Card className="shadow-coffee">
             <CardContent className="p-8 md:p-12 text-center">
@@ -261,24 +261,24 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
               key={purchase.id}
               className="shadow-coffee hover:shadow-coffee-hover"
             >
-              <div className="space-y-4">
+              <div className="space-y-4 lg:space-y-6">
                 {/* Header info */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Calendar className="h-4 w-4 text-coffee-dark" />
-                      <span className="font-medium text-sm md:text-base">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 lg:gap-4">
+                  <div className="space-y-1 lg:space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap lg:gap-3">
+                      <Calendar className="h-4 w-4 lg:h-5 lg:w-5 text-coffee-dark" />
+                      <span className="font-medium text-sm md:text-base lg:text-lg">
                         {new Date(purchase.date).toLocaleDateString('uk-UA')}
                       </span>
                       <PurchaseStatusBadge status={purchase.distribution_status as any || 'draft'} />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-coffee-dark" />
-                      <span className="text-lg md:text-xl font-bold text-primary">
+                    <div className="flex items-center gap-2 lg:gap-3">
+                      <DollarSign className="h-4 w-4 lg:h-5 lg:w-5 text-coffee-dark" />
+                      <span className="text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold text-primary">
                         ₴{purchase.total_amount}
                       </span>
                       {purchase.original_total_amount && purchase.original_total_amount !== purchase.total_amount && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs lg:text-sm">
                           Було: ₴{purchase.original_total_amount}
                         </Badge>
                       )}
@@ -288,17 +288,17 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                   {/* Actions menu */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreVertical className="h-4 w-4" />
+                      <Button variant="ghost" size="sm" className="h-8 w-8 lg:h-10 lg:w-10 p-0">
+                        <MoreVertical className="h-4 w-4 lg:h-5 lg:w-5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-background border border-border">
+                    <DropdownMenuContent align="end" className="bg-background border border-border lg:min-w-[200px]">
                       <PurchaseFormDialog
                         purchaseId={purchase.id}
                         onSuccess={fetchPurchases}
                       >
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                          <Edit className="h-4 w-4 mr-2" />
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="lg:text-base lg:py-3">
+                          <Edit className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3" />
                           Редагувати
                         </DropdownMenuItem>
                       </PurchaseFormDialog>
@@ -306,7 +306,7 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                         <AlertDialogTrigger asChild>
                           <DropdownMenuItem 
                             onSelect={(e) => e.preventDefault()}
-                            className="text-destructive focus:text-destructive"
+                            className="text-destructive focus:text-destructive lg:text-base lg:py-3"
                             disabled={
                               deletingId === purchase.id || 
                               purchase.distribution_status === 'locked' ||
@@ -314,9 +314,9 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                             }
                           >
                             {deletingId === purchase.id ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              <Loader2 className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3 animate-spin" />
                             ) : (
-                              <Trash2 className="h-4 w-4 mr-2" />
+                              <Trash2 className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3" />
                             )}
                             Видалити
                           </DropdownMenuItem>
@@ -368,18 +368,18 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                 </div>
 
                 {/* Details */}
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">
+                <div className="space-y-3 lg:space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
+                    <div className="flex items-center gap-2 lg:gap-3">
+                      <User className="h-4 w-4 lg:h-5 lg:w-5 text-muted-foreground" />
+                      <span className="text-sm lg:text-base">
                         Покупець: <strong className="text-foreground">{purchase.buyer.name}</strong>
                       </span>
                     </div>
                     {purchase.driver && (
-                      <div className="flex items-center gap-2">
-                        <Car className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
+                      <div className="flex items-center gap-2 lg:gap-3">
+                        <Car className="h-4 w-4 lg:h-5 lg:w-5 text-muted-foreground" />
+                        <span className="text-sm lg:text-base">
                           Водій: <strong className="text-foreground">{purchase.driver.name}</strong>
                         </span>
                       </div>
@@ -389,17 +389,17 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                   {/* Coffee items */}
                   {purchase.purchase_items.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium mb-2 text-muted-foreground">Позиції:</h4>
-                      <div className="space-y-1">
+                      <h4 className="text-sm lg:text-base font-medium mb-2 lg:mb-3 text-muted-foreground">Позиції:</h4>
+                      <div className="space-y-1 lg:space-y-2">
                         {purchase.purchase_items.map((item, index) => (
-                          <div key={index} className="flex justify-between items-center text-sm bg-muted/50 rounded px-3 py-2">
+                          <div key={index} className="flex justify-between items-center text-sm lg:text-base bg-muted/50 rounded px-3 py-2 lg:px-4 lg:py-3">
                             <span className="font-medium">
                               {item.coffee_type.name} 
                               {item.coffee_type.brand && (
                                 <span className="text-muted-foreground"> ({item.coffee_type.brand})</span>
                               )}
                             </span>
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge variant="secondary" className="text-xs lg:text-sm">
                               {item.quantity} уп.
                             </Badge>
                           </div>
@@ -421,8 +421,8 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
 
                   {/* Notes */}
                   {purchase.notes && (
-                    <div className="bg-muted/30 rounded p-3">
-                      <p className="text-sm text-muted-foreground italic">
+                    <div className="bg-muted/30 rounded p-3 lg:p-4">
+                      <p className="text-sm lg:text-base text-muted-foreground italic">
                         {purchase.notes}
                       </p>
                     </div>

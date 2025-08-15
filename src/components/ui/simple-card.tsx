@@ -25,7 +25,7 @@ export const SimpleCard: React.FC<SimpleCardProps> = ({
       `}
       onClick={onClick}
     >
-      <CardContent className="p-4 md:p-6">
+      <CardContent className="p-4 md:p-6 lg:p-8 xl:p-10">
         {children}
       </CardContent>
     </Card>
