@@ -65,6 +65,25 @@ export const PurchaseDistributionPayments = ({
     getCurrentUser();
   }, []);
 
+  // Автоматично відмічати покупця як оплаченого
+  useEffect(() => {
+    const autoPayBuyer = async () => {
+      if (!currentUserId || !buyerId || currentUserId !== buyerId) return;
+      
+      const buyerDistribution = distributions.find(dist => 
+        dist.user_id === buyerId && !dist.is_paid
+      );
+      
+      if (buyerDistribution) {
+        await handlePaymentChange(buyerDistribution.id, true);
+      }
+    };
+    
+    if (currentUserId && buyerId && distributions.length > 0) {
+      autoPayBuyer();
+    }
+  }, [currentUserId, buyerId, distributions]);
+
   const handlePaymentChange = async (distributionId: string, isPaid: boolean) => {
     try {
       setLoadingPayment(distributionId);

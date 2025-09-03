@@ -394,9 +394,12 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                         {purchase.purchase_items.map((item, index) => (
                           <div key={index} className="flex justify-between items-center text-sm lg:text-base bg-muted/50 rounded px-3 py-2 lg:px-4 lg:py-3">
                             <span className="font-medium">
-                              {item.coffee_type.name} 
+                              {item.coffee_type.name}
                               {item.coffee_type.brand && (
                                 <span className="text-muted-foreground"> ({item.coffee_type.brand})</span>
+                              )}
+                              {item.unit_price && (
+                                <span className="text-primary"> - ₴{item.unit_price}/уп.</span>
                               )}
                             </span>
                             <Badge variant="secondary" className="text-xs lg:text-sm">
@@ -409,7 +412,8 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
                   )}
 
                   {/* Purchase Distribution Payments */}
-                  {purchase.purchase_distributions && purchase.purchase_distributions.length > 0 && (
+                  {purchase.purchase_distributions && purchase.purchase_distributions.length > 0 && 
+                   purchase.distribution_status !== 'locked' && (
                     <PurchaseDistributionPayments
                       purchaseId={purchase.id}
                       distributions={purchase.purchase_distributions}
