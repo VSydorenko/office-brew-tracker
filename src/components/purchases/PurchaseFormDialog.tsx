@@ -261,10 +261,40 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     }
   };
 
-  // Отримання останньої ціни кави з кешу або з бази
+  // Отримання останньої ціни кави з кешу
   const getLatestCoffeePrice = (coffeeId: string): number | null => {
     return priceCache[coffeeId] || null;
   };
+
+  // Попереднє завантаження цін для всіх типів кави
+  useEffect(() => {
+    const preloadPrices = async () => {
+      if (coffeeTypes.length === 0) return;
+      
+      const pricesPromises = coffeeTypes.map(async (coffee) => {
+        if (!priceCache[coffee.id]) {
+          const price = await fetchLatestPrice(coffee.id);
+          return { coffeeId: coffee.id, price };
+        }
+        return null;
+      });
+      
+      const results = await Promise.all(pricesPromises);
+      const newPrices: Record<string, number> = {};
+      
+      results.forEach(result => {
+        if (result && result.price) {
+          newPrices[result.coffeeId] = result.price;
+        }
+      });
+      
+      if (Object.keys(newPrices).length > 0) {
+        setPriceCache(prev => ({ ...prev, ...newPrices }));
+      }
+    };
+    
+    preloadPrices();
+  }, [coffeeTypes]);
 
   const fetchLatestPrice = async (coffeeId: string): Promise<number | null> => {
     if (priceCache[coffeeId]) {
