@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -104,102 +103,100 @@ export const CoffeeCombobox = ({
     onCreateNew;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-          disabled={disabled}
-        >
-          {selectedCoffee ? getCoffeeDisplayName(selectedCoffee) : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0 z-50" align="start">
-        <Command>
-          <CommandInput 
-            placeholder="Пошук або введіть назву нової кави..."
-            value={searchValue}
-            onValueChange={setSearchValue}
-          />
-          <CommandList>
-            <CommandEmpty>
-              {searchValue ? (
-                shouldShowCreateOption ? (
-                  <div className="py-2">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Кава не знайдена
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
+    <>
+      <Button
+        variant="outline"
+        role="combobox"
+        aria-expanded={open}
+        className="w-full justify-between"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+      >
+        {selectedCoffee ? getCoffeeDisplayName(selectedCoffee) : placeholder}
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+      
+      <CommandDialog open={open} onOpenChange={setOpen}>
+        <CommandInput 
+          placeholder="Пошук або введіть назву нової кави..."
+          value={searchValue}
+          onValueChange={setSearchValue}
+        />
+        <CommandList>
+          <CommandEmpty>
+            {searchValue ? (
+              shouldShowCreateOption ? (
+                <div className="py-2">
+                  <p className="text-sm text-muted-foreground mb-2">
                     Кава не знайдена
                   </p>
-                )
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Почніть вводити назву кави...
+                  Кава не знайдена
                 </p>
-              )}
-            </CommandEmpty>
-            
-            {filteredCoffees.length > 0 && (
-              <CommandGroup heading="Існуючі типи кави">
-                {filteredCoffees.map((coffee) => (
-                  <CommandItem
-                    key={coffee.id}
-                    value={getCoffeeDisplayName(coffee)}
-                    onSelect={() => handleSelect(coffee.id)}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === coffee.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex flex-col">
-                      <span>{getCoffeeDisplayName(coffee)}</span>
-                      {showLastPrice && onGetLastPrice ? (
-                        (() => {
-                          const lastPrice = onGetLastPrice(coffee.id);
-                          return lastPrice ? (
-                            <span className="text-xs text-primary font-medium">
-                              Остання ціна: ₴{lastPrice}/уп.
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              Ціна невідома
-                            </span>
-                          );
-                        })()
-                      ) : coffee.package_size ? (
-                        <span className="text-xs text-muted-foreground">
-                          {coffee.package_size}
-                        </span>
-                      ) : null}
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+              )
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Почніть вводити назву кави...
+              </p>
             )}
-
-            {shouldShowCreateOption && (
-              <CommandGroup heading="Створити нову">
+          </CommandEmpty>
+          
+          {filteredCoffees.length > 0 && (
+            <CommandGroup heading="Існуючі типи кави">
+              {filteredCoffees.map((coffee) => (
                 <CommandItem
-                  onSelect={handleCreateNew}
-                  disabled={creating}
+                  key={coffee.id}
+                  value={getCoffeeDisplayName(coffee)}
+                  onSelect={() => handleSelect(coffee.id)}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Створити "{searchValue}"
-                  {creating && <span className="ml-2 text-xs">(створюється...)</span>}
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === coffee.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div className="flex flex-col">
+                    <span>{getCoffeeDisplayName(coffee)}</span>
+                    {showLastPrice && onGetLastPrice ? (
+                      (() => {
+                        const lastPrice = onGetLastPrice(coffee.id);
+                        return lastPrice ? (
+                          <span className="text-xs text-primary font-medium">
+                            Остання ціна: ₴{lastPrice}/уп.
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            Ціна невідома
+                          </span>
+                        );
+                      })()
+                    ) : coffee.package_size ? (
+                      <span className="text-xs text-muted-foreground">
+                        {coffee.package_size}
+                      </span>
+                    ) : null}
+                  </div>
                 </CommandItem>
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+              ))}
+            </CommandGroup>
+          )}
+
+          {shouldShowCreateOption && (
+            <CommandGroup heading="Створити нову">
+              <CommandItem
+                onSelect={handleCreateNew}
+                disabled={creating}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Створити "{searchValue}"
+                {creating && <span className="ml-2 text-xs">(створюється...)</span>}
+              </CommandItem>
+            </CommandGroup>
+          )}
+        </CommandList>
+      </CommandDialog>
+    </>
   );
 };
