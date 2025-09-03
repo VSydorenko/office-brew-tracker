@@ -326,7 +326,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     // Автозаповнення ціни при виборі кави
     if (field === 'coffee_type_id' && value) {
       const lastPrice = await fetchLatestPrice(value);
-      if (lastPrice && !updatedItems[index].unit_price) {
+      if (lastPrice) {
         updatedItems[index].unit_price = lastPrice;
         updatedItems[index].total_price = lastPrice;
       }
