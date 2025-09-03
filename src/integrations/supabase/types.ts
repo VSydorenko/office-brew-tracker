@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -636,42 +636,46 @@ export type Database = {
     }
     Functions: {
       get_dashboard_kpis: {
-        Args: { start_date: string; end_date: string }
+        Args: { end_date: string; start_date: string }
         Returns: {
+          active_users: number
+          average_check: number
+          my_unpaid_total: number
           purchases_count: number
           total_spent: number
-          average_check: number
           unpaid_total: number
-          my_unpaid_total: number
-          active_users: number
         }[]
       }
+      get_latest_coffee_price: {
+        Args: { coffee_id: string }
+        Returns: number
+      }
       get_profiles_for_picker: {
-        Args: { search?: string; limit_n?: number; offset_n?: number }
+        Args: { limit_n?: number; offset_n?: number; search?: string }
         Returns: {
-          id: string
-          name: string
           avatar_path: string
           avatar_url: string
+          id: string
+          name: string
         }[]
       }
       get_recent_purchases_enriched: {
         Args: { limit_n?: number }
         Returns: {
-          id: string
-          date: string
-          total_amount: number
-          distribution_status: string
-          buyer_name: string
-          participants_count: number
-          paid_count: number
-          unpaid_count: number
           amount_paid: number
           amount_unpaid: number
+          buyer_name: string
+          date: string
+          distribution_status: string
+          id: string
+          paid_count: number
+          participants_count: number
+          total_amount: number
+          unpaid_count: number
         }[]
       }
       get_spending_timeseries: {
-        Args: { start_date: string; end_date: string }
+        Args: { end_date: string; start_date: string }
         Returns: {
           month_start: string
           purchases_count: number
@@ -679,28 +683,28 @@ export type Database = {
         }[]
       }
       get_status_breakdown: {
-        Args: { start_date: string; end_date: string }
+        Args: { end_date: string; start_date: string }
         Returns: {
-          status: string
           cnt: number
+          status: string
         }[]
       }
       get_top_coffees_by_qty: {
-        Args: { start_date: string; end_date: string; limit_n?: number }
+        Args: { end_date: string; limit_n?: number; start_date: string }
         Returns: {
-          coffee_type_id: string
           coffee_name: string
+          coffee_type_id: string
           total_qty: number
         }[]
       }
       get_top_drivers_with_monthly: {
-        Args: { start_date: string; end_date: string; limit_n?: number }
+        Args: { end_date: string; limit_n?: number; start_date: string }
         Returns: {
           driver_id: string
           driver_name: string
           month_start: string
-          trips: number
           total_trips: number
+          trips: number
         }[]
       }
       is_admin: {
