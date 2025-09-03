@@ -75,6 +75,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const [currentTab, setCurrentTab] = useState('purchase');
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [priceCache, setPriceCache] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
   const isEditMode = !!purchaseId;
@@ -260,9 +261,46 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     }
   };
 
-  const updatePurchaseItem = (index: number, field: keyof PurchaseItem, value: any) => {
+  // Отримання останньої ціни кави з кешу або з бази
+  const getLatestCoffeePrice = (coffeeId: string): number | null => {
+    return priceCache[coffeeId] || null;
+  };
+
+  const fetchLatestPrice = async (coffeeId: string): Promise<number | null> => {
+    if (priceCache[coffeeId]) {
+      return priceCache[coffeeId];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .rpc('get_latest_coffee_price', { coffee_id: coffeeId });
+
+      if (error) throw error;
+      
+      const price = data ? parseFloat(data.toString()) : null;
+      if (price) {
+        setPriceCache(prev => ({ ...prev, [coffeeId]: price }));
+        return price;
+      }
+    } catch (error) {
+      console.error('Error fetching latest price:', error);
+    }
+    
+    return null;
+  };
+
+  const updatePurchaseItem = async (index: number, field: keyof PurchaseItem, value: any) => {
     const updatedItems = [...purchaseItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
+    
+    // Автозаповнення ціни при виборі кави
+    if (field === 'coffee_type_id' && value) {
+      const lastPrice = await fetchLatestPrice(value);
+      if (lastPrice && !updatedItems[index].unit_price) {
+        updatedItems[index].unit_price = lastPrice;
+        updatedItems[index].total_price = lastPrice;
+      }
+    }
     
     // Автоматично розрахувати загальну ціну для позиції (завжди quantity = 1)
     if (field === 'unit_price') {
@@ -552,64 +590,40 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div className="space-y-3">
-                  <UserAvatarPicker
-                    selectedUserId={formData.buyer_id}
-                    onUserSelect={(userId) => setFormData(prev => ({ ...prev, buyer_id: userId }))}
-                    label="Покупець *"
-                    compact
-                  />
-                  {profiles.length > 10 && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        // TODO: Відкрити повний список користувачів
-                      }}
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Більше користувачів
-                    </Button>
-                  )}
-                </div>
+                 <div className="space-y-3">
+                   <UserAvatarPicker
+                     selectedUserId={formData.buyer_id}
+                     onUserSelect={(userId) => setFormData(prev => ({ ...prev, buyer_id: userId }))}
+                     label="Покупець *"
+                     compact
+                     hideSearchByDefault
+                   />
+                 </div>
 
-                <div className="space-y-3">
-                  <UserAvatarPicker
-                    selectedUserId={formData.driver_id}
-                    onUserSelect={(userId) => setFormData(prev => ({ ...prev, driver_id: userId }))}
-                    label="Водій (опціонально)"
-                    compact
-                  />
-                  {profiles.length > 10 && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        // TODO: Відкрити повний список користувачів  
-                      }}
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Більше користувачів
-                    </Button>
-                  )}
-                </div>
+                 <div className="space-y-3">
+                   <UserAvatarPicker
+                     selectedUserId={formData.driver_id}
+                     onUserSelect={(userId) => setFormData(prev => ({ ...prev, driver_id: userId }))}
+                     label="Водій (опціонально)"
+                     compact
+                     hideSearchByDefault
+                   />
+                 </div>
               </div>
 
               {/* Позиції покупки */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <Label className="text-base font-medium">Позиції покупки</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addPurchaseItem}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Додати позицію
-                  </Button>
+                   <Button
+                     type="button"
+                     size="sm"
+                     onClick={addPurchaseItem}
+                     className="bg-green-600 hover:bg-green-700 text-white"
+                   >
+                     <Plus className="h-4 w-4 mr-1" />
+                     Додати позицію
+                   </Button>
                 </div>
 
                 <div className="space-y-2">
@@ -618,13 +632,15 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                       <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
                         <div className="flex-1 space-y-2">
                           <Label className="text-sm">Назва кави</Label>
-                          <CoffeeCombobox
-                            coffeeTypes={coffeeTypes}
-                            value={item.coffee_type_id}
-                            onValueChange={(value) => updatePurchaseItem(index, 'coffee_type_id', value)}
-                            onCreateNew={createNewCoffeeType}
-                            placeholder="Оберіть або введіть назву кави..."
-                          />
+                           <CoffeeCombobox
+                             coffeeTypes={coffeeTypes}
+                             value={item.coffee_type_id}
+                             onValueChange={(value) => updatePurchaseItem(index, 'coffee_type_id', value)}
+                             onCreateNew={createNewCoffeeType}
+                             placeholder="Оберіть або введіть назву кави..."
+                             showLastPrice={true}
+                             onGetLastPrice={getLatestCoffeePrice}
+                           />
                         </div>
 
                         <div className="w-full md:w-32 space-y-2">

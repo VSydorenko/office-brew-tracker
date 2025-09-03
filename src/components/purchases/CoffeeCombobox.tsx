@@ -25,6 +25,10 @@ interface CoffeeComboboxProps {
   placeholder?: string;
   /** Чи компонент відключений */
   disabled?: boolean;
+  /** Показувати останню ціну замість розміру упаковки */
+  showLastPrice?: boolean;
+  /** Функція для отримання останньої ціни */
+  onGetLastPrice?: (coffeeId: string) => number | null;
 }
 
 /**
@@ -36,7 +40,9 @@ export const CoffeeCombobox = ({
   onValueChange,
   onCreateNew,
   placeholder = "Оберіть або введіть назву кави...",
-  disabled = false
+  disabled = false,
+  showLastPrice = false,
+  onGetLastPrice
 }: CoffeeComboboxProps) => {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -155,11 +161,24 @@ export const CoffeeCombobox = ({
                     />
                     <div className="flex flex-col">
                       <span>{getCoffeeDisplayName(coffee)}</span>
-                      {coffee.package_size && (
+                      {showLastPrice && onGetLastPrice ? (
+                        (() => {
+                          const lastPrice = onGetLastPrice(coffee.id);
+                          return lastPrice ? (
+                            <span className="text-xs text-primary font-medium">
+                              Остання ціна: ₴{lastPrice}/уп.
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              Ціна невідома
+                            </span>
+                          );
+                        })()
+                      ) : coffee.package_size ? (
                         <span className="text-xs text-muted-foreground">
                           {coffee.package_size}
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </CommandItem>
                 ))}

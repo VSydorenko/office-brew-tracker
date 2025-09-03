@@ -6,6 +6,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { getAvatarUrl, optimizeGoogleAvatarUrl } from '@/utils/avatar';
 import { useDebounce } from '@/hooks/use-debounce';
+import { Plus } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -20,6 +21,7 @@ interface UserAvatarPickerProps {
   label?: string;
   compact?: boolean;
   searchable?: boolean;
+  hideSearchByDefault?: boolean;
   pageSize?: number;
 }
 
@@ -32,9 +34,11 @@ export const UserAvatarPicker = ({
   label = "Швидкий вибір",
   compact = false,
   searchable = true,
+  hideSearchByDefault = false,
   pageSize = 30,
 }: UserAvatarPickerProps) => {
   const [search, setSearch] = useState("");
+  const [showSearch, setShowSearch] = useState(!hideSearchByDefault);
   const debouncedSearch = useDebounce(search, 300);
 
   const {
@@ -141,11 +145,17 @@ export const UserAvatarPicker = ({
     );
   }
 
+  const visibleProfiles = hideSearchByDefault && !showSearch 
+    ? profiles.slice(0, 10) 
+    : profiles;
+
+  const shouldShowPlusButton = hideSearchByDefault && !showSearch && profiles.length > 10;
+
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium text-muted-foreground">{label}</p>
 
-      {searchable && (
+      {searchable && showSearch && (
         <div className="mb-2">
           <Input
             placeholder="Пошук за ім'ям"
@@ -202,38 +212,48 @@ export const UserAvatarPicker = ({
             </div>
           ))
         ) : (
-          profiles.map((profile) => (
-            <Avatar
-              key={profile.id}
-              className={`w-10 h-10 border-2 cursor-pointer transition-all ${
-                selectedUserId === profile.id
-                  ? 'border-primary ring-2 ring-primary/20'
-                  : 'border-border hover:border-primary/50'
-              }`}
-              onClick={() => onUserSelect(profile.id)}
-            >
-              <AvatarImage 
-                src={getAvatarUrl(profile.avatar_path) || optimizeGoogleAvatarUrl(profile.avatar_url, 40) || undefined} 
-                alt={profile.name}
-                loading="lazy"
-                onError={(e) => {
-                  // Fallback при помилці завантаження зображення
-                  e.currentTarget.style.display = 'none';
-                }}
-                onLoad={(e) => {
-                  // Плавна поява коли зображення завантажилось
-                  e.currentTarget.style.opacity = '1';
-                }}
-                style={{
-                  transition: 'opacity 0.2s ease-in-out',
-                  opacity: profile.avatar_path || profile.avatar_url ? '0' : '1'
-                }}
-              />
-              <AvatarFallback className="text-xs">
-                {getInitials(profile.name)}
-              </AvatarFallback>
-            </Avatar>
-          ))
+          <>
+            {visibleProfiles.map((profile) => (
+              <Avatar
+                key={profile.id}
+                className={`w-10 h-10 border-2 cursor-pointer transition-all ${
+                  selectedUserId === profile.id
+                    ? 'border-primary ring-2 ring-primary/20'
+                    : 'border-border hover:border-primary/50'
+                }`}
+                onClick={() => onUserSelect(profile.id)}
+              >
+                <AvatarImage 
+                  src={getAvatarUrl(profile.avatar_path) || optimizeGoogleAvatarUrl(profile.avatar_url, 40) || undefined} 
+                  alt={profile.name}
+                  loading="lazy"
+                  onError={(e) => {
+                    // Fallback при помилці завантаження зображення
+                    e.currentTarget.style.display = 'none';
+                  }}
+                  onLoad={(e) => {
+                    // Плавна поява коли зображення завантажилось
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  style={{
+                    transition: 'opacity 0.2s ease-in-out',
+                    opacity: profile.avatar_path || profile.avatar_url ? '0' : '1'
+                  }}
+                />
+                <AvatarFallback className="text-xs">
+                  {getInitials(profile.name)}
+                </AvatarFallback>
+              </Avatar>
+            ))}
+            {shouldShowPlusButton && (
+              <div
+                className="w-10 h-10 border-2 border-dashed border-muted-foreground/50 rounded-full flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => setShowSearch(true)}
+              >
+                <Plus className="h-4 w-4 text-muted-foreground" />
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -241,7 +261,7 @@ export const UserAvatarPicker = ({
         <p className="text-sm text-muted-foreground">Нічого не знайдено.</p>
       )}
 
-      {hasNextPage && (
+      {showSearch && hasNextPage && (
         <div className="pt-2">
           <button
             type="button"
