@@ -76,6 +76,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const [currentTab, setCurrentTab] = useState('purchase');
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [isDistributionManuallyModified, setIsDistributionManuallyModified] = useState(false);
   const [priceCache, setPriceCache] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
@@ -220,6 +221,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
         setDistributions([]);
         setSelectedTemplate('');
         setDistributionValidation(null);
+        setIsDistributionManuallyModified(false);
         setCurrentTab('purchase');
       }
     }
@@ -725,6 +727,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                 purchaseDate={formData.date}
                 initialDistributions={distributions.length > 0 ? distributions : undefined}
                 initialSelectedTemplate={selectedTemplate || undefined}
+                isManuallyModified={isDistributionManuallyModified}
+                onManualModificationChange={(isModified) => setIsDistributionManuallyModified(isModified)}
                 onDistributionChange={(dists, validation) => {
                   setDistributions(dists);
                   setDistributionValidation(validation);

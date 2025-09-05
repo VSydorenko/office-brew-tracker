@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calculator, RefreshCw } from 'lucide-react';
+import { Calculator, RefreshCw, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -46,6 +46,8 @@ interface PurchaseDistributionStepProps {
   onDistributionChange?: (distributions: PurchaseDistribution[], validationData?: any) => void;
   initialDistributions?: PurchaseDistribution[];
   initialSelectedTemplate?: string;
+  isManuallyModified?: boolean;
+  onManualModificationChange?: (isModified: boolean) => void;
 }
 
 /**
@@ -56,12 +58,15 @@ export const PurchaseDistributionStep = ({
   purchaseDate, 
   onDistributionChange,
   initialDistributions,
-  initialSelectedTemplate
+  initialSelectedTemplate,
+  isManuallyModified = false,
+  onManualModificationChange
 }: PurchaseDistributionStepProps) => {
   const [templates, setTemplates] = useState<DistributionTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [distributions, setDistributions] = useState<PurchaseDistribution[]>([]);
   const [loading, setLoading] = useState(true);
+  const [manuallyModified, setManuallyModified] = useState(isManuallyModified);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -172,6 +177,10 @@ export const PurchaseDistributionStep = ({
       });
     }
     
+    // Позначаємо як змінено вручну
+    setManuallyModified(true);
+    onManualModificationChange?.(true);
+    
     setDistributions(updated);
   };
 
@@ -179,6 +188,8 @@ export const PurchaseDistributionStep = ({
     const template = templates.find(t => t.id === selectedTemplate);
     if (template) {
       applyTemplate(template);
+      setManuallyModified(false);
+      onManualModificationChange?.(false);
       toast({
         title: "Успіх",
         description: "Розподіл перераховано за шаблоном",
@@ -199,6 +210,8 @@ export const PurchaseDistributionStep = ({
     }));
     
     setDistributions(updatedDistributions);
+    setManuallyModified(true);
+    onManualModificationChange?.(true);
     toast({
       title: "Розподіл оновлено",
       description: "Встановлено рівномірний розподіл між усіма користувачами",
@@ -217,6 +230,34 @@ export const PurchaseDistributionStep = ({
     return distributions.reduce((sum, dist) => 
       sum + (dist.adjusted_amount ?? dist.calculated_amount), 0
     );
+  };
+
+  const removeUserFromDistribution = (userId: string) => {
+    const updatedDistributions = distributions.filter(dist => dist.user_id !== userId);
+    
+    if (updatedDistributions.length === 0) {
+      setDistributions([]);
+      setManuallyModified(true);
+      onManualModificationChange?.(true);
+      return;
+    }
+
+    // Перераховуємо відсотки та суми для решти користувачів
+    const totalShares = updatedDistributions.reduce((sum, dist) => sum + dist.shares, 0);
+    const recalculatedDistributions = updatedDistributions.map(dist => ({
+      ...dist,
+      percentage: totalShares > 0 ? (dist.shares / totalShares) * 100 : 0,
+      calculated_amount: totalShares > 0 ? (totalAmount * dist.shares) / totalShares : 0
+    }));
+    
+    setDistributions(recalculatedDistributions);
+    setManuallyModified(true);
+    onManualModificationChange?.(true);
+    
+    toast({
+      title: "Користувача видалено",
+      description: "Розподіл автоматично перераховано для решти користувачів",
+    });
   };
 
   // Експортуємо функції валідації через props
@@ -280,6 +321,11 @@ export const PurchaseDistributionStep = ({
             Розподіл покупки
           </CardTitle>
           <div className="flex items-center gap-2">
+            {manuallyModified && (
+              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                Змінено вручну
+              </Badge>
+            )}
             <Badge variant="outline">
               {getTotalShares()} часток
             </Badge>
@@ -330,17 +376,18 @@ export const PurchaseDistributionStep = ({
         </div>
 
         <div className="space-y-3">
-          <div className="grid grid-cols-6 gap-2 text-sm font-medium text-muted-foreground">
+          <div className="grid grid-cols-7 gap-2 text-sm font-medium text-muted-foreground">
             <span>Користувач</span>
             <span>Частки</span>
             <span>%</span>
             <span>Розраховано</span>
             <span>Скориговано</span>
             <span>Підсумок</span>
+            <span>Дії</span>
           </div>
           
           {distributions.map((distribution, index) => (
-            <div key={distribution.user_id} className="grid grid-cols-6 gap-2 items-center">
+            <div key={distribution.user_id} className="grid grid-cols-7 gap-2 items-center">
               <span className="text-sm font-medium">
                 {distribution.profile?.name}
               </span>
@@ -370,6 +417,15 @@ export const PurchaseDistributionStep = ({
               <span className="text-sm font-medium">
                 {(distribution.adjusted_amount ?? distribution.calculated_amount).toFixed(2)} ₴
               </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => removeUserFromDistribution(distribution.user_id)}
+                className="h-8 w-8 p-0"
+                title="Видалити користувача з розподілу"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
