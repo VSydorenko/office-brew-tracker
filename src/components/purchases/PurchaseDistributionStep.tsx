@@ -17,6 +17,7 @@ interface Profile {
 
 interface TemplateUser {
   user_id: string;
+  shares: number;
   percentage: number;
   profiles: Profile;
 }
@@ -26,11 +27,13 @@ interface DistributionTemplate {
   name: string;
   effective_from: string;
   is_active: boolean;
+  total_shares?: number;
   distribution_template_users: TemplateUser[];
 }
 
 interface PurchaseDistribution {
   user_id: string;
+  shares: number;
   percentage: number;
   calculated_amount: number;
   adjusted_amount?: number;
@@ -68,9 +71,11 @@ export const PurchaseDistributionStep = ({
   // Автоматичний перерахунок при зміні totalAmount
   useEffect(() => {
     if (distributions.length > 0 && totalAmount > 0) {
+      const totalShares = distributions.reduce((sum, dist) => sum + dist.shares, 0);
       const updatedDistributions = distributions.map(dist => ({
         ...dist,
-        calculated_amount: (totalAmount * dist.percentage) / 100
+        percentage: totalShares > 0 ? (dist.shares / totalShares) * 100 : 0,
+        calculated_amount: totalShares > 0 ? (totalAmount * dist.shares) / totalShares : 0
       }));
       setDistributions(updatedDistributions);
     }
@@ -85,6 +90,7 @@ export const PurchaseDistributionStep = ({
           *,
           distribution_template_users (
             user_id,
+            shares,
             percentage,
             profiles (
               id,
@@ -127,10 +133,12 @@ export const PurchaseDistributionStep = ({
   };
 
   const applyTemplate = (template: DistributionTemplate) => {
+    const totalShares = template.total_shares || template.distribution_template_users.reduce((sum, user) => sum + user.shares, 0);
     const newDistributions = template.distribution_template_users.map(templateUser => ({
       user_id: templateUser.user_id,
-      percentage: templateUser.percentage,
-      calculated_amount: (totalAmount * templateUser.percentage) / 100,
+      shares: templateUser.shares,
+      percentage: totalShares > 0 ? (templateUser.shares / totalShares) * 100 : 0,
+      calculated_amount: totalShares > 0 ? (totalAmount * templateUser.shares) / totalShares : 0,
       profile: templateUser.profiles
     }));
     setDistributions(newDistributions);
@@ -148,10 +156,20 @@ export const PurchaseDistributionStep = ({
     const updated = [...distributions];
     updated[index] = { ...updated[index], [field]: value };
     
-    // Якщо змінюється відсоток, перераховуємо суму
-    if (field === 'percentage') {
-      updated[index].calculated_amount = (totalAmount * value) / 100;
+    // Якщо змінюються частки, перераховуємо відсоток і суму
+    if (field === 'shares') {
+      const totalShares = updated.reduce((sum, dist) => sum + dist.shares, 0);
+      updated[index].percentage = totalShares > 0 ? (value / totalShares) * 100 : 0;
+      updated[index].calculated_amount = totalShares > 0 ? (totalAmount * value) / totalShares : 0;
       updated[index].adjusted_amount = undefined; // Скидаємо коригування
+      
+      // Перераховуємо відсотки для всіх користувачів
+      updated.forEach((dist, i) => {
+        dist.percentage = totalShares > 0 ? (dist.shares / totalShares) * 100 : 0;
+        if (i !== index) {
+          dist.calculated_amount = totalShares > 0 ? (totalAmount * dist.shares) / totalShares : 0;
+        }
+      });
     }
     
     setDistributions(updated);
@@ -168,6 +186,10 @@ export const PurchaseDistributionStep = ({
     }
   };
 
+  const getTotalShares = () => {
+    return distributions.reduce((sum, dist) => sum + dist.shares, 0);
+  };
+
   const getTotalPercentage = () => {
     return distributions.reduce((sum, dist) => sum + dist.percentage, 0);
   };
@@ -180,10 +202,12 @@ export const PurchaseDistributionStep = ({
 
   // Експортуємо функції валідації через props
   useEffect(() => {
+    const totalShares = getTotalShares();
     const validationData = {
+      totalShares: totalShares,
       totalPercentage: getTotalPercentage(),
       totalCalculatedAmount: getTotalCalculatedAmount(),
-      isValidPercentage: getTotalPercentage() === 100,
+      isValidShares: totalShares > 0,
       isValidAmount: Math.abs(getTotalCalculatedAmount() - totalAmount) <= 0.01,
       selectedTemplate: selectedTemplate,
       distributions
@@ -237,8 +261,11 @@ export const PurchaseDistributionStep = ({
             Розподіл покупки
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Badge variant={getTotalPercentage() === 100 ? "default" : "destructive"}>
-              {getTotalPercentage()}%
+            <Badge variant="outline">
+              {getTotalShares()} часток
+            </Badge>
+            <Badge variant={Math.abs(getTotalPercentage() - 100) < 0.01 ? "default" : "secondary"}>
+              {getTotalPercentage().toFixed(1)}%
             </Badge>
             <Badge variant="outline">
               {getTotalCalculatedAmount().toFixed(2)} ₴
@@ -274,8 +301,9 @@ export const PurchaseDistributionStep = ({
         </div>
 
         <div className="space-y-3">
-          <div className="grid grid-cols-5 gap-2 text-sm font-medium text-muted-foreground">
+          <div className="grid grid-cols-6 gap-2 text-sm font-medium text-muted-foreground">
             <span>Користувач</span>
+            <span>Частки</span>
             <span>%</span>
             <span>Розраховано</span>
             <span>Скориговано</span>
@@ -283,19 +311,21 @@ export const PurchaseDistributionStep = ({
           </div>
           
           {distributions.map((distribution, index) => (
-            <div key={distribution.user_id} className="grid grid-cols-5 gap-2 items-center">
+            <div key={distribution.user_id} className="grid grid-cols-6 gap-2 items-center">
               <span className="text-sm font-medium">
                 {distribution.profile?.name}
               </span>
               <Input
                 type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={distribution.percentage}
-                onChange={(e) => updateDistribution(index, 'percentage', parseFloat(e.target.value) || 0)}
+                min="1"
+                step="1"
+                value={distribution.shares}
+                onChange={(e) => updateDistribution(index, 'shares', parseInt(e.target.value) || 1)}
                 className="h-8"
               />
+              <span className="text-sm text-muted-foreground">
+                {distribution.percentage.toFixed(1)}%
+              </span>
               <span className="text-sm text-muted-foreground">
                 {distribution.calculated_amount.toFixed(2)} ₴
               </span>
@@ -315,11 +345,11 @@ export const PurchaseDistributionStep = ({
           ))}
         </div>
 
-        {getTotalPercentage() !== 100 && (
+        {getTotalShares() <= 0 && (
           <div className="p-3 border border-destructive rounded-md bg-destructive/10">
             <p className="text-sm text-destructive">
-              Увага: Сума відсотків повинна дорівнювати 100%. 
-              Поточна сума: {getTotalPercentage()}%
+              Увага: Загальна кількість часток повинна бути більше 0. 
+              Поточна кількість: {getTotalShares()}
             </p>
           </div>
         )}

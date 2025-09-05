@@ -15,7 +15,8 @@ interface Profile {
 
 interface TemplateUser {
   user_id: string;
-  percentage: number;
+  shares: number;
+  percentage?: number; // Розраховується автоматично
   profile?: Profile;
 }
 
@@ -46,7 +47,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
         fetchTemplateData();
       } else {
         // Ініціалізуємо з одним користувачем
-        setTemplateUsers([{ user_id: '', percentage: 0 }]);
+        setTemplateUsers([{ user_id: '', shares: 1 }]);
       }
     }
   }, [open, isEditMode]);
@@ -80,6 +81,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
           *,
           distribution_template_users (
             user_id,
+            shares,
             percentage
           )
         `)
@@ -102,7 +104,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
   };
 
   const addTemplateUser = () => {
-    setTemplateUsers([...templateUsers, { user_id: '', percentage: 0 }]);
+    setTemplateUsers([...templateUsers, { user_id: '', shares: 1 }]);
   };
 
   const removeTemplateUser = (index: number) => {
@@ -115,28 +117,32 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
     setTemplateUsers(updated);
   };
 
-  const getTotalPercentage = () => {
-    return templateUsers.reduce((sum, user) => sum + (user.percentage || 0), 0);
+  const getTotalShares = () => {
+    return templateUsers.reduce((sum, user) => sum + (user.shares || 0), 0);
+  };
+
+  const calculatePercentage = (shares: number, totalShares: number) => {
+    return totalShares > 0 ? (shares / totalShares) * 100 : 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const totalPercentage = getTotalPercentage();
-    if (totalPercentage !== 100) {
+    const totalShares = getTotalShares();
+    if (totalShares <= 0) {
       toast({
         title: "Помилка валідації",
-        description: `Сума відсотків повинна дорівнювати 100%. Поточна сума: ${totalPercentage}%`,
+        description: "Загальна кількість часток повинна бути більше 0",
         variant: "destructive",
       });
       return;
     }
 
-    const validUsers = templateUsers.filter(user => user.user_id && user.percentage > 0);
+    const validUsers = templateUsers.filter(user => user.user_id && user.shares > 0);
     if (validUsers.length === 0) {
       toast({
         title: "Помилка валідації",
-        description: "Додайте хоча б одного користувача з відсотком більше 0",
+        description: "Додайте хоча б одного користувача з частками більше 0",
         variant: "destructive",
       });
       return;
@@ -151,6 +157,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
           .update({
             name: templateName,
             effective_from: effectiveFrom,
+            total_shares: totalShares,
           })
           .eq('id', templateId);
 
@@ -168,7 +175,8 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
         const templateUsersData = validUsers.map(user => ({
           template_id: templateId,
           user_id: user.user_id,
-          percentage: user.percentage
+          shares: user.shares,
+          percentage: calculatePercentage(user.shares, totalShares)
         }));
 
         const { error: usersError } = await supabase
@@ -188,7 +196,8 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
           .insert({
             name: templateName,
             effective_from: effectiveFrom,
-            is_active: true
+            is_active: true,
+            total_shares: totalShares
           })
           .select()
           .single();
@@ -199,7 +208,8 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
         const templateUsersData = validUsers.map(user => ({
           template_id: template.id,
           user_id: user.user_id,
-          percentage: user.percentage
+          shares: user.shares,
+          percentage: calculatePercentage(user.shares, totalShares)
         }));
 
         const { error: usersError } = await supabase
@@ -233,7 +243,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
   const resetForm = () => {
     setTemplateName('');
     setEffectiveFrom('');
-    setTemplateUsers([{ user_id: '', percentage: 0 }]);
+    setTemplateUsers([{ user_id: '', shares: 1 }]);
   };
 
   const defaultTrigger = (
@@ -281,8 +291,8 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
             <div className="flex justify-between items-center mb-4">
               <Label>Розподіл користувачів</Label>
               <div className="flex items-center gap-2">
-                <span className={`text-sm ${getTotalPercentage() === 100 ? 'text-green-600' : 'text-red-600'}`}>
-                  Всього: {getTotalPercentage()}%
+                <span className="text-sm text-primary">
+                  Всього часток: {getTotalShares()}
                 </span>
                 <Button type="button" variant="outline" size="sm" onClick={addTemplateUser}>
                   <Plus className="h-4 w-4" />
@@ -291,47 +301,61 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
             </div>
 
             <div className="space-y-3">
-              {templateUsers.map((templateUser, index) => (
-                <div key={index} className="flex gap-3 items-center">
-                  <div className="flex-1">
-                    <select
-                      value={templateUser.user_id}
-                      onChange={(e) => updateTemplateUser(index, 'user_id', e.target.value)}
-                      className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                      required
-                    >
-                      <option value="">Оберіть користувача</option>
-                      {profiles.map(profile => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.name}
-                        </option>
-                      ))}
-                    </select>
+              <div className="grid grid-cols-12 gap-3 text-sm font-medium text-muted-foreground mb-2">
+                <span className="col-span-6">Користувач</span>
+                <span className="col-span-2">Частки</span>
+                <span className="col-span-3">Відсоток</span>
+                <span className="col-span-1"></span>
+              </div>
+              {templateUsers.map((templateUser, index) => {
+                const totalShares = getTotalShares();
+                const percentage = calculatePercentage(templateUser.shares || 0, totalShares);
+                return (
+                  <div key={index} className="grid grid-cols-12 gap-3 items-center">
+                    <div className="col-span-6">
+                      <select
+                        value={templateUser.user_id}
+                        onChange={(e) => updateTemplateUser(index, 'user_id', e.target.value)}
+                        className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                        required
+                      >
+                        <option value="">Оберіть користувача</option>
+                        {profiles.map(profile => (
+                          <option key={profile.id} value={profile.id}>
+                            {profile.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={templateUser.shares || ''}
+                        onChange={(e) => updateTemplateUser(index, 'shares', parseInt(e.target.value) || 1)}
+                        placeholder="1"
+                        required
+                      />
+                    </div>
+                    <div className="col-span-3 text-sm text-muted-foreground flex items-center">
+                      {percentage.toFixed(1)}%
+                    </div>
+                    <div className="col-span-1">
+                      {templateUsers.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeTemplateUser(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="w-24">
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={templateUser.percentage}
-                      onChange={(e) => updateTemplateUser(index, 'percentage', parseFloat(e.target.value) || 0)}
-                      placeholder="%"
-                      required
-                    />
-                  </div>
-                  {templateUsers.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeTemplateUser(index)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -341,7 +365,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || getTotalPercentage() !== 100}
+              disabled={loading || getTotalShares() <= 0}
               className="bg-gradient-coffee shadow-brew"
             >
               {loading ? 'Збереження...' : isEditMode ? 'Оновити шаблон' : 'Створити шаблон'}

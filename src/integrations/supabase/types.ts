@@ -228,6 +228,7 @@ export type Database = {
           created_at: string
           id: string
           percentage: number
+          shares: number | null
           template_id: string
           user_id: string
         }
@@ -235,6 +236,7 @@ export type Database = {
           created_at?: string
           id?: string
           percentage: number
+          shares?: number | null
           template_id: string
           user_id: string
         }
@@ -242,6 +244,7 @@ export type Database = {
           created_at?: string
           id?: string
           percentage?: number
+          shares?: number | null
           template_id?: string
           user_id?: string
         }
@@ -269,6 +272,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          total_shares: number | null
           updated_at: string
         }
         Insert: {
@@ -277,6 +281,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          total_shares?: number | null
           updated_at?: string
         }
         Update: {
@@ -285,6 +290,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          total_shares?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -472,6 +478,7 @@ export type Database = {
           percentage: number
           previous_amount: number | null
           purchase_id: string
+          shares: number | null
           updated_at: string
           user_id: string
           version: number | null
@@ -488,6 +495,7 @@ export type Database = {
           percentage: number
           previous_amount?: number | null
           purchase_id: string
+          shares?: number | null
           updated_at?: string
           user_id: string
           version?: number | null
@@ -504,6 +512,7 @@ export type Database = {
           percentage?: number
           previous_amount?: number | null
           purchase_id?: string
+          shares?: number | null
           updated_at?: string
           user_id?: string
           version?: number | null

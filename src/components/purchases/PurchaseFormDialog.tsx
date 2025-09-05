@@ -39,6 +39,7 @@ interface PurchaseItem {
 
 interface PurchaseDistribution {
   user_id: string;
+  shares: number;
   percentage: number;
   calculated_amount: number;
   adjusted_amount?: number;
@@ -98,6 +99,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           ),
           purchase_distributions(
             user_id,
+            shares,
             percentage,
             calculated_amount,
             adjusted_amount,
@@ -126,6 +128,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       if (data.purchase_distributions && data.purchase_distributions.length > 0) {
         const existingDistributions = data.purchase_distributions.map((dist: any) => ({
           user_id: dist.user_id,
+          shares: dist.shares || Math.round(dist.percentage), // Використовуємо shares або конвертуємо з відсотка
           percentage: dist.percentage,
           calculated_amount: dist.calculated_amount,
           adjusted_amount: dist.adjusted_amount,
@@ -377,10 +380,10 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
 
     // Валідація розподілу, якщо є дані
     if (distributionValidation && distributions.length > 0) {
-      if (!distributionValidation.isValidPercentage) {
+      if (!distributionValidation.isValidShares) {
         toast({
           title: "Помилка валідації",
-          description: `Сума відсотків повинна дорівнювати 100%. Поточна сума: ${distributionValidation.totalPercentage}%`,
+          description: "Загальна кількість часток повинна бути більше 0",
           variant: "destructive",
         });
         setCurrentTab('distribution');
@@ -458,6 +461,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           const distributionsToInsert = distributions.map(dist => ({
             purchase_id: purchaseId,
             user_id: dist.user_id,
+            shares: dist.shares,
             percentage: dist.percentage,
             calculated_amount: dist.calculated_amount,
             adjusted_amount: dist.adjusted_amount || null,
@@ -517,6 +521,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           const distributionsToInsert = distributions.map(dist => ({
             purchase_id: purchase.id,
             user_id: dist.user_id,
+            shares: dist.shares,
             percentage: dist.percentage,
             calculated_amount: dist.calculated_amount,
             adjusted_amount: dist.adjusted_amount || null,
