@@ -166,7 +166,6 @@ export const PurchaseDistributionStep = ({
       const totalShares = updated.reduce((sum, dist) => sum + dist.shares, 0);
       updated[index].percentage = totalShares > 0 ? (value / totalShares) * 100 : 0;
       updated[index].calculated_amount = totalShares > 0 ? (totalAmount * value) / totalShares : 0;
-      updated[index].adjusted_amount = undefined; // Скидаємо коригування
       
       // Перераховуємо відсотки для всіх користувачів
       updated.forEach((dist, i) => {
@@ -197,26 +196,6 @@ export const PurchaseDistributionStep = ({
     }
   };
 
-  const redistributeEqually = () => {
-    if (distributions.length === 0) return;
-    
-    const equalShares = 1; // Кожному по 1 частці
-    const updatedDistributions = distributions.map(dist => ({
-      ...dist,
-      shares: equalShares,
-      percentage: (1 / distributions.length) * 100,
-      calculated_amount: totalAmount / distributions.length,
-      adjusted_amount: undefined
-    }));
-    
-    setDistributions(updatedDistributions);
-    setManuallyModified(true);
-    onManualModificationChange?.(true);
-    toast({
-      title: "Розподіл оновлено",
-      description: "Встановлено рівномірний розподіл між усіма користувачами",
-    });
-  };
 
   const getTotalShares = () => {
     return distributions.reduce((sum, dist) => sum + dist.shares, 0);
@@ -227,9 +206,7 @@ export const PurchaseDistributionStep = ({
   };
 
   const getTotalCalculatedAmount = () => {
-    return distributions.reduce((sum, dist) => 
-      sum + (dist.adjusted_amount ?? dist.calculated_amount), 0
-    );
+    return distributions.reduce((sum, dist) => sum + dist.calculated_amount, 0);
   };
 
   const removeUserFromDistribution = (userId: string) => {
@@ -355,15 +332,6 @@ export const PurchaseDistributionStep = ({
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={redistributeEqually}
-            disabled={distributions.length === 0}
-            title="Рівномірний розподіл між усіма користувачами"
-          >
-            Рівномірно
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
             onClick={recalculateFromTemplate}
             disabled={!selectedTemplate}
             title="Перерахувати за шаблоном"
@@ -373,17 +341,15 @@ export const PurchaseDistributionStep = ({
         </div>
 
         <div className="space-y-3">
-          <div className="grid grid-cols-6 gap-2 text-sm font-medium text-muted-foreground">
+          <div className="grid grid-cols-4 gap-2 text-sm font-medium text-muted-foreground">
             <span>Користувач</span>
             <span>Частки</span>
-            <span>Розраховано</span>
-            <span>Скориговано</span>
             <span>Підсумок</span>
             <span>Дії</span>
           </div>
           
           {distributions.map((distribution, index) => (
-            <div key={distribution.user_id} className="grid grid-cols-6 gap-2 items-center">
+            <div key={distribution.user_id} className="grid grid-cols-4 gap-2 items-center">
               <span className="text-sm font-medium">
                 {distribution.profile?.name}
               </span>
@@ -395,20 +361,8 @@ export const PurchaseDistributionStep = ({
                 onChange={(e) => updateDistribution(index, 'shares', parseInt(e.target.value) || 1)}
                 className="h-8"
               />
-              <span className="text-sm text-muted-foreground">
-                {distribution.calculated_amount.toFixed(2)} ₴
-              </span>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={distribution.adjusted_amount ?? ''}
-                onChange={(e) => updateDistribution(index, 'adjusted_amount', parseFloat(e.target.value) || 0)}
-                placeholder="Авто"
-                className="h-8"
-              />
               <span className="text-sm font-medium">
-                {(distribution.adjusted_amount ?? distribution.calculated_amount).toFixed(2)} ₴
+                {distribution.calculated_amount.toFixed(2)} ₴
               </span>
               <Button
                 variant="outline"
