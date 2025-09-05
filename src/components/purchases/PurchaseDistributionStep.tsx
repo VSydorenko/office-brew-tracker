@@ -329,9 +329,6 @@ export const PurchaseDistributionStep = ({
             <Badge variant="outline">
               {getTotalShares()} часток
             </Badge>
-            <Badge variant={Math.abs(getTotalPercentage() - 100) < 0.01 ? "default" : "secondary"}>
-              {getTotalPercentage().toFixed(1)}%
-            </Badge>
             <Badge variant="outline">
               {getTotalCalculatedAmount().toFixed(2)} ₴
             </Badge>
@@ -376,10 +373,9 @@ export const PurchaseDistributionStep = ({
         </div>
 
         <div className="space-y-3">
-          <div className="grid grid-cols-7 gap-2 text-sm font-medium text-muted-foreground">
+          <div className="grid grid-cols-6 gap-2 text-sm font-medium text-muted-foreground">
             <span>Користувач</span>
             <span>Частки</span>
-            <span>%</span>
             <span>Розраховано</span>
             <span>Скориговано</span>
             <span>Підсумок</span>
@@ -387,7 +383,7 @@ export const PurchaseDistributionStep = ({
           </div>
           
           {distributions.map((distribution, index) => (
-            <div key={distribution.user_id} className="grid grid-cols-7 gap-2 items-center">
+            <div key={distribution.user_id} className="grid grid-cols-6 gap-2 items-center">
               <span className="text-sm font-medium">
                 {distribution.profile?.name}
               </span>
@@ -399,9 +395,6 @@ export const PurchaseDistributionStep = ({
                 onChange={(e) => updateDistribution(index, 'shares', parseInt(e.target.value) || 1)}
                 className="h-8"
               />
-              <span className="text-sm text-muted-foreground">
-                {distribution.percentage.toFixed(1)}%
-              </span>
               <span className="text-sm text-muted-foreground">
                 {distribution.calculated_amount.toFixed(2)} ₴
               </span>

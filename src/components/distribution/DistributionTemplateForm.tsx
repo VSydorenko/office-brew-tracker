@@ -325,17 +325,14 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
             </div>
 
             <div className="space-y-3">
-              <div className="grid grid-cols-12 gap-3 text-sm font-medium text-muted-foreground mb-2">
+              <div className="grid grid-cols-9 gap-3 text-sm font-medium text-muted-foreground mb-2">
                 <span className="col-span-6">Користувач</span>
                 <span className="col-span-2">Частки</span>
-                <span className="col-span-3">Відсоток</span>
                 <span className="col-span-1"></span>
               </div>
               {templateUsers.map((templateUser, index) => {
-                const totalShares = getTotalShares();
-                const percentage = calculatePercentage(templateUser.shares || 0, totalShares);
                 return (
-                  <div key={index} className="grid grid-cols-12 gap-3 items-center">
+                  <div key={index} className="grid grid-cols-9 gap-3 items-center">
                     <div className="col-span-6">
                       <select
                         value={templateUser.user_id}
@@ -361,9 +358,6 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
                         placeholder="1"
                         required
                       />
-                    </div>
-                    <div className="col-span-3 text-sm text-muted-foreground flex items-center">
-                      {percentage.toFixed(1)}%
                     </div>
                     <div className="col-span-1">
                       {templateUsers.length > 1 && (

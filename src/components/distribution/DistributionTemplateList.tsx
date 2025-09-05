@@ -249,7 +249,6 @@ export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplat
                     <span className="text-sm font-medium">{user.profiles.name}</span>
                     <div className="flex gap-1">
                       <Badge variant="outline">{user.shares} ч.</Badge>
-                      <Badge variant="secondary">{user.percentage.toFixed(1)}%</Badge>
                     </div>
                   </div>
                 ))}
