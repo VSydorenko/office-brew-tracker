@@ -107,6 +107,21 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
     setTemplateUsers([...templateUsers, { user_id: '', shares: 1 }]);
   };
 
+  const addEqualDistribution = () => {
+    if (profiles.length === 0) return;
+    
+    const equalUsers = profiles.map(profile => ({
+      user_id: profile.id,
+      shares: 1 // Рівномірний розподіл - по 1 частці кожному
+    }));
+    
+    setTemplateUsers(equalUsers);
+    toast({
+      title: "Розподіл створено",
+      description: `Додано ${profiles.length} користувачів з рівномірним розподілом`,
+    });
+  };
+
   const removeTemplateUser = (index: number) => {
     setTemplateUsers(templateUsers.filter((_, i) => i !== index));
   };
@@ -294,6 +309,15 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
                 <span className="text-sm text-primary">
                   Всього часток: {getTotalShares()}
                 </span>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={addEqualDistribution}
+                  title="Додати всіх користувачів з рівномірним розподілом"
+                >
+                  Рівномірно
+                </Button>
                 <Button type="button" variant="outline" size="sm" onClick={addTemplateUser}>
                   <Plus className="h-4 w-4" />
                 </Button>

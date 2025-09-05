@@ -16,6 +16,7 @@ import { DistributionTemplateForm } from './DistributionTemplateForm';
 
 interface TemplateUser {
   user_id: string;
+  shares: number;
   percentage: number;
   profiles: {
     name: string;
@@ -29,6 +30,7 @@ interface DistributionTemplate {
   effective_from: string;
   is_active: boolean;
   created_at: string;
+  total_shares?: number;
   distribution_template_users: TemplateUser[];
 }
 
@@ -58,6 +60,7 @@ export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplat
           *,
           distribution_template_users (
             user_id,
+            shares,
             percentage,
             profiles (
               name,
@@ -240,14 +243,22 @@ export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplat
           <CardContent>
             <div className="space-y-2">
               <h4 className="font-medium text-sm">Розподіл користувачів:</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {template.distribution_template_users.map(user => (
                   <div key={user.user_id} className="flex justify-between items-center p-2 bg-muted rounded">
                     <span className="text-sm font-medium">{user.profiles.name}</span>
-                    <Badge variant="outline">{user.percentage}%</Badge>
+                    <div className="flex gap-1">
+                      <Badge variant="outline">{user.shares} ч.</Badge>
+                      <Badge variant="secondary">{user.percentage.toFixed(1)}%</Badge>
+                    </div>
                   </div>
                 ))}
               </div>
+              {template.total_shares && (
+                <div className="text-xs text-muted-foreground mt-2">
+                  Всього часток: {template.total_shares}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

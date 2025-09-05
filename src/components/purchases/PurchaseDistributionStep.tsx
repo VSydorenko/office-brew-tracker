@@ -186,6 +186,25 @@ export const PurchaseDistributionStep = ({
     }
   };
 
+  const redistributeEqually = () => {
+    if (distributions.length === 0) return;
+    
+    const equalShares = 1; // Кожному по 1 частці
+    const updatedDistributions = distributions.map(dist => ({
+      ...dist,
+      shares: equalShares,
+      percentage: (1 / distributions.length) * 100,
+      calculated_amount: totalAmount / distributions.length,
+      adjusted_amount: undefined
+    }));
+    
+    setDistributions(updatedDistributions);
+    toast({
+      title: "Розподіл оновлено",
+      description: "Встановлено рівномірний розподіл між усіма користувачами",
+    });
+  };
+
   const getTotalShares = () => {
     return distributions.reduce((sum, dist) => sum + dist.shares, 0);
   };
@@ -293,8 +312,18 @@ export const PurchaseDistributionStep = ({
           <Button 
             variant="outline" 
             size="sm" 
+            onClick={redistributeEqually}
+            disabled={distributions.length === 0}
+            title="Рівномірний розподіл між усіма користувачами"
+          >
+            Рівномірно
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
             onClick={recalculateFromTemplate}
             disabled={!selectedTemplate}
+            title="Перерахувати за шаблоном"
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
