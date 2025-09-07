@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { CardNumberDisplay } from '@/components/ui/card-number-display';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,14 @@ interface PurchaseDistribution {
   paid_at?: string;
   version?: number;
   adjustment_type?: string;
-  profiles: { name: string; email: string; avatar_path?: string; avatar_url?: string };
+  profiles: { 
+    name: string; 
+    email: string; 
+    avatar_path?: string; 
+    avatar_url?: string;
+    card_number?: string;
+    card_holder_name?: string;
+  };
 }
 
 interface PurchaseDistributionPaymentsProps {
@@ -229,12 +237,24 @@ export const PurchaseDistributionPayments = ({
                         {dist.adjustment_type === 'charge' ? 'Доплата' : 
                          dist.adjustment_type === 'refund' ? 'Повернення' : 'Перерозподіл'}
                       </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
+                     )}
+                   </div>
+                 </div>
+                 
+                  {/* Показуємо номер карти для неоплачених записів */}
+                  {!dist.is_paid && dist.profiles?.card_number && (
+                    <div className="mt-2">
+                      <CardNumberDisplay 
+                        cardNumber={dist.profiles.card_number}
+                        cardHolderName={dist.profiles.card_holder_name}
+                        className="text-xs"
+                        defaultMasked={true}
+                      />
+                    </div>
+                  )}
+               </div>
+               
+               <div className="flex items-center gap-3">
                 <span className="font-medium">
                   ₴{finalAmount.toFixed(2)}
                 </span>

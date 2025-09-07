@@ -61,7 +61,7 @@ const MyPayments = () => {
             date,
             total_amount,
             buyer_id,
-            profiles!purchases_buyer_id_fkey(name, avatar_path, avatar_url)
+            profiles!purchases_buyer_id_fkey(name, avatar_path, avatar_url, card_number, card_holder_name)
           )
         `)
         .eq('user_id', user?.id)

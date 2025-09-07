@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getAvatarUrl, optimizeGoogleAvatarUrl } from '@/utils/avatar';
 import { CheckCircle, Clock, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
+import { CardNumberDisplay } from '@/components/ui/card-number-display';
 
 interface PaymentRecordProps {
   debt: any;
@@ -120,6 +121,18 @@ export const PaymentRecord = ({ debt, onMarkAsPaid, showBuyerInfo = false, showD
           <p className="text-xs text-muted-foreground mt-1">
             {debt.notes}
           </p>
+        )}
+        
+        {/* Показуємо номер карти покупця для неоплачених боргів */}
+        {showBuyerInfo && !debt.is_paid && debt.purchases?.profiles?.card_number && (
+          <div className="mt-2">
+            <CardNumberDisplay 
+              cardNumber={debt.purchases.profiles.card_number}
+              cardHolderName={debt.purchases.profiles.card_holder_name}
+              className="text-xs"
+              defaultMasked={true}
+            />
+          </div>
         )}
         </div>
       </div>

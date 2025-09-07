@@ -391,6 +391,8 @@ export type Database = {
           approved_by: string | null
           avatar_path: string | null
           avatar_url: string | null
+          card_holder_name: string | null
+          card_number: string | null
           created_at: string
           email: string
           id: string
@@ -404,6 +406,8 @@ export type Database = {
           approved_by?: string | null
           avatar_path?: string | null
           avatar_url?: string | null
+          card_holder_name?: string | null
+          card_number?: string | null
           created_at?: string
           email: string
           id: string
@@ -417,6 +421,8 @@ export type Database = {
           approved_by?: string | null
           avatar_path?: string | null
           avatar_url?: string | null
+          card_holder_name?: string | null
+          card_number?: string | null
           created_at?: string
           email?: string
           id?: string

@@ -16,6 +16,8 @@ interface Profile {
   email: string;
   avatar_path?: string;
   avatar_url?: string;
+  card_number?: string;
+  card_holder_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -26,7 +28,7 @@ export default function Profile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [name, setName] = useState('');
+  
 
   useEffect(() => {
     if (user) {
@@ -41,7 +43,7 @@ export default function Profile() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, avatar_path, avatar_url, created_at, updated_at')
+        .select('id, name, avatar_path, avatar_url, card_number, card_holder_name, created_at, updated_at')
         .eq('id', user.id)
         .single();
 
@@ -62,7 +64,6 @@ export default function Profile() {
       };
       
       setProfile(profileWithEmail as Profile);
-      setName(profileWithEmail.name);
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -82,7 +83,11 @@ export default function Profile() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ name })
+        .update({ 
+          name: profile.name,
+          card_number: profile.card_number,
+          card_holder_name: profile.card_holder_name
+        })
         .eq('id', user.id);
 
       if (error) {
@@ -95,7 +100,6 @@ export default function Profile() {
         return;
       }
 
-      setProfile({ ...profile, name });
       toast({
         title: "Успішно",
         description: "Профіль оновлено"
@@ -216,8 +220,8 @@ export default function Profile() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Ім'я</label>
                 <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={profile.name}
+                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                   placeholder="Введіть ваше ім'я"
                 />
               </div>
@@ -234,10 +238,41 @@ export default function Profile() {
                 </p>
               </div>
 
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-medium mb-3">Платіжна інформація</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Ім'я власника карти</label>
+                    <Input
+                      value={profile.card_holder_name || ''}
+                      onChange={(e) => setProfile({ ...profile, card_holder_name: e.target.value })}
+                      placeholder="Іван Іваненко"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Номер карти</label>
+                    <Input
+                      value={profile.card_number || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 16);
+                        setProfile({ ...profile, card_number: value });
+                      }}
+                      placeholder="1234567890123456"
+                      maxLength={16}
+                      className="font-mono"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      16 цифр без пробілів та інших символів
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end">
                 <Button
                   onClick={handleSave}
-                  disabled={saving || name === profile.name}
+                  disabled={saving}
                 >
                   {saving ? 'Збереження...' : 'Зберегти'}
                 </Button>
