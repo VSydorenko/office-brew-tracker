@@ -13,9 +13,10 @@ import { Plus, Coffee, Trash2, Edit, Loader2, Calculator } from 'lucide-react';
 import { UserAvatarPicker } from './UserAvatarPicker';
 import { CoffeeCombobox } from './CoffeeCombobox';
 import { PurchaseDistributionStep } from './PurchaseDistributionStep';
-import { useProfiles } from '@/hooks/use-profiles';
+import { useProfiles, useCurrentProfile } from '@/hooks/use-profiles';
 import { useCoffeeTypes, useCreateCoffeeType } from '@/hooks/use-coffee-types';
 import { usePurchase, useCreatePurchase, useUpdatePurchase, useLatestCoffeePrice, useLastPurchaseTemplate } from '@/hooks/use-purchases';
+import { useAuth } from '@/components/ui/auth-provider';
 
 interface Profile {
   id: string;
@@ -80,6 +81,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const isEditMode = !!purchaseId;
 
   // React Query хуки
+  const { user } = useAuth();
+  const { data: currentProfile } = useCurrentProfile();
   const { data: profiles = [] } = useProfiles();
   const { data: coffeeTypes = [] } = useCoffeeTypes();
   const { data: purchaseData, isLoading: isLoadingPurchase } = usePurchase(purchaseId || '');
@@ -120,12 +123,12 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const handleOpenChange = async (newOpen: boolean) => {
     setOpen(newOpen);
     if (newOpen && !isEditMode) {
-      // Скинути форму для нової покупки
+      // Скинути форму для нової покупки і встановити поточного користувача як покупця
       setFormData({
         date: new Date().toISOString().split('T')[0],
         total_amount: '',
         notes: '',
-        buyer_id: '',
+        buyer_id: currentProfile?.id || '',
         driver_id: '',
       });
       setPurchaseItems([]);
@@ -319,7 +322,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                       id="total_amount"
                       type="number"
                       step="0.01"
-                      placeholder="0.00"
+                      placeholder="Введіть загальну суму"
                       value={formData.total_amount}
                       onChange={(e) => setFormData(prev => ({ ...prev, total_amount: e.target.value }))}
                       required
@@ -341,34 +344,21 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="buyer">Покупець *</Label>
-                    <Select value={formData.buyer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, buyer_id: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Оберіть покупця" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {profiles.map(profile => (
-                          <SelectItem key={profile.id} value={profile.id}>
-                            {profile.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <UserAvatarPicker
+                      selectedUserId={formData.buyer_id}
+                      onUserSelect={(userId) => setFormData(prev => ({ ...prev, buyer_id: userId }))}
+                      compact={false}
+                      searchable={true}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="driver">Водій</Label>
-                    <Select value={formData.driver_id || "no-driver"} onValueChange={(value) => setFormData(prev => ({ ...prev, driver_id: value === "no-driver" ? "" : value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Оберіть водія (опціонально)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no-driver">Без водія</SelectItem>
-                        {profiles.map(profile => (
-                          <SelectItem key={profile.id} value={profile.id}>
-                            {profile.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <UserAvatarPicker
+                      selectedUserId={formData.driver_id}
+                      onUserSelect={(userId) => setFormData(prev => ({ ...prev, driver_id: userId }))}
+                      compact={false}
+                      searchable={true}
+                    />
                   </div>
                 </div>
 
@@ -388,18 +378,14 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                         <div key={index} className="flex gap-2 items-start p-3 border rounded-lg">
                           <div className="flex-1">
                             <Label className="text-sm">Тип кави</Label>
-                            <Select value={item.coffee_type_id} onValueChange={(value) => updatePurchaseItem(index, 'coffee_type_id', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Оберіть тип кави" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {coffeeTypes.map(coffee => (
-                                  <SelectItem key={coffee.id} value={coffee.id}>
-                                    {coffee.brand ? `${coffee.name} (${coffee.brand})` : coffee.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <CoffeeCombobox
+                              coffeeTypes={coffeeTypes}
+                              value={item.coffee_type_id}
+                              onValueChange={(value) => updatePurchaseItem(index, 'coffee_type_id', value)}
+                              onCreateNew={createNewCoffeeType}
+                              placeholder="Оберіть або створіть тип кави"
+                              showLastPrice={false}
+                            />
                           </div>
                           <div className="w-24">
                             <Label className="text-sm">К-сть</Label>
