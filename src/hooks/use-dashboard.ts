@@ -4,6 +4,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseQuery, useRealtimeInvalidation } from './use-supabase-query';
 import { queryKeys } from '@/lib/query-client';
+import type { DriversStackPoint } from '@/components/dashboard/TopDriversChart';
 
 /**
  * Тип KPI данних Dashboard
@@ -107,6 +108,13 @@ export function useSpendingTimeseries(startDate?: string, endDate?: string) {
       });
     },
     {
+      select: (data) => {
+        // Трансформуємо дані з month_start у month
+        return (data.data || []).map((r: any) => ({
+          month: new Date(r.month_start).toLocaleDateString('uk-UA', { month: 'short', year: 'numeric' }),
+          total_spent: Number(r.total_spent || 0),
+        }));
+      },
       staleTime: 5 * 60 * 1000, // 5 хвилин - змінюється рідше
     }
   );
@@ -145,6 +153,45 @@ export function useTopDrivers(startDate?: string, endDate?: string, limit = 5) {
       });
     },
     {
+      select: (data) => {
+        // Трансформуємо сирі дані в стек-структуру для графіку
+        const rawDrivers = data.data || [];
+        
+        // Отримуємо унікальні місяці та імена водіїв
+        const monthsIsoSet = new Set<string>();
+        const driverNamesSet = new Set<string>();
+        rawDrivers.forEach((row: any) => {
+          if (row.driver_name) driverNamesSet.add(row.driver_name);
+          if (row.month_start) monthsIsoSet.add(row.month_start);
+        });
+        
+        const monthsIso = Array.from(monthsIsoSet).sort(
+          (a, b) => new Date(a).getTime() - new Date(b).getTime()
+        );
+        const driverNames = Array.from(driverNamesSet);
+
+        // Ініціалізуємо рядки з нулями
+        const stack: DriversStackPoint[] = monthsIso.map((iso) => {
+          const label = new Date(iso).toLocaleDateString('uk-UA', {
+            month: 'short',
+            year: 'numeric',
+          });
+          const base: DriversStackPoint = { month: label };
+          driverNames.forEach((n) => (base[n] = 0));
+          return base;
+        });
+
+        // Заповнюємо реальними даними
+        rawDrivers.forEach((row: any) => {
+          if (!row.month_start || !row.driver_name) return;
+          const idx = monthsIso.indexOf(row.month_start);
+          if (idx >= 0) {
+            stack[idx][row.driver_name] = Number(row.trips || 0);
+          }
+        });
+
+        return stack;
+      },
       staleTime: 5 * 60 * 1000, // 5 хвилин
     }
   );
