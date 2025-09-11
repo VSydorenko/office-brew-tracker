@@ -661,6 +661,13 @@ export type Database = {
           unpaid_total: number
         }[]
       }
+      get_last_purchase_template_by_buyer: {
+        Args: { buyer_user_id: string }
+        Returns: {
+          template_id: string
+          template_name: string
+        }[]
+      }
       get_latest_coffee_price: {
         Args: { coffee_id: string }
         Returns: number

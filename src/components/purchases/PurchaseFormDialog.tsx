@@ -15,7 +15,7 @@ import { CoffeeCombobox } from './CoffeeCombobox';
 import { PurchaseDistributionStep } from './PurchaseDistributionStep';
 import { useProfiles } from '@/hooks/use-profiles';
 import { useCoffeeTypes, useCreateCoffeeType } from '@/hooks/use-coffee-types';
-import { usePurchase, useCreatePurchase, useUpdatePurchase, useLatestCoffeePrice } from '@/hooks/use-purchases';
+import { usePurchase, useCreatePurchase, useUpdatePurchase, useLatestCoffeePrice, useLastPurchaseTemplate } from '@/hooks/use-purchases';
 
 interface Profile {
   id: string;
@@ -83,6 +83,9 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const { data: profiles = [] } = useProfiles();
   const { data: coffeeTypes = [] } = useCoffeeTypes();
   const { data: purchaseData, isLoading: isLoadingPurchase } = usePurchase(purchaseId || '');
+  const { data: lastTemplate } = useLastPurchaseTemplate(
+    !isEditMode ? formData.buyer_id : undefined
+  );
   
   const createPurchaseMutation = useCreatePurchase();
   const updatePurchaseMutation = useUpdatePurchase();
@@ -465,7 +468,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                     setDistributionValidation(validation);
                   }}
                   initialDistributions={distributions}
-                  initialSelectedTemplate={selectedTemplate}
+                  initialSelectedTemplate={!isEditMode && lastTemplate ? lastTemplate.template_id : undefined}
                   isManuallyModified={isDistributionManuallyModified}
                   onManualModificationChange={setIsDistributionManuallyModified}
                 />

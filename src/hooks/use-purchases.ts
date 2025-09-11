@@ -452,3 +452,23 @@ export function useCanDeletePurchase(purchaseId?: string) {
     }
   );
 }
+
+/**
+ * Хук для отримання шаблону з останньої покупки користувача
+ */
+export function useLastPurchaseTemplate(buyerId?: string) {
+  return useSupabaseQuery(
+    queryKeys.purchases.lastTemplate(buyerId || ''),
+    async () => {
+      if (!buyerId) return { data: null, error: null };
+      
+      return supabase.rpc('get_last_purchase_template_by_buyer', {
+        buyer_user_id: buyerId
+      });
+    },
+    {
+      enabled: !!buyerId,
+      staleTime: 1 * 60 * 1000, // 1 хвилина
+    }
+  );
+}

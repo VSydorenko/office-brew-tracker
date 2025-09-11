@@ -119,6 +119,18 @@ export const PurchaseDistributionStep = ({
         if (initialSelectedTemplate) {
           setSelectedTemplate(initialSelectedTemplate);
         }
+      } else if (initialSelectedTemplate) {
+        // Якщо передано шаблон з попередньої покупки, використовуємо його
+        const templateFromPreviousPurchase = templatesData.find(t => t.id === initialSelectedTemplate);
+        if (templateFromPreviousPurchase) {
+          setSelectedTemplate(initialSelectedTemplate);
+          applyTemplate(templateFromPreviousPurchase);
+        } else if (templatesData.length > 0) {
+          // Якщо шаблон з попередньої покупки не знайдено, використовуємо найактуальніший
+          const latestTemplate = templatesData[0];
+          setSelectedTemplate(latestTemplate.id);
+          applyTemplate(latestTemplate);
+        }
       } else if (templatesData.length > 0) {
         // Автоматично обираємо найактуальніший шаблон тільки якщо немає початкових даних
         const latestTemplate = templatesData[0];
