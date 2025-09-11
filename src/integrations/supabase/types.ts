@@ -660,10 +660,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      backfill_purchase_templates: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
       get_dashboard_kpis: {
         Args: { end_date: string; start_date: string }
         Returns: {
