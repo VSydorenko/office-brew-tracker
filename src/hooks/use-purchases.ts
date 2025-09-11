@@ -1,0 +1,346 @@
+/**
+ * React Query хуки для роботи з покупками
+ */
+import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseQuery, useSupabaseMutation, useRealtimeInvalidation } from './use-supabase-query';
+import { queryKeys } from '@/lib/query-client';
+
+/**
+ * Тип покупки
+ */
+export interface Purchase {
+  id: string;
+  date: string;
+  total_amount: number;
+  buyer_id: string;
+  driver_id?: string;
+  notes?: string;
+  distribution_status: 'draft' | 'active' | 'locked' | 'amount_changed';
+  original_total_amount?: number;
+  locked_at?: string;
+  locked_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Тип позиції покупки
+ */
+export interface PurchaseItem {
+  id: string;
+  purchase_id: string;
+  coffee_type_id: string;
+  quantity: number;
+  unit_price?: number;
+  total_price?: number;
+  created_at: string;
+}
+
+/**
+ * Покупка з деталями
+ */
+export interface PurchaseWithDetails extends Purchase {
+  buyer?: { id: string; name: string };
+  driver?: { id: string; name: string };
+  purchase_items?: (PurchaseItem & {
+    coffee_types?: { id: string; name: string };
+  })[];
+  purchase_distributions?: Array<{
+    id: string;
+    user_id: string;
+    percentage: number;
+    calculated_amount: number;
+    adjusted_amount?: number;
+    is_paid: boolean;
+    profiles?: { id: string; name: string };
+  }>;
+}
+
+/**
+ * Дані для створення покупки
+ */
+export interface CreatePurchaseData {
+  date: string;
+  total_amount: number;
+  buyer_id: string;
+  driver_id?: string;
+  notes?: string;
+  items: Array<{
+    coffee_type_id: string;
+    quantity: number;
+    unit_price?: number;
+    total_price?: number;
+  }>;
+  distributions?: Array<{
+    user_id: string;
+    percentage: number;
+    shares?: number;
+  }>;
+}
+
+/**
+ * Хук для отримання всіх покупок
+ */
+export function usePurchases() {
+  const query = useSupabaseQuery(
+    queryKeys.purchases.all,
+    async () => {
+      return supabase
+        .from('purchases')
+        .select(`
+          *,
+          buyer:buyer_id(id, name),
+          driver:driver_id(id, name),
+          purchase_items(
+            *,
+            coffee_types(id, name)
+          ),
+          purchase_distributions(
+            id,
+            user_id,
+            percentage,
+            calculated_amount,
+            adjusted_amount,
+            is_paid,
+            profiles:user_id(id, name)
+          )
+        `)
+        .order('date', { ascending: false });
+    },
+    {
+      staleTime: 2 * 60 * 1000, // 2 хвилини
+    }
+  );
+
+  // Realtime оновлення для покупок
+  useRealtimeInvalidation('purchases', [[...queryKeys.purchases.all]]);
+  useRealtimeInvalidation('purchase_items', [[...queryKeys.purchases.all]]);
+  useRealtimeInvalidation('purchase_distributions', [[...queryKeys.purchases.all]]);
+
+  return query;
+}
+
+/**
+ * Хук для отримання деталей покупки
+ */
+export function usePurchase(id: string) {
+  return useSupabaseQuery(
+    queryKeys.purchases.detail(id),
+    async () => {
+      return supabase
+        .from('purchases')
+        .select(`
+          *,
+          buyer:buyer_id(id, name),
+          driver:driver_id(id, name),
+          purchase_items(
+            *,
+            coffee_types(id, name)
+          ),
+          purchase_distributions(
+            id,
+            user_id,
+            percentage,
+            calculated_amount,
+            adjusted_amount,
+            is_paid,
+            notes,
+            profiles:user_id(id, name)
+          )
+        `)
+        .eq('id', id)
+        .single();
+    },
+    {
+      enabled: !!id,
+      staleTime: 1 * 60 * 1000, // 1 хвилина
+    }
+  );
+}
+
+/**
+ * Хук для отримання останніх покупок
+ */
+export function useRecentPurchases(limit = 5) {
+  return useSupabaseQuery(
+    queryKeys.purchases.recent(limit),
+    async () => {
+      return supabase.rpc('get_recent_purchases_enriched', {
+        limit_n: limit,
+      });
+    },
+    {
+      staleTime: 1 * 60 * 1000, // 1 хвилина
+    }
+  );
+}
+
+/**
+ * Хук для створення покупки
+ */
+export function useCreatePurchase() {
+  return useSupabaseMutation(
+    async (data: CreatePurchaseData) => {
+      // Створюємо покупку
+      const purchaseResult = await supabase
+        .from('purchases')
+        .insert({
+          date: data.date,
+          total_amount: data.total_amount,
+          buyer_id: data.buyer_id,
+          driver_id: data.driver_id,
+          notes: data.notes,
+        })
+        .select()
+        .single();
+
+      if (purchaseResult.error) {
+        return { data: null, error: purchaseResult.error };
+      }
+
+      const purchaseId = purchaseResult.data.id;
+
+      // Додаємо позиції покупки
+      if (data.items.length > 0) {
+        const itemsToInsert = data.items.map(item => ({
+          ...item,
+          purchase_id: purchaseId,
+        }));
+
+        const itemsResult = await supabase
+          .from('purchase_items')
+          .insert(itemsToInsert);
+
+        if (itemsResult.error) {
+          // Видаляємо покупку у випадку помилки
+          await supabase.from('purchases').delete().eq('id', purchaseId);
+          return { data: null, error: itemsResult.error };
+        }
+      }
+
+      // Додаємо розподіли, якщо є
+      if (data.distributions && data.distributions.length > 0) {
+        const distributionsToInsert = data.distributions.map(dist => ({
+          ...dist,
+          purchase_id: purchaseId,
+          calculated_amount: (data.total_amount * dist.percentage) / 100,
+        }));
+
+        const distributionsResult = await supabase
+          .from('purchase_distributions')
+          .insert(distributionsToInsert);
+
+        if (distributionsResult.error) {
+          // Видаляємо покупку у випадку помилки
+          await supabase.from('purchases').delete().eq('id', purchaseId);
+          return { data: null, error: distributionsResult.error };
+        }
+      }
+
+      return { data: purchaseResult.data, error: null };
+    },
+    {
+      invalidateQueries: [
+        [...queryKeys.purchases.all],
+        [...queryKeys.dashboard.kpis()],
+        [...queryKeys.dashboard.recentPurchases(5)],
+      ],
+      successMessage: 'Покупку створено успішно',
+    }
+  );
+}
+
+/**
+ * Хук для оновлення покупки
+ */
+export function useUpdatePurchase() {
+  return useSupabaseMutation(
+    async ({ id, data }: { id: string; data: Partial<CreatePurchaseData> }) => {
+      // Оновлюємо основні дані покупки
+      const purchaseResult = await supabase
+        .from('purchases')
+        .update({
+          date: data.date,
+          total_amount: data.total_amount,
+          buyer_id: data.buyer_id,
+          driver_id: data.driver_id,
+          notes: data.notes,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (purchaseResult.error) {
+        return { data: null, error: purchaseResult.error };
+      }
+
+      // Оновлюємо позиції, якщо передані
+      if (data.items) {
+        // Видаляємо старі позиції
+        await supabase
+          .from('purchase_items')
+          .delete()
+          .eq('purchase_id', id);
+
+        // Додаємо нові позиції
+        if (data.items.length > 0) {
+          const itemsToInsert = data.items.map(item => ({
+            ...item,
+            purchase_id: id,
+          }));
+
+          const itemsResult = await supabase
+            .from('purchase_items')
+            .insert(itemsToInsert);
+
+          if (itemsResult.error) {
+            return { data: null, error: itemsResult.error };
+          }
+        }
+      }
+
+      return { data: purchaseResult.data, error: null };
+    },
+    {
+      invalidateQueries: [
+        [...queryKeys.purchases.all],
+        [...queryKeys.dashboard.kpis()],
+      ],
+      successMessage: 'Покупку оновлено успішно',
+    }
+  );
+}
+
+/**
+ * Хук для видалення покупки
+ */
+export function useDeletePurchase() {
+  return useSupabaseMutation(
+    async (id: string) => {
+      // Видаляємо розподіли
+      await supabase
+        .from('purchase_distributions')
+        .delete()
+        .eq('purchase_id', id);
+
+      // Видаляємо позиції
+      await supabase
+        .from('purchase_items')
+        .delete()
+        .eq('purchase_id', id);
+
+      // Видаляємо покупку
+      return supabase
+        .from('purchases')
+        .delete()
+        .eq('id', id);
+    },
+    {
+      invalidateQueries: [
+        [...queryKeys.purchases.all],
+        [...queryKeys.dashboard.kpis()],
+      ],
+      successMessage: 'Покупку видалено успішно',
+    }
+  );
+}

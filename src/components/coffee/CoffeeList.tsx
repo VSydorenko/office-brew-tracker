@@ -1,11 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useCallback, useMemo } from 'react';
 import { CoffeeCard } from './CoffeeCard';
 import { Card, CardContent } from '@/components/ui/card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { SearchBar } from '@/components/ui/search-bar';
 import { Coffee } from 'lucide-react';
+import { useCoffeeTypes, CoffeeTypeWithDetails } from '@/hooks/use-coffee-types';
 
 interface CoffeeType {
   id: string;
@@ -25,70 +24,78 @@ interface CoffeeListProps {
 }
 
 export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
-  const [coffees, setCoffees] = useState<CoffeeType[]>([]);
-  const [filteredCoffees, setFilteredCoffees] = useState<CoffeeType[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const { toast } = useToast();
+
+  // Використовуємо React Query хук для отримання даних
+  const { data: rawCoffees, isLoading: loading, error } = useCoffeeTypes();
+
+  // Трансформуємо дані з нового формату у старий для сумісності з CoffeeCard
+  const coffees = useMemo(() => {
+    if (!rawCoffees) return [];
+    
+    return rawCoffees.map((coffee: CoffeeTypeWithDetails): CoffeeType => ({
+      id: coffee.id,
+      name: coffee.name,
+      description: coffee.description,
+      package_size: coffee.package_size,
+      created_at: coffee.created_at,
+      brands: coffee.brands,
+      coffee_varieties: coffee.coffee_varieties,
+      origins: coffee.origins,
+      processing_methods: coffee.processing_methods,
+      coffee_flavors: coffee.coffee_flavors?.map(cf => ({ flavors: cf.flavors })) || [],
+    }));
+  }, [rawCoffees]);
 
   // Пошук та фільтрація
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
-    if (!query.trim()) {
-      setFilteredCoffees(coffees);
-      return;
+  }, []);
+
+  // Фільтровані кави на основі пошукового запиту
+  const filteredCoffees = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return coffees;
     }
 
-    const filtered = coffees.filter(coffee =>
-      coffee.name.toLowerCase().includes(query.toLowerCase()) ||
-      coffee.brands?.name.toLowerCase().includes(query.toLowerCase()) ||
-      coffee.description?.toLowerCase().includes(query.toLowerCase()) ||
-      coffee.coffee_varieties?.name.toLowerCase().includes(query.toLowerCase()) ||
-      coffee.origins?.name.toLowerCase().includes(query.toLowerCase()) ||
-      coffee.processing_methods?.name.toLowerCase().includes(query.toLowerCase()) ||
-      coffee.coffee_flavors?.some(cf => cf.flavors.name.toLowerCase().includes(query.toLowerCase()))
+    return coffees.filter(coffee =>
+      coffee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      coffee.brands?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      coffee.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      coffee.coffee_varieties?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      coffee.origins?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      coffee.processing_methods?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      coffee.coffee_flavors?.some(cf => cf.flavors.name.toLowerCase().includes(searchQuery.toLowerCase()))
     );
-    setFilteredCoffees(filtered);
-  }, [coffees]);
+  }, [coffees, searchQuery]);
 
-  const fetchCoffees = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('coffee_types')
-        .select(`
-          *,
-          brands:brand_id(name),
-          coffee_varieties:variety_id(name),
-          origins:origin_id(name),
-          processing_methods:processing_method_id(name),
-          coffee_flavors(flavors(name))
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      const coffeeData = data || [];
-      setCoffees(coffeeData);
-      setFilteredCoffees(coffeeData);
-    } catch (error: any) {
-      toast({
-        title: "Помилка",
-        description: error.message || "Не вдалося завантажити каталог кави",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  // Фіктивна функція для сумісності з CoffeeCard
+  const handleCoffeeUpdated = () => {
+    // React Query автоматично оновить дані завдяки Realtime
   };
 
-  // Оновлювати фільтровані результати при зміні coffees
-  useEffect(() => {
-    handleSearch(searchQuery);
-  }, [coffees, searchQuery, handleSearch]);
-
-  useEffect(() => {
-    fetchCoffees();
-  }, [refreshTrigger]);
+  // Обробка помилок
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <SearchBar
+          placeholder="Пошук кави за назвою, брендом, походженням..."
+          onSearch={handleSearch}
+        />
+        <Card className="shadow-coffee">
+          <CardContent className="p-8 md:p-12 text-center">
+            <Coffee className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-destructive mb-2">
+              Помилка завантаження
+            </h3>
+            <p className="text-muted-foreground">
+              {error.message || "Не вдалося завантажити каталог кави"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -129,7 +136,7 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
                   <CoffeeCard 
                     key={coffee.id} 
                     coffee={coffee} 
-                    onCoffeeUpdated={fetchCoffees}
+                    onCoffeeUpdated={handleCoffeeUpdated}
                   />
           ))}
         </div>

@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/components/ui/auth-provider";
 import { BottomNavigationProvider } from "@/contexts/BottomNavigationContext";
@@ -10,6 +11,7 @@ import BottomNavigation from "@/components/BottomNavigation";
 import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { OfflineSync } from "@/components/ui/offline-sync";
+import { createQueryClient } from "@/lib/query-client";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Purchases from "./pages/Purchases";
@@ -23,7 +25,8 @@ import NotFound from "./pages/NotFound";
 import RequireApproved from "@/components/auth/RequireApproved";
 import WaitingApproval from "./pages/WaitingApproval";
 import UserManagement from "./pages/UserManagement";
-const queryClient = new QueryClient();
+
+const queryClient = createQueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -68,6 +71,7 @@ const App = () => (
         </TooltipProvider>
       </BottomNavigationProvider>
     </AuthProvider>
+    <ReactQueryDevtools initialIsOpen={false} />
   </QueryClientProvider>
 );
 
