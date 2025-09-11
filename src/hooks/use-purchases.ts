@@ -89,11 +89,11 @@ export function usePurchases() {
         .from('purchases')
         .select(`
           *,
-          buyer:buyer_id(id, name),
-          driver:driver_id(id, name),
+          buyer:profiles!purchases_buyer_id_fkey(id, name),
+          driver:profiles!purchases_driver_id_fkey(id, name),
           purchase_items(
             *,
-            coffee_types(id, name)
+            coffee_types(id, name, brand)
           ),
           purchase_distributions(
             id,
@@ -102,7 +102,10 @@ export function usePurchases() {
             calculated_amount,
             adjusted_amount,
             is_paid,
-            profiles:user_id(id, name)
+            paid_at,
+            version,
+            adjustment_type,
+            profiles(id, name, email, avatar_path, avatar_url)
           )
         `)
         .order('date', { ascending: false });
@@ -329,6 +332,12 @@ export function useDeletePurchase() {
         .delete()
         .eq('purchase_id', id);
 
+      // Видаляємо записи змін суми
+      await supabase
+        .from('purchase_amount_changes')
+        .delete()
+        .eq('purchase_id', id);
+
       // Видаляємо покупку
       return supabase
         .from('purchases')
@@ -341,6 +350,105 @@ export function useDeletePurchase() {
         [...queryKeys.dashboard.kpis()],
       ],
       successMessage: 'Покупку видалено успішно',
+    }
+  );
+}
+
+/**
+ * Хук для пошуку покупок
+ */
+export function useSearchPurchases(searchQuery?: string) {
+  const purchasesQuery = usePurchases();
+  
+  const filteredData = purchasesQuery.data && searchQuery?.trim() ? 
+    purchasesQuery.data.filter(purchase => 
+      purchase.buyer?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.driver?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.purchase_items?.some(item => 
+        item.coffee_types?.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ) ||
+      new Date(purchase.date).toLocaleDateString('uk-UA').includes(searchQuery) ||
+      purchase.total_amount.toString().includes(searchQuery)
+    ) : purchasesQuery.data;
+
+  return {
+    ...purchasesQuery,
+    data: filteredData
+  };
+}
+
+/**
+ * Хук для отримання останньої ціни кави
+ */
+export function useLatestCoffeePrice(coffeeId?: string) {
+  return useSupabaseQuery(
+    queryKeys.purchases.latestPrice(coffeeId || ''),
+    async () => {
+      if (!coffeeId) return { data: null, error: null };
+      
+      return supabase.rpc('get_latest_coffee_price', { 
+        coffee_id: coffeeId 
+      });
+    },
+    {
+      enabled: !!coffeeId,
+      staleTime: 5 * 60 * 1000, // 5 хвилин
+    }
+  );
+}
+
+/**
+ * Хук для створення нового типу кави
+ */
+export function useCreateCoffeeType() {
+  return useSupabaseMutation(
+    async (name: string) => {
+      return supabase
+        .from('coffee_types')
+        .insert([{ name: name.trim() }])
+        .select()
+        .single();
+    },
+    {
+      invalidateQueries: [
+        // Інвалідуємо кеш типів кави після створення
+        ['coffee_types'],
+      ],
+      successMessage: `Новий тип кави створено`,
+    }
+  );
+}
+
+/**
+ * Хук для перевірки можливості видалення покупки
+ */
+export function useCanDeletePurchase(purchaseId?: string) {
+  return useSupabaseQuery(
+    queryKeys.purchases.canDelete(purchaseId || ''),
+    async () => {
+      if (!purchaseId) return { data: { canDelete: false }, error: null };
+      
+      const { data: paidDistributions, error } = await supabase
+        .from('purchase_distributions')
+        .select('id')
+        .eq('purchase_id', purchaseId)
+        .eq('is_paid', true);
+
+      if (error) return { data: null, error };
+
+      const canDelete = !paidDistributions || paidDistributions.length === 0;
+      return { 
+        data: { 
+          canDelete, 
+          reason: canDelete ? null : 'Неможливо видалити покупку з оплаченими розподілами'
+        }, 
+        error: null 
+      };
+    },
+    {
+      enabled: !!purchaseId,
+      staleTime: 30 * 1000, // 30 секунд
     }
   );
 }

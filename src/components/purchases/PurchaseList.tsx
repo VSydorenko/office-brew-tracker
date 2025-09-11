@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { usePurchases, useDeletePurchase, useCanDeletePurchase } from '@/hooks/use-purchases';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ import { Calendar, User, Car, Coffee, DollarSign, Trash2, Loader2, Edit, MoreVer
 interface PurchaseItem {
   quantity: number;
   unit_price?: number;
-  coffee_type: { name: string; brand?: string };
+  coffee_types: { id: string; name: string; brand?: string };
 }
 
 interface PurchaseDistribution {
@@ -67,161 +67,71 @@ interface PurchaseListItem {
 }
 
 export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) => {
-  const [purchases, setPurchases] = useState<PurchaseListItem[]>([]);
-  const [filteredPurchases, setFilteredPurchases] = useState<PurchaseListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
+  
+  // React Query хуки
+  const { data: purchases, isLoading, error, refetch } = usePurchases();
+  const deletePurchaseMutation = useDeletePurchase();
+
+  // Фільтрування покупок
+  const filteredPurchases = useMemo(() => {
+    if (!purchases || !searchQuery.trim()) return purchases;
+    
+    return purchases.filter(purchase => 
+      purchase.buyer?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.driver?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.purchase_items?.some(item => 
+        item.coffee_types?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.coffee_types?.brand?.toLowerCase().includes(searchQuery.toLowerCase())
+      ) ||
+      new Date(purchase.date).toLocaleDateString('uk-UA').includes(searchQuery) ||
+      purchase.total_amount.toString().includes(searchQuery)
+    );
+  }, [purchases, searchQuery]);
 
   // Пошук та фільтрація
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
-    if (!query.trim()) {
-      setFilteredPurchases(purchases);
-      return;
-    }
-
-    const filtered = purchases.filter(purchase => 
-      purchase.buyer.name.toLowerCase().includes(query.toLowerCase()) ||
-      purchase.driver?.name.toLowerCase().includes(query.toLowerCase()) ||
-      purchase.notes?.toLowerCase().includes(query.toLowerCase()) ||
-      purchase.purchase_items.some(item => 
-        item.coffee_type.name.toLowerCase().includes(query.toLowerCase()) ||
-        item.coffee_type.brand?.toLowerCase().includes(query.toLowerCase())
-      ) ||
-      new Date(purchase.date).toLocaleDateString('uk-UA').includes(query) ||
-      purchase.total_amount.toString().includes(query)
-    );
-    setFilteredPurchases(filtered);
-  }, [purchases]);
-
-  const fetchPurchases = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('purchases')
-        .select(`
-          *,
-          buyer:profiles!purchases_buyer_id_fkey(name),
-          driver:profiles!purchases_driver_id_fkey(name),
-          purchase_items(
-            quantity,
-            unit_price,
-            coffee_type:coffee_types(name, brand)
-          ),
-          purchase_distributions(
-            id,
-            user_id,
-            percentage,
-            calculated_amount,
-            adjusted_amount,
-            is_paid,
-            paid_at,
-            version,
-            adjustment_type,
-            profiles(name, email, avatar_path, avatar_url)
-          )
-        `)
-        .order('date', { ascending: false });
-
-      if (error) throw error;
-      const purchaseData = data || [];
-      setPurchases(purchaseData);
-      setFilteredPurchases(purchaseData);
-    } catch (error: any) {
-      toast({
-        title: "Помилка",
-        description: "Не вдалося завантажити покупки",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, []);
 
   const handleDelete = async (purchaseId: string) => {
     try {
-      setDeletingId(purchaseId);
-
-      // Перевірити, чи є оплачені розподіли
-      const { data: paidDistributions, error: checkError } = await supabase
-        .from('purchase_distributions')
-        .select('id')
-        .eq('purchase_id', purchaseId)
-        .eq('is_paid', true);
-
-      if (checkError) throw checkError;
-
-      if (paidDistributions && paidDistributions.length > 0) {
-        toast({
-          title: "Помилка",
-          description: "Неможливо видалити покупку з оплаченими розподілами. Спочатку скасуйте оплати.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Видалити розподіли покупки
-      const { error: distributionsError } = await supabase
-        .from('purchase_distributions')
-        .delete()
-        .eq('purchase_id', purchaseId);
-
-      if (distributionsError) throw distributionsError;
-
-      // Видалити всі позиції покупки
-      const { error: itemsError } = await supabase
-        .from('purchase_items')
-        .delete()
-        .eq('purchase_id', purchaseId);
-
-      if (itemsError) throw itemsError;
-
-      // Видалити записи змін суми
-      const { error: changesError } = await supabase
-        .from('purchase_amount_changes')
-        .delete()
-        .eq('purchase_id', purchaseId);
-
-      if (changesError) throw changesError;
-
-      // Видалити саму покупку
-      const { error: purchaseError } = await supabase
-        .from('purchases')
-        .delete()
-        .eq('id', purchaseId);
-
-      if (purchaseError) throw purchaseError;
-
-      toast({
-        title: "Успіх",
-        description: "Покупку успішно видалено",
-      });
-
-      // Оновити список покупок
-      fetchPurchases();
+      await deletePurchaseMutation.mutateAsync(purchaseId);
     } catch (error: any) {
       toast({
         title: "Помилка",
         description: error.message || "Не вдалося видалити покупку",
         variant: "destructive",
       });
-    } finally {
-      setDeletingId(null);
     }
   };
 
-  // Оновлювати фільтровані результати при зміні purchases
-  useEffect(() => {
-    handleSearch(searchQuery);
-  }, [purchases, searchQuery, handleSearch]);
+  const handlePurchaseUpdated = () => {
+    refetch();
+  };
 
-  useEffect(() => {
-    fetchPurchases();
-  }, [refreshTrigger]);
+  if (error) {
+    return (
+      <Card className="shadow-coffee">
+        <CardContent className="p-8 md:p-12 text-center">
+          <Coffee className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-destructive mb-2">
+            Помилка завантаження
+          </h3>
+          <p className="text-muted-foreground mb-4">
+            Не вдалося завантажити покупки
+          </p>
+          <Button onClick={() => refetch()} variant="outline">
+            Спробувати знову
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="h-12 md:h-10 bg-muted rounded animate-pulse"></div>
@@ -240,7 +150,7 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
 
       {/* Results */}
       <div className="space-y-4 lg:space-y-6 xl:space-y-8">
-        {filteredPurchases.length === 0 ? (
+        {filteredPurchases?.length === 0 ? (
           <Card className="shadow-coffee">
             <CardContent className="p-8 md:p-12 text-center">
               <Coffee className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -256,188 +166,216 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
             </CardContent>
           </Card>
         ) : (
-          filteredPurchases.map((purchase) => (
-            <SimpleCard
-              key={purchase.id}
-              className="shadow-coffee hover:shadow-coffee-hover"
-            >
-              <div className="space-y-4 lg:space-y-6">
-                {/* Header info */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 lg:gap-4">
-                  <div className="space-y-1 lg:space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap lg:gap-3">
-                      <Calendar className="h-4 w-4 lg:h-5 lg:w-5 text-coffee-dark" />
-                      <span className="font-medium text-sm md:text-base lg:text-lg">
-                        {new Date(purchase.date).toLocaleDateString('uk-UA')}
-                      </span>
-                      <PurchaseStatusBadge status={purchase.distribution_status as any || 'draft'} />
-                    </div>
-                    <div className="flex items-center gap-2 lg:gap-3">
-                      <DollarSign className="h-4 w-4 lg:h-5 lg:w-5 text-coffee-dark" />
-                      <span className="text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold text-primary">
-                        ₴{purchase.total_amount}
-                      </span>
-                      {purchase.original_total_amount && purchase.original_total_amount !== purchase.total_amount && (
-                        <Badge variant="outline" className="text-xs lg:text-sm">
-                          Було: ₴{purchase.original_total_amount}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Actions menu */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 lg:h-10 lg:w-10 p-0">
-                        <MoreVertical className="h-4 w-4 lg:h-5 lg:w-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-background border border-border lg:min-w-[200px]">
-                      <PurchaseFormDialog
-                        purchaseId={purchase.id}
-                        onSuccess={fetchPurchases}
-                      >
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="lg:text-base lg:py-3">
-                          <Edit className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3" />
-                          Редагувати
-                        </DropdownMenuItem>
-                      </PurchaseFormDialog>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <DropdownMenuItem 
-                            onSelect={(e) => e.preventDefault()}
-                            className="text-destructive focus:text-destructive lg:text-base lg:py-3"
-                            disabled={
-                              deletingId === purchase.id || 
-                              purchase.distribution_status === 'locked' ||
-                              (purchase.purchase_distributions && purchase.purchase_distributions.some(dist => dist.is_paid))
-                            }
-                          >
-                            {deletingId === purchase.id ? (
-                              <Loader2 className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3" />
-                            )}
-                            Видалити
-                          </DropdownMenuItem>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Видалити покупку?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {purchase.distribution_status === 'locked' 
-                                ? "Неможливо видалити заблоковану покупку. Спочатку розблокуйте розподіл."
-                                : (purchase.purchase_distributions && purchase.purchase_distributions.some(dist => dist.is_paid))
-                                ? "Неможливо видалити покупку з оплаченими розподілами. Спочатку скасуйте оплати."
-                                : "Ця дія незворотна. Покупка та всі її позиції будуть видалені назавжди."
-                              }
-                              <br /><br />
-                              <strong>Дата:</strong> {new Date(purchase.date).toLocaleDateString('uk-UA')}
-                              <br />
-                              <strong>Сума:</strong> ₴{purchase.total_amount}
-                              <br />
-                              <strong>Покупець:</strong> {purchase.buyer.name}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Скасувати</AlertDialogCancel>
-                            {purchase.distribution_status !== 'locked' && 
-                             !(purchase.purchase_distributions && purchase.purchase_distributions.some(dist => dist.is_paid)) && (
-                              <AlertDialogAction
-                                onClick={() => handleDelete(purchase.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Видалити
-                              </AlertDialogAction>
-                            )}
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                {/* Distribution Actions */}
-                <div className="mb-4">
-                  <PurchaseDistributionActions
-                    purchaseId={purchase.id}
-                    currentStatus={purchase.distribution_status || 'draft'}
-                    totalAmount={purchase.total_amount}
-                    onStatusUpdate={fetchPurchases}
-                  />
-                </div>
-
-                {/* Details */}
-                <div className="space-y-3 lg:space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
-                    <div className="flex items-center gap-2 lg:gap-3">
-                      <User className="h-4 w-4 lg:h-5 lg:w-5 text-muted-foreground" />
-                      <span className="text-sm lg:text-base">
-                        Покупець: <strong className="text-foreground">{purchase.buyer.name}</strong>
-                      </span>
-                    </div>
-                    {purchase.driver && (
-                      <div className="flex items-center gap-2 lg:gap-3">
-                        <Car className="h-4 w-4 lg:h-5 lg:w-5 text-muted-foreground" />
-                        <span className="text-sm lg:text-base">
-                          Водій: <strong className="text-foreground">{purchase.driver.name}</strong>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Coffee items */}
-                  {purchase.purchase_items.length > 0 && (
-                    <div>
-                      <h4 className="text-sm lg:text-base font-medium mb-2 lg:mb-3 text-muted-foreground">Позиції:</h4>
-                      <div className="space-y-1 lg:space-y-2">
-                        {purchase.purchase_items.map((item, index) => (
-                          <div key={index} className="flex justify-between items-center text-sm lg:text-base bg-muted/50 rounded px-3 py-2 lg:px-4 lg:py-3">
-                            <span className="font-medium">
-                              {item.coffee_type.name}
-                              {item.coffee_type.brand && (
-                                <span className="text-muted-foreground"> ({item.coffee_type.brand})</span>
-                              )}
-                              {item.unit_price && (
-                                <span className="text-primary"> - ₴{item.unit_price}/уп.</span>
-                              )}
-                            </span>
-                            <Badge variant="secondary" className="text-xs lg:text-sm">
-                              {item.quantity} уп.
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Purchase Distribution Payments */}
-                  {purchase.purchase_distributions && purchase.purchase_distributions.length > 0 && 
-                   purchase.distribution_status !== 'locked' && (
-                    <PurchaseDistributionPayments
-                      purchaseId={purchase.id}
-                      distributions={purchase.purchase_distributions}
-                      currentStatus={purchase.distribution_status || 'draft'}
-                      buyerId={purchase.buyer_id}
-                      onPaymentUpdate={fetchPurchases}
-                    />
-                  )}
-
-                  {/* Notes */}
-                  {purchase.notes && (
-                    <div className="bg-muted/30 rounded p-3 lg:p-4">
-                      <p className="text-sm lg:text-base text-muted-foreground italic">
-                        {purchase.notes}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-            </SimpleCard>
+          filteredPurchases?.map((purchase) => (
+            <PurchaseCard 
+              key={purchase.id} 
+              purchase={purchase} 
+              onDelete={handleDelete}
+              onUpdate={handlePurchaseUpdated}
+              isDeleting={deletePurchaseMutation.isPending}
+            />
           ))
         )}
       </div>
     </div>
+  );
+};
+
+interface PurchaseCardProps {
+  purchase: PurchaseListItem;
+  onDelete: (id: string) => void;
+  onUpdate: () => void;
+  isDeleting: boolean;
+}
+
+const PurchaseCard = ({ purchase, onDelete, onUpdate, isDeleting }: PurchaseCardProps) => {
+  const { data: canDeleteData } = useCanDeletePurchase(purchase.id);
+  const canDelete = canDeleteData?.canDelete ?? false;
+
+  return (
+    <SimpleCard
+      className="shadow-coffee hover:shadow-coffee-hover"
+    >
+      <div className="space-y-4 lg:space-y-6">
+        {/* Header info */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 lg:gap-4">
+          <div className="space-y-1 lg:space-y-2">
+            <div className="flex items-center gap-2 flex-wrap lg:gap-3">
+              <Calendar className="h-4 w-4 lg:h-5 lg:w-5 text-coffee-dark" />
+              <span className="font-medium text-sm md:text-base lg:text-lg">
+                {new Date(purchase.date).toLocaleDateString('uk-UA')}
+              </span>
+              <PurchaseStatusBadge status={purchase.distribution_status as any || 'draft'} />
+            </div>
+            <div className="flex items-center gap-2 lg:gap-3">
+              <DollarSign className="h-4 w-4 lg:h-5 lg:w-5 text-coffee-dark" />
+              <span className="text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold text-primary">
+                ₴{purchase.total_amount}
+              </span>
+              {purchase.original_total_amount && purchase.original_total_amount !== purchase.total_amount && (
+                <Badge variant="outline" className="text-xs lg:text-sm">
+                  Було: ₴{purchase.original_total_amount}
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          {/* Actions menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 lg:h-10 lg:w-10 p-0">
+                <MoreVertical className="h-4 w-4 lg:h-5 lg:w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-background border border-border lg:min-w-[200px]">
+              <PurchaseFormDialog
+                purchaseId={purchase.id}
+                onSuccess={onUpdate}
+              >
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="lg:text-base lg:py-3">
+                  <Edit className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3" />
+                  Редагувати
+                </DropdownMenuItem>
+              </PurchaseFormDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem 
+                    onSelect={(e) => e.preventDefault()}
+                    className="text-destructive focus:text-destructive lg:text-base lg:py-3"
+                    disabled={
+                      isDeleting || 
+                      purchase.distribution_status === 'locked' ||
+                      !canDelete
+                    }
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 lg:h-5 lg:w-5 mr-2 lg:mr-3" />
+                    )}
+                    Видалити
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Видалити покупку?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {purchase.distribution_status === 'locked' 
+                        ? "Неможливо видалити заблоковану покупку. Спочатку розблокуйте розподіл."
+                        : !canDelete
+                        ? canDeleteData?.reason || "Неможливо видалити покупку з оплаченими розподілами."
+                        : "Ця дія незворотна. Покупка та всі її позиції будуть видалені назавжди."
+                      }
+                      <br /><br />
+                      <strong>Дата:</strong> {new Date(purchase.date).toLocaleDateString('uk-UA')}
+                      <br />
+                      <strong>Сума:</strong> ₴{purchase.total_amount}
+                      <br />
+                      <strong>Покупець:</strong> {purchase.buyer.name}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Скасувати</AlertDialogCancel>
+                    {canDelete && purchase.distribution_status !== 'locked' && (
+                      <AlertDialogAction
+                        onClick={() => onDelete(purchase.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Видалити
+                      </AlertDialogAction>
+                    )}
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Distribution Actions */}
+        <div className="mb-4">
+          <PurchaseDistributionActions
+            purchaseId={purchase.id}
+            currentStatus={purchase.distribution_status || 'draft'}
+            totalAmount={purchase.total_amount}
+            onStatusUpdate={onUpdate}
+          />
+        </div>
+
+        {/* Details */}
+        <div className="space-y-3 lg:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
+            <div className="flex items-center gap-2 lg:gap-3">
+              <User className="h-4 w-4 lg:h-5 lg:w-5 text-muted-foreground" />
+              <span className="text-sm lg:text-base">
+                Покупець: <strong className="text-foreground">{purchase.buyer.name}</strong>
+              </span>
+            </div>
+            {purchase.driver && (
+              <div className="flex items-center gap-2 lg:gap-3">
+                <Car className="h-4 w-4 lg:h-5 lg:w-5 text-muted-foreground" />
+                <span className="text-sm lg:text-base">
+                  Водій: <strong className="text-foreground">{purchase.driver.name}</strong>
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Coffee items */}
+          {purchase.purchase_items?.length > 0 && (
+            <div>
+              <h4 className="text-sm lg:text-base font-medium mb-2 lg:mb-3 text-muted-foreground">Позиції:</h4>
+              <div className="space-y-1 lg:space-y-2">
+                {purchase.purchase_items.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center text-sm lg:text-base bg-muted/50 rounded px-3 py-2 lg:px-4 lg:py-3">
+                    <span className="font-medium">
+                      {item.coffee_types.name}
+                      {item.coffee_types.brand && (
+                        <span className="text-muted-foreground"> ({item.coffee_types.brand})</span>
+                      )}
+                      {item.unit_price && (
+                        <span className="text-primary"> - ₴{item.unit_price}/уп.</span>
+                      )}
+                    </span>
+                    <Badge variant="secondary" className="text-xs lg:text-sm">
+                      {item.quantity} уп.
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Purchase Distribution Payments */}
+          {purchase.purchase_distributions && purchase.purchase_distributions.length > 0 && 
+           purchase.distribution_status !== 'locked' && (
+            <PurchaseDistributionPayments
+              purchaseId={purchase.id}
+              distributions={purchase.purchase_distributions}
+              currentStatus={purchase.distribution_status || 'draft'}
+              buyerId={purchase.buyer_id}
+              onPaymentUpdate={onUpdate}
+            />
+          )}
+
+          {/* Notes */}
+          {purchase.notes && (
+            <div className="p-3 lg:p-4 bg-muted/30 rounded-lg">
+              <p className="text-sm lg:text-base text-muted-foreground">
+                <strong>Примітки:</strong> {purchase.notes}
+              </p>
+            </div>
+          )}
+
+          {/* Locked status */}
+          {purchase.distribution_status === 'locked' && purchase.locked_at && (
+            <div className="p-3 lg:p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm lg:text-base text-green-800">
+                <strong>Покупка заблокована:</strong> {new Date(purchase.locked_at).toLocaleDateString('uk-UA')}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </SimpleCard>
   );
 };

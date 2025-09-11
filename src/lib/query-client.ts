@@ -64,6 +64,8 @@ export const queryKeys = {
     all: ['purchases'] as const,
     detail: (id: string) => ['purchases', 'detail', id] as const,
     recent: (limit: number) => ['purchases', 'recent', limit] as const,
+    latestPrice: (coffeeId: string) => ['purchases', 'latest-price', coffeeId] as const,
+    canDelete: (purchaseId: string) => ['purchases', 'can-delete', purchaseId] as const,
   },
   // Розподіли покупок
   distributions: {
