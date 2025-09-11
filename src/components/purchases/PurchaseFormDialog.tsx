@@ -355,12 +355,12 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                   </div>
                   <div>
                     <Label htmlFor="driver">Водій</Label>
-                    <Select value={formData.driver_id} onValueChange={(value) => setFormData(prev => ({ ...prev, driver_id: value }))}>
+                    <Select value={formData.driver_id || "no-driver"} onValueChange={(value) => setFormData(prev => ({ ...prev, driver_id: value === "no-driver" ? "" : value }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Оберіть водія (опціонально)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Без водія</SelectItem>
+                        <SelectItem value="no-driver">Без водія</SelectItem>
                         {profiles.map(profile => (
                           <SelectItem key={profile.id} value={profile.id}>
                             {profile.name}
