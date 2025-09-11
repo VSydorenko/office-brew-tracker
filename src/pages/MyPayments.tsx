@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,33 +6,25 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { CheckCircle, AlertCircle, TrendingUp, TrendingDown, User, ShoppingCart, Bell, BellOff, RefreshCw } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/ui/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { useNotifications } from '@/hooks/use-notifications';
 import { PaymentRecord } from '@/components/purchases/PaymentRecord';
+import { useSupabaseQuery, useSupabaseMutation } from '@/hooks/use-supabase-query';
+import { supabase } from '@/integrations/supabase/client';
+import { queryKeys } from '@/lib/query-client';
 
-const MyPayments = () => {
-  const [owedToMe, setOwedToMe] = useState([]);
-  const [iOwe, setIOwe] = useState([]);
-  const [allDistributions, setAllDistributions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('user');
-  const [showAll, setShowAll] = useState(false);
+// Користувацький хук для отримання даних по платежах
+const useMyPaymentsData = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const { isSupported, isEnabled, enableNotifications, disableNotifications } = useNotifications();
-
-  useEffect(() => {
-    if (user) {
-      fetchMyPayments();
-    }
-  }, [user]);
-
-  const fetchMyPayments = async () => {
-    try {
-      // Запит для "Мені винні"
-      const { data: owedToMeData, error: owedToMeError } = await supabase
+  
+  // Запит для "Мені винні"
+  const owedToMeQuery = useSupabaseQuery(
+    queryKeys.distributions.myPayments,
+    async () => {
+      if (!user) return { data: [], error: null };
+      
+      return await supabase
         .from('purchase_distributions')
         .select(`
           *,
@@ -44,15 +36,21 @@ const MyPayments = () => {
           ),
           profiles!purchase_distributions_user_id_fkey(name, avatar_path, avatar_url)
         `)
-        .eq('purchases.buyer_id', user?.id)
-        .neq('user_id', user?.id)
+        .eq('purchases.buyer_id', user.id)
+        .neq('user_id', user.id)
         .eq('is_paid', false)
         .order('created_at', { ascending: false });
+    },
+    { requireAuth: true }
+  );
 
-      if (owedToMeError) throw owedToMeError;
-
-      // Запит для "Я винен"
-      const { data: iOweData, error: iOweError } = await supabase
+  // Запит для "Я винен"
+  const iOweQuery = useSupabaseQuery(
+    ['distributions', 'i-owe'],
+    async () => {
+      if (!user) return { data: [], error: null };
+      
+      return await supabase
         .from('purchase_distributions')
         .select(`
           *,
@@ -64,15 +62,21 @@ const MyPayments = () => {
             profiles!purchases_buyer_id_fkey(name, avatar_path, avatar_url, card_number, card_holder_name)
           )
         `)
-        .eq('user_id', user?.id)
-        .neq('purchases.buyer_id', user?.id)
+        .eq('user_id', user.id)
+        .neq('purchases.buyer_id', user.id)
         .eq('is_paid', false)
         .order('created_at', { ascending: false });
+    },
+    { requireAuth: true }
+  );
 
-      if (iOweError) throw iOweError;
-
-      // Всі мої розподіли
-      const { data: allDistributionsData, error: allDistributionsError } = await supabase
+  // Всі мої розподіли
+  const allDistributionsQuery = useSupabaseQuery(
+    ['distributions', 'all-mine'],
+    async () => {
+      if (!user) return { data: [], error: null };
+      
+      return await supabase
         .from('purchase_distributions')
         .select(`
           *,
@@ -84,52 +88,64 @@ const MyPayments = () => {
             profiles!purchases_buyer_id_fkey(name, avatar_path, avatar_url)
           )
         `)
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+    },
+    { requireAuth: true }
+  );
 
-      if (allDistributionsError) throw allDistributionsError;
-
-      setOwedToMe(owedToMeData || []);
-      setIOwe(iOweData || []);
-      setAllDistributions(allDistributionsData || []);
-    } catch (error) {
-      console.error('Помилка завантаження розрахунків:', error);
-      toast({
-        title: "Помилка",
-        description: "Не вдалося завантажити розрахунки",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  return {
+    owedToMe: owedToMeQuery.data || [],
+    iOwe: iOweQuery.data || [],
+    allDistributions: allDistributionsQuery.data || [],
+    loading: owedToMeQuery.isLoading || iOweQuery.isLoading || allDistributionsQuery.isLoading,
+    refetch: () => {
+      owedToMeQuery.refetch();
+      iOweQuery.refetch();
+      allDistributionsQuery.refetch();
     }
   };
+};
 
-  const markAsPaid = async (distributionId: string) => {
-    try {
-      const { error } = await supabase
+const MyPayments = () => {
+  const [viewMode, setViewMode] = useState('user');
+  const [showAll, setShowAll] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { isSupported, isEnabled, enableNotifications, disableNotifications } = useNotifications();
+
+  const { owedToMe, iOwe, allDistributions, loading, refetch } = useMyPaymentsData();
+
+  const markAsPaidMutation = useSupabaseMutation(
+    async (distributionId: string) => {
+      return await supabase
         .from('purchase_distributions')
         .update({ 
           is_paid: true, 
           paid_at: new Date().toISOString() 
         })
         .eq('id', distributionId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Успіх",
-        description: "Позначено як оплачено",
-      });
-
-      fetchMyPayments();
-    } catch (error) {
-      console.error('Помилка оновлення статусу:', error);
-      toast({
-        title: "Помилка",
-        description: "Не вдалося оновити статус оплати",
-        variant: "destructive",
-      });
+    },
+    {
+      onSuccess: () => {
+        toast({
+          title: "Успіх",
+          description: "Позначено як оплачено",
+        });
+        refetch();
+      },
+      onError: (error) => {
+        toast({
+          title: "Помилка",
+          description: "Не вдалося оновити статус оплати",
+          variant: "destructive",
+        });
+      }
     }
+  );
+
+  const markAsPaid = (distributionId: string) => {
+    markAsPaidMutation.mutate(distributionId);
   };
 
   // Фільтрація даних
@@ -249,7 +265,7 @@ const MyPayments = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-primary">Мої розрахунки</h1>
           <Button 
-            onClick={fetchMyPayments} 
+            onClick={refetch} 
             variant="outline" 
             size="sm"
             className="flex items-center gap-2"

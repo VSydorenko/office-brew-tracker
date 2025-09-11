@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/ui/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +8,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Coffee, ShieldCheck, ShieldAlert, Search } from 'lucide-react';
+import { useProfiles, useCurrentProfile, useApproveProfile, useRejectProfile, useUpdateUserRole } from '@/hooks/use-profiles';
 
 /**
  * Сторінка керування користувачами (лише для адміністраторів).
@@ -17,11 +17,18 @@ import { Coffee, ShieldCheck, ShieldAlert, Search } from 'lucide-react';
 const UserManagement = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [profiles, setProfiles] = useState<Array<any>>([]);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // React Query хуки
+  const { data: currentProfile } = useCurrentProfile();
+  const { data: profiles = [], isLoading: loading, refetch } = useProfiles();
+  
+  const approveMutation = useApproveProfile();
+  const rejectMutation = useRejectProfile();
+  const updateRoleMutation = useUpdateUserRole();
+
+  const isAdmin = currentProfile?.role === 'admin';
 
   useEffect(() => {
     document.title = 'Управління користувачами | Облік кави';
@@ -34,63 +41,45 @@ const UserManagement = () => {
     if (!canonical.parentNode) document.head.appendChild(canonical);
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    const init = async () => {
-      if (!user) return;
-      // Перевіряємо роль поточного користувача
-      const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      const admin = me?.role === 'admin';
-      if (active) setIsAdmin(admin);
-      if (!admin) { setLoading(false); return; }
-      // Завантажуємо профілі
-      await fetchProfiles('');
-      if (active) setLoading(false);
-    };
-    init();
-    return () => { active = false; };
-  }, [user]);
-
-  const fetchProfiles = async (q: string) => {
-    const query = supabase
-      .from('profiles')
-      .select('id, name, email, avatar_url, avatar_path, status, role, created_at, approved_at, approved_by')
-      .order('created_at', { ascending: false });
-    const { data, error } = q
-      ? await query.ilike('name', `${q}%`)
-      : await query;
-    if (error) {
-      toast({ title: 'Помилка', description: error.message, variant: 'destructive' });
-      return;
-    }
-    setProfiles(data || []);
-  };
+  // Фільтрування профілів за пошуком
+  const filteredProfiles = profiles.filter(profile => 
+    !search.trim() || profile.name?.toLowerCase().includes(search.toLowerCase())
+  );
 
   const onSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetchProfiles(search.trim());
+    // Фільтрування відбувається в реальному часі
   };
 
   const updateStatus = async (id: string, status: 'approved' | 'rejected' | 'blocked') => {
-    if (!user) return;
     setUpdatingId(id);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ status, approved_by: user.id, approved_at: new Date().toISOString() })
-      .eq('id', id);
-    setUpdatingId(null);
-    if (error) return toast({ title: 'Помилка', description: error.message, variant: 'destructive' });
-    toast({ title: 'Оновлено', description: 'Статус користувача змінено' });
-    fetchProfiles(search.trim());
+    try {
+      if (status === 'approved') {
+        await approveMutation.mutateAsync(id);
+      } else if (status === 'rejected') {
+        await rejectMutation.mutateAsync(id);
+      } else {
+        // Для blocked використовуємо approve mutation з rejected статусом
+        await rejectMutation.mutateAsync(id);
+      }
+      toast({ title: 'Оновлено', description: 'Статус користувача змінено' });
+    } catch (error: any) {
+      toast({ title: 'Помилка', description: error.message, variant: 'destructive' });
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const updateRole = async (id: string, role: 'admin' | 'user') => {
     setUpdatingId(id);
-    const { error } = await supabase.from('profiles').update({ role }).eq('id', id);
-    setUpdatingId(null);
-    if (error) return toast({ title: 'Помилка', description: error.message, variant: 'destructive' });
-    toast({ title: 'Оновлено', description: 'Роль користувача змінено' });
-    fetchProfiles(search.trim());
+    try {
+      await updateRoleMutation.mutateAsync({ userId: id, role });
+      toast({ title: 'Оновлено', description: 'Роль користувача змінено' });
+    } catch (error: any) {
+      toast({ title: 'Помилка', description: error.message, variant: 'destructive' });
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const statusBadge = (s: string) => {
@@ -169,7 +158,7 @@ const UserManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {profiles.map((p) => (
+                {filteredProfiles.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell className="text-muted-foreground">{p.email}</TableCell>

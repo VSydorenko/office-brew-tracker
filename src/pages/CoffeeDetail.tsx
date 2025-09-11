@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar, Edit, Trash2 } from 'lucide-react';
 import { CoffeeEditDialog } from '@/components/coffee/CoffeeEditDialog';
+import { useCoffeeType, useDeleteCoffeeType } from '@/hooks/use-coffee-types';
+import { useSupabaseQuery } from '@/hooks/use-supabase-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CoffeeType {
   id: string;
@@ -41,43 +43,19 @@ const CoffeeDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [coffee, setCoffee] = useState<CoffeeType | null>(null);
-  const [purchases, setPurchases] = useState<PurchaseItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  useEffect(() => {
-    if (!id) {
-      navigate('/coffee-catalog');
-      return;
-    }
-    fetchCoffeeData();
-  }, [id]);
+  // React Query хуки
+  const { data: coffee, isLoading: coffeeLoading, refetch: refetchCoffee } = useCoffeeType(id!);
+  const deleteMutation = useDeleteCoffeeType();
 
-  const fetchCoffeeData = async () => {
-    try {
-      setLoading(true);
+  // Запит для історії покупок
+  const { data: purchases = [], isLoading: purchasesLoading } = useSupabaseQuery(
+    ['purchase-items', 'by-coffee', id],
+    async () => {
+      if (!id) return { data: [], error: null };
       
-      // Fetch coffee details
-      const { data: coffeeData, error: coffeeError } = await supabase
-        .from('coffee_types')
-        .select(`
-          *,
-          brands:brand_id(name),
-          coffee_varieties:variety_id(name),
-          origins:origin_id(name),
-          processing_methods:processing_method_id(name),
-          coffee_flavors(flavors(name))
-        `)
-        .eq('id', id)
-        .single();
-
-      if (coffeeError) throw coffeeError;
-      setCoffee(coffeeData);
-
-      // Fetch purchase history for this coffee type
-      const { data: purchaseData, error: purchaseError } = await supabase
+      return await supabase
         .from('purchase_items')
         .select(`
           *,
@@ -91,48 +69,31 @@ const CoffeeDetail = () => {
         `)
         .eq('coffee_type_id', id)
         .order('created_at', { ascending: false });
-
-      if (purchaseError) throw purchaseError;
-      setPurchases(purchaseData || []);
-
-    } catch (error: any) {
-      toast({
-        title: "Помилка",
-        description: error.message || "Не вдалося завантажити дані про каву",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    },
+    {
+      enabled: !!id,
+      select: (data) => data.data || []
     }
-  };
+  );
+
+  const loading = coffeeLoading || purchasesLoading;
+
+  useEffect(() => {
+    if (!id) {
+      navigate('/coffee-catalog');
+      return;
+    }
+  }, [id, navigate]);
 
   const handleDelete = async () => {
-    if (!coffee) return;
+    if (!coffee || !id) return;
     
     try {
-      setDeleteLoading(true);
-      
-      // Delete coffee flavors first
-      const { error: flavorsError } = await supabase
-        .from('coffee_flavors')
-        .delete()
-        .eq('coffee_type_id', coffee.id);
-      
-      if (flavorsError) throw flavorsError;
-      
-      // Delete coffee type
-      const { error: coffeeError } = await supabase
-        .from('coffee_types')
-        .delete()
-        .eq('id', coffee.id);
-      
-      if (coffeeError) throw coffeeError;
-      
+      await deleteMutation.mutateAsync(id);
       toast({
         title: "Успіх",
         description: "Кава видалена з каталогу",
       });
-      
       navigate('/coffee-catalog');
     } catch (error: any) {
       toast({
@@ -140,13 +101,11 @@ const CoffeeDetail = () => {
         description: error.message || "Не вдалося видалити каву",
         variant: "destructive",
       });
-    } finally {
-      setDeleteLoading(false);
     }
   };
 
   const handleEditSuccess = () => {
-    fetchCoffeeData();
+    refetchCoffee();
   };
 
   if (loading) {
@@ -188,22 +147,26 @@ const CoffeeDetail = () => {
   }
 
   // Calculate statistics
-  const totalPurchases = purchases.length;
-  const totalQuantity = purchases.reduce((sum, item) => sum + item.quantity, 0);
-  const totalSpent = purchases.reduce((sum, item) => sum + (item.total_price || 0), 0);
-  const avgPrice = purchases.filter(p => p.unit_price).length > 0 
-    ? purchases.filter(p => p.unit_price).reduce((sum, item) => sum + (item.unit_price || 0), 0) / purchases.filter(p => p.unit_price).length
-    : 0;
+  const { totalPurchases, totalQuantity, totalSpent, avgPrice, priceHistory } = useMemo(() => {
+    const totalPurchases = purchases.length;
+    const totalQuantity = purchases.reduce((sum, item) => sum + item.quantity, 0);
+    const totalSpent = purchases.reduce((sum, item) => sum + (item.total_price || 0), 0);
+    const avgPrice = purchases.filter(p => p.unit_price).length > 0 
+      ? purchases.filter(p => p.unit_price).reduce((sum, item) => sum + (item.unit_price || 0), 0) / purchases.filter(p => p.unit_price).length
+      : 0;
 
-  // Price history for chart
-  const priceHistory = purchases
-    .filter(p => p.unit_price)
-    .map(p => ({
-      date: p.purchase.date,
-      price: p.unit_price!,
-      quantity: p.quantity
-    }))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Price history for chart
+    const priceHistory = purchases
+      .filter(p => p.unit_price)
+      .map(p => ({
+        date: p.purchase.date,
+        price: p.unit_price!,
+        quantity: p.quantity
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return { totalPurchases, totalQuantity, totalSpent, avgPrice, priceHistory };
+  }, [purchases]);
 
   return (
     <div className="min-h-screen bg-gradient-brew p-6">
@@ -233,11 +196,11 @@ const CoffeeDetail = () => {
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="outline" 
-                  disabled={deleteLoading}
+                  disabled={deleteMutation.isPending}
                   className="border-destructive/50 text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  {deleteLoading ? 'Видалення...' : 'Видалити'}
+                  {deleteMutation.isPending ? 'Видалення...' : 'Видалити'}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>

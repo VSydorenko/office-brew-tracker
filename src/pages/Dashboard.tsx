@@ -1,10 +1,7 @@
-
-import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Coffee,
   ShoppingCart,
@@ -24,11 +21,20 @@ import { DistributionTemplateForm } from '@/components/distribution/Distribution
 
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
-import { SpendingChart, SpendingPoint } from '@/components/dashboard/SpendingChart';
-import { TopCoffeesBar, TopCoffeeItem } from '@/components/dashboard/TopCoffeesBar';
-import { TopDriversChart, DriversStackPoint } from '@/components/dashboard/TopDriversChart';
-import { StatusDonut, StatusItem } from '@/components/dashboard/StatusDonut';
-import { RecentPurchasesList, EnrichedPurchase } from '@/components/dashboard/RecentPurchasesList';
+import { SpendingChart } from '@/components/dashboard/SpendingChart';
+import { TopCoffeesBar } from '@/components/dashboard/TopCoffeesBar';
+import { TopDriversChart } from '@/components/dashboard/TopDriversChart';
+import { StatusDonut } from '@/components/dashboard/StatusDonut';
+import { RecentPurchasesList } from '@/components/dashboard/RecentPurchasesList';
+
+import { 
+  useDashboardKPIs,
+  useSpendingTimeseries,
+  useTopCoffees,
+  useTopDrivers,
+  useRecentPurchasesDashboard,
+  useStatusBreakdown
+} from '@/hooks/use-dashboard';
 
 /**
  * Допоміжна функція: отримати дати початку і кінця періоду в місяцях від сьогодні.
@@ -67,200 +73,41 @@ function getRangeFromPeriod(p: PeriodValue): { startDate: string | null; endDate
   return { startDate: start, endDate: end };
 }
 
-interface Kpis {
-  purchases_count: number;
-  total_spent: number;
-  average_check: number;
-  unpaid_total: number;
-  my_unpaid_total: number;
-  active_users: number;
-}
-
 const Dashboard = () => {
   const [period, setPeriod] = useState<PeriodValue>({ mode: 'months', months: 6 });
-  const [loading, setLoading] = useState<boolean>(true);
-
-  const [kpis, setKpis] = useState<Kpis | null>(null);
-  const [spending, setSpending] = useState<SpendingPoint[]>([]);
-  const [topCoffees, setTopCoffees] = useState<TopCoffeeItem[]>([]);
-  const [statusData, setStatusData] = useState<StatusItem[]>([]);
-  const [recent, setRecent] = useState<EnrichedPurchase[]>([]);
-  const [driversData, setDriversData] = useState<DriversStackPoint[]>([]);
-  const [driverKeys, setDriverKeys] = useState<string[]>([]);
-
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const { startDate, endDate } = useMemo(() => getRangeFromPeriod(period), [period]);
 
-  useEffect(() => {
-    fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]);
+  // React Query хуки для отримання даних
+  const { data: kpisData, isLoading: kpisLoading } = useDashboardKPIs(startDate, endDate);
+  const { data: spending = [], isLoading: spendingLoading } = useSpendingTimeseries(startDate, endDate);
+  const { data: topCoffees = [], isLoading: topCoffeesLoading } = useTopCoffees(startDate, endDate, 5);
+  const { data: driversData = [], isLoading: driversLoading } = useTopDrivers(startDate, endDate, 5);
+  const { data: statusData = [], isLoading: statusLoading } = useStatusBreakdown(startDate, endDate);
+  const { data: recent = [], isLoading: recentLoading } = useRecentPurchasesDashboard(5);
 
-  /**
-   * Завантаження всіх даних дашборда паралельно через RPC.
-   */
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      // KPIs
-      const kpisReq = supabase.rpc('get_dashboard_kpis', {
-        start_date: startDate,
-        end_date: endDate,
+  // Отримуємо перший об'єкт з масиву KPI
+  const kpis = kpisData?.[0] || null;
+
+  // Загальний стан завантаження
+  const loading = kpisLoading || spendingLoading || topCoffeesLoading || driversLoading || statusLoading || recentLoading;
+
+  // Отримуємо ключі водіїв для графіку
+  const driverKeys = useMemo(() => {
+    if (!driversData || driversData.length === 0) return [];
+    const keys = new Set<string>();
+    driversData.forEach(month => {
+      Object.keys(month).forEach(key => {
+        if (key !== 'month') keys.add(key);
       });
+    });
+    return Array.from(keys);
+  }, [driversData]);
 
-      // Timeseries
-      const spendingReq = supabase.rpc('get_spending_timeseries', {
-        start_date: startDate,
-        end_date: endDate,
-      });
-
-      // Top coffees by qty (5)
-      const topCoffeesReq = supabase.rpc('get_top_coffees_by_qty', {
-        start_date: startDate,
-        end_date: endDate,
-        limit_n: 5,
-      });
-
-      // Top drivers monthly (5)
-      const topDriversReq = supabase.rpc('get_top_drivers_with_monthly', {
-        start_date: startDate,
-        end_date: endDate,
-        limit_n: 5,
-      });
-
-      // Status breakdown
-      const statusReq = supabase.rpc('get_status_breakdown', {
-        start_date: startDate,
-        end_date: endDate,
-      });
-
-      // Recent purchases enriched (5)
-      const recentReq = supabase.rpc('get_recent_purchases_enriched', {
-        limit_n: 5,
-      });
-
-      const [
-        kpisRes,
-        spendingRes,
-        topCoffeesRes,
-        topDriversRes,
-        statusRes,
-        recentRes,
-      ] = await Promise.all([
-        kpisReq,
-        spendingReq,
-        topCoffeesReq,
-        topDriversReq,
-        statusReq,
-        recentReq,
-      ]);
-
-      if (kpisRes.error) throw kpisRes.error;
-      if (spendingRes.error) throw spendingRes.error;
-      if (topCoffeesRes.error) throw topCoffeesRes.error;
-      if (topDriversRes.error) throw topDriversRes.error;
-      if (statusRes.error) throw statusRes.error;
-      if (recentRes.error) throw recentRes.error;
-
-      const kpisRow = (kpisRes.data || [])[0] || null;
-      if (kpisRow) {
-        setKpis({
-          purchases_count: Number(kpisRow.purchases_count || 0),
-          total_spent: Number(kpisRow.total_spent || 0),
-          average_check: Number(kpisRow.average_check || 0),
-          unpaid_total: Number(kpisRow.unpaid_total || 0),
-          my_unpaid_total: Number(kpisRow.my_unpaid_total || 0),
-          active_users: Number(kpisRow.active_users || 0),
-        });
-      } else {
-        setKpis(null);
-      }
-
-      const spendingData: SpendingPoint[] = (spendingRes.data || []).map((r: any) => ({
-        month: new Date(r.month_start).toLocaleDateString('uk-UA', { month: 'short', year: 'numeric' }),
-        total_spent: Number(r.total_spent || 0),
-      }));
-      setSpending(spendingData);
-
-      const topCoffeesData: TopCoffeeItem[] = (topCoffeesRes.data || []).map((r: any) => ({
-        coffee_name: r.coffee_name,
-        total_qty: Number(r.total_qty || 0),
-      }));
-      setTopCoffees(topCoffeesData);
-
-      const rawDrivers = (topDriversRes.data || []) as Array<{
-        driver_id: string;
-        driver_name: string;
-        month_start: string | null;
-        trips: number | null;
-        total_trips: number;
-      }>;
-
-      // Отримуємо унікальні місяці як ISO-дати та імена водіїв
-      const monthsIsoSet = new Set<string>();
-      const driverNamesSet = new Set<string>();
-      rawDrivers.forEach((row) => {
-        if (row.driver_name) driverNamesSet.add(row.driver_name);
-        if (row.month_start) monthsIsoSet.add(row.month_start);
-      });
-      const monthsIso = Array.from(monthsIsoSet).sort(
-        (a, b) => new Date(a).getTime() - new Date(b).getTime()
-      );
-      const driverNames = Array.from(driverNamesSet);
-
-      // Ініціалізуємо рядки з нулями
-      const stack: DriversStackPoint[] = monthsIso.map((iso) => {
-        const label = new Date(iso).toLocaleDateString('uk-UA', {
-          month: 'short',
-          year: 'numeric',
-        });
-        const base: DriversStackPoint = { month: label };
-        driverNames.forEach((n) => (base[n] = 0));
-        return base;
-      });
-
-      rawDrivers.forEach((row) => {
-        if (!row.month_start || !row.driver_name) return;
-        const idx = monthsIso.indexOf(row.month_start);
-        if (idx >= 0) {
-          stack[idx][row.driver_name] = Number(row.trips || 0);
-        }
-      });
-
-      setDriversData(stack);
-      setDriverKeys(driverNames);
-
-      const statusItems: StatusItem[] = (statusRes.data || []).map((r: any) => ({
-        status: r.status || 'draft',
-        cnt: Number(r.cnt || 0),
-      }));
-      setStatusData(statusItems);
-
-      const recentData: EnrichedPurchase[] = (recentRes.data || []).map((r: any) => ({
-        id: r.id,
-        date: r.date,
-        total_amount: Number(r.total_amount || 0),
-        distribution_status: r.distribution_status,
-        buyer_name: r.buyer_name,
-        participants_count: Number(r.participants_count || 0),
-        paid_count: Number(r.paid_count || 0),
-        unpaid_count: Number(r.unpaid_count || 0),
-        amount_paid: Number(r.amount_paid || 0),
-        amount_unpaid: Number(r.amount_unpaid || 0),
-      }));
-      setRecent(recentData);
-    } catch (error: any) {
-      console.error('Dashboard fetch error', error);
-      toast({
-        title: 'Помилка завантаження',
-        description: error?.message || 'Не вдалося завантажити дані дашборда',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
+  // Функція для оновлення після дій
+  const refreshDashboard = () => {
+    // React Query автоматично оновить дані
   };
 
   const formatCurrency0 = (n?: number) =>
@@ -363,19 +210,19 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="p-4 md:p-6 pt-0">
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-              <PurchaseFormDialog onSuccess={fetchAll}>
+              <PurchaseFormDialog onSuccess={refreshDashboard}>
                 <Button className="h-16 md:h-20 bg-gradient-coffee shadow-brew text-xs md:text-sm w-full">
                   <ShoppingCart className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Нова покупка</span>
                 </Button>
               </PurchaseFormDialog>
-              <CoffeeForm onSuccess={fetchAll}>
+              <CoffeeForm onSuccess={refreshDashboard}>
                 <Button variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm w-full">
                   <Coffee className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Додати каву</span>
                 </Button>
               </CoffeeForm>
-              <DistributionTemplateForm onSuccess={fetchAll}>
+              <DistributionTemplateForm onSuccess={refreshDashboard}>
                 <Button variant="outline" className="h-16 md:h-20 border-primary hover:bg-primary/10 text-xs md:text-sm w-full">
                   <Users className="h-5 w-5 md:h-6 md:w-6" />
                   <span>Новий шаблон</span>
