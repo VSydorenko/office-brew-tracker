@@ -597,6 +597,7 @@ export type Database = {
           locked_by: string | null
           notes: string | null
           original_total_amount: number | null
+          template_id: string | null
           total_amount: number
           updated_at: string
         }
@@ -611,6 +612,7 @@ export type Database = {
           locked_by?: string | null
           notes?: string | null
           original_total_amount?: number | null
+          template_id?: string | null
           total_amount: number
           updated_at?: string
         }
@@ -625,6 +627,7 @@ export type Database = {
           locked_by?: string | null
           notes?: string | null
           original_total_amount?: number | null
+          template_id?: string | null
           total_amount?: number
           updated_at?: string
         }
@@ -643,6 +646,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "purchases_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_templates"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -650,6 +660,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backfill_purchase_templates: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_dashboard_kpis: {
         Args: { end_date: string; start_date: string }
         Returns: {
@@ -661,12 +675,9 @@ export type Database = {
           unpaid_total: number
         }[]
       }
-      get_last_purchase_template_by_buyer: {
+      get_last_purchase_template_id: {
         Args: { buyer_user_id: string }
-        Returns: {
-          template_id: string
-          template_name: string
-        }[]
+        Returns: string
       }
       get_latest_coffee_price: {
         Args: { coffee_id: string }

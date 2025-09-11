@@ -468,7 +468,11 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                     setDistributionValidation(validation);
                   }}
                   initialDistributions={distributions}
-                  initialSelectedTemplate={!isEditMode && lastTemplate ? lastTemplate.template_id : undefined}
+                  initialSelectedTemplate={
+                    isEditMode 
+                      ? purchaseData?.template_id 
+                      : (lastTemplate ? lastTemplate.template_id : undefined)
+                  }
                   isManuallyModified={isDistributionManuallyModified}
                   onManualModificationChange={setIsDistributionManuallyModified}
                 />

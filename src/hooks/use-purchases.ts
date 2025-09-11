@@ -19,6 +19,7 @@ export interface Purchase {
   original_total_amount?: number;
   locked_at?: string;
   locked_by?: string;
+  template_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -65,6 +66,7 @@ export interface CreatePurchaseData {
   buyer_id: string;
   driver_id?: string;
   notes?: string;
+  template_id?: string;
   items: Array<{
     coffee_type_id: string;
     quantity: number;
@@ -193,6 +195,7 @@ export function useCreatePurchase() {
           buyer_id: data.buyer_id,
           driver_id: data.driver_id,
           notes: data.notes,
+          template_id: data.template_id,
         })
         .select()
         .single();
@@ -268,6 +271,7 @@ export function useUpdatePurchase() {
           buyer_id: data.buyer_id,
           driver_id: data.driver_id,
           notes: data.notes,
+          template_id: data.template_id,
         })
         .eq('id', id)
         .select()
@@ -454,7 +458,7 @@ export function useCanDeletePurchase(purchaseId?: string) {
 }
 
 /**
- * Хук для отримання шаблону з останньої покупки користувача
+ * Хук для отримання template_id з останньої покупки користувача
  */
 export function useLastPurchaseTemplate(buyerId?: string) {
   return useSupabaseQuery(
@@ -462,7 +466,7 @@ export function useLastPurchaseTemplate(buyerId?: string) {
     async () => {
       if (!buyerId) return { data: null, error: null };
       
-      return supabase.rpc('get_last_purchase_template_by_buyer', {
+      return supabase.rpc('get_last_purchase_template_id', {
         buyer_user_id: buyerId
       });
     },
