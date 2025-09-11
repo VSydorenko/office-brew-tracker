@@ -123,13 +123,13 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const handleOpenChange = async (newOpen: boolean) => {
     setOpen(newOpen);
     if (newOpen && !isEditMode) {
-      // Скинути форму для нової покупки і встановити поточного користувача як покупця
+      // Скинути форму для нової покупки і встановити поточного користувача як покупця та водія
       setFormData({
         date: new Date().toISOString().split('T')[0],
         total_amount: '',
         notes: '',
         buyer_id: currentProfile?.id || '',
-        driver_id: '',
+        driver_id: currentProfile?.id || '',
       });
       setPurchaseItems([]);
       setDistributions([]);
@@ -141,23 +141,31 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   };
 
   const addPurchaseItem = () => {
-    setPurchaseItems([...purchaseItems, {
-      coffee_type_id: '',
-      quantity: 1,
-      unit_price: 0,
-      total_price: 0,
-    }]);
+    // Додаємо валідацію перед додаванням нової позиції
+    if (purchaseItems.length === 0 || purchaseItems[purchaseItems.length - 1].coffee_type_id) {
+      setPurchaseItems([...purchaseItems, {
+        coffee_type_id: '',
+        quantity: 1,
+        unit_price: 0,
+        total_price: 0,
+      }]);
+    }
   };
 
   // Функція для створення нового типу кави
   const createNewCoffeeType = async (name: string): Promise<string> => {
     try {
       const result = await createCoffeeTypeMutation.mutateAsync({ name: name.trim() });
+      toast({
+        title: "Успіх",
+        description: `Створено новий тип кави: ${name}`,
+      });
       return result.id;
     } catch (error: any) {
+      console.error('Error creating coffee type:', error);
       toast({
         title: "Помилка",
-        description: "Не вдалося створити новий тип кави",
+        description: error?.message || "Не вдалося створити новий тип кави",
         variant: "destructive",
       });
       throw error;
@@ -193,8 +201,13 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     const updatedItems = purchaseItems.filter((_, i) => i !== index);
     setPurchaseItems(updatedItems);
     
-    const totalAmount = updatedItems.reduce((sum, item) => sum + (item.unit_price || 0), 0);
-    setFormData(prev => ({ ...prev, total_amount: totalAmount.toString() }));
+    // Якщо не залишилось позицій, очищаємо поле замість встановлення "0"
+    if (updatedItems.length === 0) {
+      setFormData(prev => ({ ...prev, total_amount: '' }));
+    } else {
+      const totalAmount = updatedItems.reduce((sum, item) => sum + (item.unit_price || 0), 0);
+      setFormData(prev => ({ ...prev, total_amount: totalAmount.toString() }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -349,6 +362,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                       onUserSelect={(userId) => setFormData(prev => ({ ...prev, buyer_id: userId }))}
                       compact={false}
                       searchable={true}
+                      hideSearchByDefault={true}
                     />
                   </div>
                   <div>
@@ -358,6 +372,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                       onUserSelect={(userId) => setFormData(prev => ({ ...prev, driver_id: userId }))}
                       compact={false}
                       searchable={true}
+                      hideSearchByDefault={true}
                     />
                   </div>
                 </div>
