@@ -460,18 +460,13 @@ export function useCanDeletePurchase(purchaseId?: string) {
 /**
  * Хук для отримання template_id з останньої покупки користувача
  */
-export function useLastPurchaseTemplate(buyerId?: string) {
+export function useLastPurchaseTemplate() {
   return useSupabaseQuery(
-    queryKeys.purchases.lastTemplate(buyerId || ''),
+    queryKeys.purchases.lastTemplate(),
     async () => {
-      if (!buyerId) return { data: null, error: null };
-      
-      return supabase.rpc('get_last_purchase_template_id', {
-        buyer_user_id: buyerId
-      });
+      return supabase.rpc('get_last_purchase_template_id');
     },
     {
-      enabled: !!buyerId,
       staleTime: 1 * 60 * 1000, // 1 хвилина
     }
   );

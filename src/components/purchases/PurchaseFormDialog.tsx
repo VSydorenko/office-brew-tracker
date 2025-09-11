@@ -83,9 +83,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const { data: profiles = [] } = useProfiles();
   const { data: coffeeTypes = [] } = useCoffeeTypes();
   const { data: purchaseData, isLoading: isLoadingPurchase } = usePurchase(purchaseId || '');
-  const { data: lastTemplate } = useLastPurchaseTemplate(
-    !isEditMode ? formData.buyer_id : undefined
-  );
+  const { data: lastTemplate } = useLastPurchaseTemplate();
   
   const createPurchaseMutation = useCreatePurchase();
   const updatePurchaseMutation = useUpdatePurchase();
@@ -471,7 +469,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                   initialSelectedTemplate={
                     isEditMode 
                       ? purchaseData?.template_id 
-                      : (lastTemplate ? lastTemplate.template_id : undefined)
+                      : lastTemplate
                   }
                   isManuallyModified={isDistributionManuallyModified}
                   onManualModificationChange={setIsDistributionManuallyModified}

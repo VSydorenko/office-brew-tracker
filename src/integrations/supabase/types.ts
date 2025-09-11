@@ -672,7 +672,7 @@ export type Database = {
         }[]
       }
       get_last_purchase_template_id: {
-        Args: { buyer_user_id: string }
+        Args: Record<PropertyKey, never> | { buyer_user_id: string }
         Returns: string
       }
       get_latest_coffee_price: {
