@@ -16,7 +16,6 @@ interface Profile {
 interface TemplateUser {
   user_id: string;
   shares: number;
-  percentage?: number; // Розраховується автоматично
   profile?: Profile;
 }
 
@@ -81,8 +80,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
           *,
           distribution_template_users (
             user_id,
-            shares,
-            percentage
+            shares
           )
         `)
         .eq('id', templateId)
@@ -136,9 +134,6 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
     return templateUsers.reduce((sum, user) => sum + (user.shares || 0), 0);
   };
 
-  const calculatePercentage = (shares: number, totalShares: number) => {
-    return totalShares > 0 ? (shares / totalShares) * 100 : 0;
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
