@@ -231,13 +231,50 @@ export const PurchaseDistributionStep = ({
       return;
     }
 
-    // Перераховуємо відсотки та суми для решти користувачів
+    // Перераховуємо відсотки та суми для решти користувачів з коректним округленням
     const totalShares = updatedDistributions.reduce((sum, dist) => sum + dist.shares, 0);
-    const recalculatedDistributions = updatedDistributions.map(dist => ({
+    
+    if (totalShares === 0) {
+      setDistributions([]);
+      setManuallyModified(true);
+      onManualModificationChange?.(true);
+      return;
+    }
+
+    // Розраховуємо відсотки з округленням до 2 знаків
+    const distributionsWithPercentages = updatedDistributions.map(dist => ({
       ...dist,
-      percentage: totalShares > 0 ? (dist.shares / totalShares) * 100 : 0,
-      calculated_amount: totalShares > 0 ? (totalAmount * dist.shares) / totalShares : 0
+      percentage: Math.round((dist.shares / totalShares) * 10000) / 100,
     }));
+
+    // Нормалізуємо відсотки до 100.00
+    const totalPercentage = distributionsWithPercentages.reduce((sum, dist) => sum + dist.percentage, 0);
+    if (totalPercentage !== 100) {
+      const difference = 100 - totalPercentage;
+      const maxSharesUser = distributionsWithPercentages.reduce((max, current) => 
+        current.shares > max.shares ? current : max
+      );
+      maxSharesUser.percentage = Math.round((maxSharesUser.percentage + difference) * 100) / 100;
+    }
+
+    // Розраховуємо суми з округленням
+    let totalCalculated = 0;
+    const recalculatedDistributions = distributionsWithPercentages.map((dist, index) => {
+      if (index === distributionsWithPercentages.length - 1) {
+        // Останньому присвоюємо залишок
+        return {
+          ...dist,
+          calculated_amount: Math.round((totalAmount - totalCalculated) * 100) / 100
+        };
+      } else {
+        const amount = Math.round((totalAmount * dist.percentage) / 100 * 100) / 100;
+        totalCalculated += amount;
+        return {
+          ...dist,
+          calculated_amount: amount
+        };
+      }
+    });
     
     setDistributions(recalculatedDistributions);
     setManuallyModified(true);

@@ -6,6 +6,60 @@ import { useSupabaseQuery, useSupabaseMutation, useRealtimeInvalidation } from '
 import { queryKeys } from '@/lib/query-client';
 
 /**
+ * Утилітарна функція для побудови розподілів з часток
+ * Забезпечує коректне округлення відсотків та сум
+ */
+function buildDistributionsFromShares(
+  templateUsers: Array<{ user_id: string; shares: number }>,
+  totalAmount: number
+): Array<{ user_id: string; shares: number; percentage: number; calculated_amount: number }> {
+  if (templateUsers.length === 0 || totalAmount <= 0) {
+    return [];
+  }
+
+  const totalShares = templateUsers.reduce((sum, user) => sum + user.shares, 0);
+  if (totalShares <= 0) {
+    return [];
+  }
+
+  // Спочатку розраховуємо базові відсотки з округленням до 2 знаків
+  const distributions = templateUsers.map(user => {
+    const percentage = Math.round((user.shares / totalShares) * 10000) / 100; // Округлення до 2 знаків
+    return {
+      user_id: user.user_id,
+      shares: user.shares,
+      percentage,
+      calculated_amount: 0, // Поки що 0, розрахуємо далі
+    };
+  });
+
+  // Нормалізуємо відсотки, щоб сума була рівно 100.00
+  const totalPercentage = distributions.reduce((sum, dist) => sum + dist.percentage, 0);
+  if (totalPercentage !== 100) {
+    const difference = 100 - totalPercentage;
+    // Додаємо різницю до користувача з найбільшою кількістю часток
+    const maxSharesUser = distributions.reduce((max, current) => 
+      current.shares > max.shares ? current : max
+    );
+    maxSharesUser.percentage = Math.round((maxSharesUser.percentage + difference) * 100) / 100;
+  }
+
+  // Розраховуємо суми з округленням
+  let totalCalculated = 0;
+  for (let i = 0; i < distributions.length - 1; i++) {
+    const amount = Math.round((totalAmount * distributions[i].percentage) / 100 * 100) / 100;
+    distributions[i].calculated_amount = amount;
+    totalCalculated += amount;
+  }
+  
+  // Останньому користувачу присвоюємо залишок для точності
+  distributions[distributions.length - 1].calculated_amount = 
+    Math.round((totalAmount - totalCalculated) * 100) / 100;
+
+  return distributions;
+}
+
+/**
  * Тип покупки
  */
 export interface Purchase {
@@ -224,49 +278,35 @@ export function useCreatePurchase() {
         }
       }
 
-      // Додаємо розподіли, якщо є
-      let distributionsToUse = data.distributions;
-      
-      // Якщо розподілів немає, але є template_id, завантажуємо шаблон
-      if ((!distributionsToUse || distributionsToUse.length === 0) && data.template_id) {
-        const templateResult = await supabase
-          .from('distribution_templates')
-          .select(`
-            *,
-            distribution_template_users (
-              user_id,
-              shares,
-              percentage
-            )
-          `)
-          .eq('id', data.template_id)
-          .single();
+      // Створюємо розподіли, якщо є шаблон
+      if (data.template_id && data.distributions && Array.isArray(data.distributions) && data.distributions.length > 0) {
+        // Перевіряємо, чи всі елементи мають необхідні властивості shares
+        const validDistributions = data.distributions.filter(dist => 
+          dist.user_id && typeof dist.shares === 'number' && dist.shares > 0
+        );
+        
+        if (validDistributions.length > 0) {
+          // Використовуємо утилітарну функцію для коректного розрахунку
+          const normalizedDistributions = buildDistributionsFromShares(
+            validDistributions,
+            data.total_amount || 0
+          );
 
-        if (templateResult.data && templateResult.data.distribution_template_users.length > 0) {
-          const totalShares = templateResult.data.distribution_template_users.reduce((sum: number, user: any) => sum + user.shares, 0);
-          distributionsToUse = templateResult.data.distribution_template_users.map((templateUser: any) => ({
-            user_id: templateUser.user_id,
-            shares: templateUser.shares,
-            percentage: totalShares > 0 ? (templateUser.shares / totalShares) * 100 : 0,
+          const distributionsToInsert = normalizedDistributions.map(dist => ({
+            purchase_id: purchaseId,
+            user_id: dist.user_id,
+            shares: dist.shares,
+            percentage: dist.percentage,
+            calculated_amount: dist.calculated_amount,
           }));
-        }
-      }
 
-      if (distributionsToUse && distributionsToUse.length > 0) {
-        const distributionsToInsert = distributionsToUse.map(dist => ({
-          ...dist,
-          purchase_id: purchaseId,
-          calculated_amount: (data.total_amount * dist.percentage) / 100,
-        }));
+          const distributionsResult = await supabase
+            .from('purchase_distributions')
+            .insert(distributionsToInsert);
 
-        const distributionsResult = await supabase
-          .from('purchase_distributions')
-          .insert(distributionsToInsert);
-
-        if (distributionsResult.error) {
-          // Видаляємо покупку у випадку помилки
-          await supabase.from('purchases').delete().eq('id', purchaseId);
-          return { data: null, error: distributionsResult.error };
+          if (distributionsResult.error) {
+            return { data: null, error: distributionsResult.error };
+          }
         }
       }
 
@@ -367,12 +407,11 @@ export function useUpdatePurchase() {
             .single();
 
           if (templateResult.data && templateResult.data.distribution_template_users.length > 0) {
-            const totalShares = templateResult.data.distribution_template_users.reduce((sum: number, user: any) => sum + user.shares, 0);
-            distributionsToUse = templateResult.data.distribution_template_users.map((templateUser: any) => ({
-              user_id: templateUser.user_id,
-              shares: templateUser.shares,
-              percentage: totalShares > 0 ? (templateUser.shares / totalShares) * 100 : 0,
-            }));
+            // Використовуємо утилітарну функцію для коректного розрахунку
+            distributionsToUse = buildDistributionsFromShares(
+              templateResult.data.distribution_template_users,
+              data.total_amount || 0
+            );
           }
         }
 
@@ -386,18 +425,32 @@ export function useUpdatePurchase() {
 
           // Додаємо нові розподіли, якщо є
           if (distributionsToUse && distributionsToUse.length > 0 && data.total_amount) {
-            const distributionsToInsert = distributionsToUse.map(dist => ({
-              ...dist,
-              purchase_id: id,
-              calculated_amount: (data.total_amount! * dist.percentage) / 100,
-            }));
+            // Перевіряємо чи distributionsToUse має коректний формат
+            const validDistributions = distributionsToUse.filter(dist => 
+              dist.user_id && typeof dist.shares === 'number' && dist.shares > 0
+            );
 
-            const distributionsResult = await supabase
-              .from('purchase_distributions')
-              .insert(distributionsToInsert);
+            if (validDistributions.length > 0) {
+              const normalizedDistributions = buildDistributionsFromShares(
+                validDistributions,
+                data.total_amount
+              );
 
-            if (distributionsResult.error) {
-              return { data: null, error: distributionsResult.error };
+              const distributionsToInsert = normalizedDistributions.map(dist => ({
+                purchase_id: id,
+                user_id: dist.user_id,
+                shares: dist.shares,
+                percentage: dist.percentage,
+                calculated_amount: dist.calculated_amount,
+              }));
+
+              const distributionsResult = await supabase
+                .from('purchase_distributions')
+                .insert(distributionsToInsert);
+
+              if (distributionsResult.error) {
+                return { data: null, error: distributionsResult.error };
+              }
             }
           }
         }
