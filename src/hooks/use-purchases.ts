@@ -289,14 +289,19 @@ export function useCreatePurchase() {
 export function useUpdatePurchase() {
   return useSupabaseMutation(
     async ({ id, data }: { id: string; data: Partial<CreatePurchaseData> }) => {
-      // Перевіряємо статус покупки
+      // Отримуємо поточні дані покупки
       const { data: existingPurchase } = await supabase
         .from('purchases')
-        .select('distribution_status')
+        .select('distribution_status, template_id')
         .eq('id', id)
         .single();
 
-      const isLocked = existingPurchase?.distribution_status === 'locked';
+      if (!existingPurchase) {
+        return { data: null, error: { message: 'Покупку не знайдено' } };
+      }
+
+      const isLocked = existingPurchase.distribution_status === 'locked';
+      const templateChanged = existingPurchase.template_id !== data.template_id;
 
       // Оновлюємо основні дані покупки
       const purchaseResult = await supabase
@@ -342,28 +347,58 @@ export function useUpdatePurchase() {
         }
       }
 
-      // Оновлюємо розподіли, якщо передані та покупка не заблокована
-      if (data.distributions && !isLocked) {
-        // Видаляємо старі розподіли
-        await supabase
-          .from('purchase_distributions')
-          .delete()
-          .eq('purchase_id', id);
+      // Обробляємо розподіли, якщо покупка не заблокована
+      if (!isLocked) {
+        let distributionsToUse = data.distributions;
+        
+        // Якщо шаблон змінився, але розподіли не передані, завантажуємо їх з нового шаблону
+        if (templateChanged && (!distributionsToUse || distributionsToUse.length === 0) && data.template_id) {
+          const templateResult = await supabase
+            .from('distribution_templates')
+            .select(`
+              *,
+              distribution_template_users (
+                user_id,
+                shares,
+                percentage
+              )
+            `)
+            .eq('id', data.template_id)
+            .single();
 
-        // Додаємо нові розподіли
-        if (data.distributions.length > 0) {
-          const distributionsToInsert = data.distributions.map(dist => ({
-            ...dist,
-            purchase_id: id,
-            calculated_amount: data.total_amount ? (data.total_amount * dist.percentage) / 100 : 0,
-          }));
+          if (templateResult.data && templateResult.data.distribution_template_users.length > 0) {
+            const totalShares = templateResult.data.distribution_template_users.reduce((sum: number, user: any) => sum + user.shares, 0);
+            distributionsToUse = templateResult.data.distribution_template_users.map((templateUser: any) => ({
+              user_id: templateUser.user_id,
+              shares: templateUser.shares,
+              percentage: totalShares > 0 ? (templateUser.shares / totalShares) * 100 : 0,
+            }));
+          }
+        }
 
-          const distributionsResult = await supabase
+        // Оновлюємо розподіли, якщо є що оновлювати
+        if (distributionsToUse || templateChanged) {
+          // Видаляємо старі розподіли
+          await supabase
             .from('purchase_distributions')
-            .insert(distributionsToInsert);
+            .delete()
+            .eq('purchase_id', id);
 
-          if (distributionsResult.error) {
-            return { data: null, error: distributionsResult.error };
+          // Додаємо нові розподіли, якщо є
+          if (distributionsToUse && distributionsToUse.length > 0 && data.total_amount) {
+            const distributionsToInsert = distributionsToUse.map(dist => ({
+              ...dist,
+              purchase_id: id,
+              calculated_amount: (data.total_amount! * dist.percentage) / 100,
+            }));
+
+            const distributionsResult = await supabase
+              .from('purchase_distributions')
+              .insert(distributionsToInsert);
+
+            if (distributionsResult.error) {
+              return { data: null, error: distributionsResult.error };
+            }
           }
         }
       }
