@@ -221,7 +221,7 @@ export const PurchaseDistributionPayments = ({
                   </span>
                   <div className="flex items-center gap-1 flex-wrap">
                     <Badge variant="outline" className="text-xs">
-                      {dist.percentage}%
+                      {dist.shares || 1} частки
                     </Badge>
                     {dist.version && dist.version > 1 && (
                       <Badge variant="secondary" className="text-xs">
