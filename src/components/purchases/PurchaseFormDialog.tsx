@@ -105,6 +105,11 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       });
       setPurchaseItems(purchase.purchase_items || []);
       
+      // Встановлюємо збережений template_id
+      if (purchase.template_id) {
+        setSelectedTemplate(purchase.template_id);
+      }
+      
       // Завантажити існуючі розподіли
       if (purchase.purchase_distributions && purchase.purchase_distributions.length > 0) {
         const existingDistributions = purchase.purchase_distributions.map((dist: any) => ({
@@ -133,7 +138,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       });
       setPurchaseItems([]);
       setDistributions([]);
-      setSelectedTemplate('');
+      // Для нової покупки встановлюємо останній використаний шаблон
+      setSelectedTemplate(lastTemplate || '');
       setDistributionValidation(null);
       setIsDistributionManuallyModified(false);
       setCurrentTab('purchase');
@@ -252,6 +258,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
         buyer_id: formData.buyer_id,
         driver_id: formData.driver_id || undefined,
         notes: formData.notes || undefined,
+        template_id: selectedTemplate || undefined,
         items: purchaseItems
           .filter(item => item.coffee_type_id)
           .map(item => ({
@@ -458,25 +465,25 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                 </div>
               </TabsContent>
 
-              <TabsContent value="distribution" className="space-y-4">
-                <PurchaseDistributionStep
-                  totalAmount={parseFloat(formData.total_amount) || 0}
-                  purchaseDate={formData.date}
-                  onDistributionChange={(newDistributions, validation) => {
-                    setDistributions(newDistributions);
-                    setDistributionValidation(validation);
-                  }}
-                  initialDistributions={distributions}
-                  initialSelectedTemplate={
-                    isEditMode 
-                      ? purchaseData?.template_id 
-                      : lastTemplate
-                  }
-                  isManuallyModified={isDistributionManuallyModified}
-                  onManualModificationChange={setIsDistributionManuallyModified}
-                />
-              </TabsContent>
-            </Tabs>
+                <TabsContent value="distribution" className="space-y-4">
+                  <PurchaseDistributionStep
+                    totalAmount={parseFloat(formData.total_amount) || 0}
+                    purchaseDate={formData.date}
+                    onDistributionChange={(dists, validation) => {
+                      setDistributions(dists);
+                      setDistributionValidation(validation);
+                      // Зберігаємо обраний шаблон
+                      if (validation?.selectedTemplate) {
+                        setSelectedTemplate(validation.selectedTemplate);
+                      }
+                    }}
+                    initialDistributions={distributions}
+                    initialSelectedTemplate={selectedTemplate}
+                    isManuallyModified={isDistributionManuallyModified}
+                    onManualModificationChange={setIsDistributionManuallyModified}
+                  />
+                </TabsContent>
+              </Tabs>
 
             {/* Кнопки управління */}
             <div className="flex justify-end gap-3 pt-4 border-t">

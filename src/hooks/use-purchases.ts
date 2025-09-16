@@ -225,8 +225,35 @@ export function useCreatePurchase() {
       }
 
       // Додаємо розподіли, якщо є
-      if (data.distributions && data.distributions.length > 0) {
-        const distributionsToInsert = data.distributions.map(dist => ({
+      let distributionsToUse = data.distributions;
+      
+      // Якщо розподілів немає, але є template_id, завантажуємо шаблон
+      if ((!distributionsToUse || distributionsToUse.length === 0) && data.template_id) {
+        const templateResult = await supabase
+          .from('distribution_templates')
+          .select(`
+            *,
+            distribution_template_users (
+              user_id,
+              shares,
+              percentage
+            )
+          `)
+          .eq('id', data.template_id)
+          .single();
+
+        if (templateResult.data && templateResult.data.distribution_template_users.length > 0) {
+          const totalShares = templateResult.data.distribution_template_users.reduce((sum: number, user: any) => sum + user.shares, 0);
+          distributionsToUse = templateResult.data.distribution_template_users.map((templateUser: any) => ({
+            user_id: templateUser.user_id,
+            shares: templateUser.shares,
+            percentage: totalShares > 0 ? (templateUser.shares / totalShares) * 100 : 0,
+          }));
+        }
+      }
+
+      if (distributionsToUse && distributionsToUse.length > 0) {
+        const distributionsToInsert = distributionsToUse.map(dist => ({
           ...dist,
           purchase_id: purchaseId,
           calculated_amount: (data.total_amount * dist.percentage) / 100,
@@ -262,6 +289,15 @@ export function useCreatePurchase() {
 export function useUpdatePurchase() {
   return useSupabaseMutation(
     async ({ id, data }: { id: string; data: Partial<CreatePurchaseData> }) => {
+      // Перевіряємо статус покупки
+      const { data: existingPurchase } = await supabase
+        .from('purchases')
+        .select('distribution_status')
+        .eq('id', id)
+        .single();
+
+      const isLocked = existingPurchase?.distribution_status === 'locked';
+
       // Оновлюємо основні дані покупки
       const purchaseResult = await supabase
         .from('purchases')
@@ -302,6 +338,32 @@ export function useUpdatePurchase() {
 
           if (itemsResult.error) {
             return { data: null, error: itemsResult.error };
+          }
+        }
+      }
+
+      // Оновлюємо розподіли, якщо передані та покупка не заблокована
+      if (data.distributions && !isLocked) {
+        // Видаляємо старі розподіли
+        await supabase
+          .from('purchase_distributions')
+          .delete()
+          .eq('purchase_id', id);
+
+        // Додаємо нові розподіли
+        if (data.distributions.length > 0) {
+          const distributionsToInsert = data.distributions.map(dist => ({
+            ...dist,
+            purchase_id: id,
+            calculated_amount: data.total_amount ? (data.total_amount * dist.percentage) / 100 : 0,
+          }));
+
+          const distributionsResult = await supabase
+            .from('purchase_distributions')
+            .insert(distributionsToInsert);
+
+          if (distributionsResult.error) {
+            return { data: null, error: distributionsResult.error };
           }
         }
       }
