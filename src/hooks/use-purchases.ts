@@ -283,7 +283,7 @@ export function useCreatePurchase() {
         // Перевіряємо, чи всі елементи мають необхідні властивості shares
         const validDistributions = data.distributions.filter(dist => 
           dist.user_id && typeof dist.shares === 'number' && dist.shares > 0
-        );
+        ) as Array<{ user_id: string; shares: number }>;
         
         if (validDistributions.length > 0) {
           // Використовуємо утилітарну функцію для коректного розрахунку
@@ -428,7 +428,7 @@ export function useUpdatePurchase() {
             // Перевіряємо чи distributionsToUse має коректний формат
             const validDistributions = distributionsToUse.filter(dist => 
               dist.user_id && typeof dist.shares === 'number' && dist.shares > 0
-            );
+            ) as Array<{ user_id: string; shares: number }>;
 
             if (validDistributions.length > 0) {
               const normalizedDistributions = buildDistributionsFromShares(
