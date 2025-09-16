@@ -186,7 +186,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
           template_id: templateId,
           user_id: user.user_id,
           shares: user.shares,
-          percentage: calculatePercentage(user.shares, totalShares)
+          percentage: 0  // Тимчасово, поки не оновимо БД
         }));
 
         const { error: usersError } = await supabase
@@ -219,7 +219,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
           template_id: template.id,
           user_id: user.user_id,
           shares: user.shares,
-          percentage: calculatePercentage(user.shares, totalShares)
+          percentage: 0  // Тимчасово, поки не оновимо БД
         }));
 
         const { error: usersError } = await supabase
