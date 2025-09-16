@@ -43,7 +43,6 @@ interface PurchaseItem {
 interface PurchaseDistribution {
   user_id: string;
   shares: number;
-  percentage: number;
   calculated_amount: number;
   adjusted_amount?: number;
   profile?: Profile;
@@ -114,8 +113,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       if (purchase.purchase_distributions && purchase.purchase_distributions.length > 0) {
         const existingDistributions = purchase.purchase_distributions.map((dist: any) => ({
           user_id: dist.user_id,
-          shares: dist.shares || Math.round(dist.percentage), // Використовуємо shares або конвертуємо з відсотка
-          percentage: dist.percentage,
+          shares: dist.shares || 1, // Використовуємо shares або значення за замовчуванням
           calculated_amount: dist.calculated_amount,
           adjusted_amount: dist.adjusted_amount,
           profile: dist.profiles
@@ -269,8 +267,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
           })),
         distributions: distributions.length > 0 ? distributions.map(dist => ({
           user_id: dist.user_id,
-          shares: dist.shares,
-          percentage: dist.percentage,
+          shares: dist.shares
         })) : undefined,
       };
 

@@ -181,12 +181,11 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
 
         if (deleteError) throw deleteError;
 
-        // Додаємо нових користувачів
+        // Додаємо нових користувачів (тільки shares, без percentage)
         const templateUsersData = validUsers.map(user => ({
           template_id: templateId,
           user_id: user.user_id,
-          shares: user.shares,
-          percentage: 0  // Тимчасово, поки не оновимо БД
+          shares: user.shares
         }));
 
         const { error: usersError } = await supabase
@@ -214,12 +213,11 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
 
         if (templateError) throw templateError;
 
-        // Додаємо користувачів до шаблону
+        // Додаємо користувачів до шаблону (тільки shares, без percentage)
         const templateUsersData = validUsers.map(user => ({
           template_id: template.id,
           user_id: user.user_id,
-          shares: user.shares,
-          percentage: 0  // Тимчасово, поки не оновимо БД
+          shares: user.shares
         }));
 
         const { error: usersError } = await supabase

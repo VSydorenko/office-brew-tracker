@@ -39,7 +39,7 @@ interface PurchaseItem {
 interface PurchaseDistribution {
   id: string;
   user_id: string;
-  percentage: number;
+  shares?: number;
   calculated_amount: number;
   adjusted_amount?: number;
   is_paid: boolean;

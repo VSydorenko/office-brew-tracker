@@ -18,7 +18,6 @@ interface Profile {
 interface TemplateUser {
   user_id: string;
   shares: number;
-  percentage: number;
   profiles: Profile;
 }
 
@@ -34,7 +33,6 @@ interface DistributionTemplate {
 interface PurchaseDistribution {
   user_id: string;
   shares: number;
-  percentage: number;
   calculated_amount: number;
   adjusted_amount?: number;
   profile?: Profile;
@@ -79,7 +77,6 @@ export const PurchaseDistributionStep = ({
       const totalShares = distributions.reduce((sum, dist) => sum + dist.shares, 0);
       const updatedDistributions = distributions.map(dist => ({
         ...dist,
-        percentage: totalShares > 0 ? (dist.shares / totalShares) * 100 : 0,
         calculated_amount: totalShares > 0 ? (totalAmount * dist.shares) / totalShares : 0
       }));
       setDistributions(updatedDistributions);
@@ -96,7 +93,6 @@ export const PurchaseDistributionStep = ({
           distribution_template_users (
             user_id,
             shares,
-            percentage,
             profiles (
               id,
               name,
@@ -154,7 +150,6 @@ export const PurchaseDistributionStep = ({
     const newDistributions = template.distribution_template_users.map(templateUser => ({
       user_id: templateUser.user_id,
       shares: templateUser.shares,
-      percentage: totalShares > 0 ? (templateUser.shares / totalShares) * 100 : 0,
       calculated_amount: totalShares > 0 ? (totalAmount * templateUser.shares) / totalShares : 0,
       profile: templateUser.profiles
     }));
@@ -173,15 +168,13 @@ export const PurchaseDistributionStep = ({
     const updated = [...distributions];
     updated[index] = { ...updated[index], [field]: value };
     
-    // Якщо змінюються частки, перераховуємо відсоток і суму
+    // Якщо змінюються частки, перераховуємо суму
     if (field === 'shares') {
       const totalShares = updated.reduce((sum, dist) => sum + dist.shares, 0);
-      updated[index].percentage = totalShares > 0 ? (value / totalShares) * 100 : 0;
       updated[index].calculated_amount = totalShares > 0 ? (totalAmount * value) / totalShares : 0;
       
-      // Перераховуємо відсотки для всіх користувачів
+      // Перераховуємо суми для всіх користувачів
       updated.forEach((dist, i) => {
-        dist.percentage = totalShares > 0 ? (dist.shares / totalShares) * 100 : 0;
         if (i !== index) {
           dist.calculated_amount = totalShares > 0 ? (totalAmount * dist.shares) / totalShares : 0;
         }
@@ -213,9 +206,6 @@ export const PurchaseDistributionStep = ({
     return distributions.reduce((sum, dist) => sum + dist.shares, 0);
   };
 
-  const getTotalPercentage = () => {
-    return distributions.reduce((sum, dist) => sum + dist.percentage, 0);
-  };
 
   const getTotalCalculatedAmount = () => {
     return distributions.reduce((sum, dist) => sum + dist.calculated_amount, 0);
@@ -291,7 +281,6 @@ export const PurchaseDistributionStep = ({
     const totalShares = getTotalShares();
     const validationData = {
       totalShares: totalShares,
-      totalPercentage: getTotalPercentage(),
       totalCalculatedAmount: getTotalCalculatedAmount(),
       isValidShares: totalShares > 0,
       isValidAmount: Math.abs(getTotalCalculatedAmount() - totalAmount) <= 0.01,

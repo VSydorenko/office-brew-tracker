@@ -227,7 +227,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          percentage: number
+          percentage: number | null
           shares: number | null
           template_id: string
           user_id: string
@@ -235,7 +235,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          percentage: number
+          percentage?: number | null
           shares?: number | null
           template_id: string
           user_id: string
@@ -243,7 +243,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          percentage?: number
+          percentage?: number | null
           shares?: number | null
           template_id?: string
           user_id?: string
@@ -481,7 +481,7 @@ export type Database = {
           is_paid: boolean
           notes: string | null
           paid_at: string | null
-          percentage: number
+          percentage: number | null
           previous_amount: number | null
           purchase_id: string
           shares: number | null
@@ -498,7 +498,7 @@ export type Database = {
           is_paid?: boolean
           notes?: string | null
           paid_at?: string | null
-          percentage: number
+          percentage?: number | null
           previous_amount?: number | null
           purchase_id: string
           shares?: number | null
@@ -515,7 +515,7 @@ export type Database = {
           is_paid?: boolean
           notes?: string | null
           paid_at?: string | null
-          percentage?: number
+          percentage?: number | null
           previous_amount?: number | null
           purchase_id?: string
           shares?: number | null

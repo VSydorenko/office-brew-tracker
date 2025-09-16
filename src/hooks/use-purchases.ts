@@ -12,7 +12,7 @@ import { queryKeys } from '@/lib/query-client';
 function buildDistributionsFromShares(
   templateUsers: Array<{ user_id: string; shares: number }>,
   totalAmount: number
-): Array<{ user_id: string; shares: number; percentage: number; calculated_amount: number }> {
+): Array<{ user_id: string; shares: number; calculated_amount: number }> {
   if (templateUsers.length === 0 || totalAmount <= 0) {
     return [];
   }
@@ -22,32 +22,17 @@ function buildDistributionsFromShares(
     return [];
   }
 
-  // Спочатку розраховуємо базові відсотки з округленням до 2 знаків
-  const distributions = templateUsers.map(user => {
-    const percentage = Math.round((user.shares / totalShares) * 10000) / 100; // Округлення до 2 знаків
-    return {
-      user_id: user.user_id,
-      shares: user.shares,
-      percentage,
-      calculated_amount: 0, // Поки що 0, розрахуємо далі
-    };
-  });
+  // Розраховуємо суми з округленням до копійок
+  const distributions = templateUsers.map(user => ({
+    user_id: user.user_id,
+    shares: user.shares,
+    calculated_amount: 0, // Поки що 0, розрахуємо далі
+  }));
 
-  // Нормалізуємо відсотки, щоб сума була рівно 100.00
-  const totalPercentage = distributions.reduce((sum, dist) => sum + dist.percentage, 0);
-  if (totalPercentage !== 100) {
-    const difference = 100 - totalPercentage;
-    // Додаємо різницю до користувача з найбільшою кількістю часток
-    const maxSharesUser = distributions.reduce((max, current) => 
-      current.shares > max.shares ? current : max
-    );
-    maxSharesUser.percentage = Math.round((maxSharesUser.percentage + difference) * 100) / 100;
-  }
-
-  // Розраховуємо суми з округленням
+  // Розраховуємо суми з точним розподілом за частками
   let totalCalculated = 0;
   for (let i = 0; i < distributions.length - 1; i++) {
-    const amount = Math.round((totalAmount * distributions[i].percentage) / 100 * 100) / 100;
+    const amount = Math.round((totalAmount * distributions[i].shares) / totalShares * 100) / 100;
     distributions[i].calculated_amount = amount;
     totalCalculated += amount;
   }
@@ -103,7 +88,7 @@ export interface PurchaseWithDetails extends Purchase {
   purchase_distributions?: Array<{
     id: string;
     user_id: string;
-    percentage: number;
+    shares?: number;
     calculated_amount: number;
     adjusted_amount?: number;
     is_paid: boolean;
@@ -155,7 +140,7 @@ export function usePurchases() {
           purchase_distributions(
             id,
             user_id,
-            percentage,
+            shares,
             calculated_amount,
             adjusted_amount,
             is_paid,
@@ -200,7 +185,7 @@ export function usePurchase(id: string) {
           purchase_distributions(
             id,
             user_id,
-            percentage,
+            shares,
             calculated_amount,
             adjusted_amount,
             is_paid,
@@ -318,7 +303,6 @@ export function useCreatePurchase() {
             purchase_id: purchaseId,
             user_id: dist.user_id,
             shares: dist.shares,
-            percentage: dist.percentage,
             calculated_amount: dist.calculated_amount,
           }));
 
@@ -421,8 +405,7 @@ export function useUpdatePurchase() {
               *,
               distribution_template_users (
                 user_id,
-                shares,
-                percentage
+                shares
               )
             `)
             .eq('id', data.template_id)
@@ -462,7 +445,6 @@ export function useUpdatePurchase() {
                 purchase_id: id,
                 user_id: dist.user_id,
                 shares: dist.shares,
-                percentage: dist.percentage,
                 calculated_amount: dist.calculated_amount,
               }));
 
