@@ -128,9 +128,10 @@ export interface CreatePurchaseData {
     total_price?: number;
   }>;
   distributions?: Array<{
+    /** @description Користувач-учасник розподілу */
     user_id: string;
-    percentage: number;
-    shares?: number;
+    /** @description Кількість часток (використовується для розрахунку) */
+    shares: number;
   }>;
 }
 
@@ -278,17 +279,38 @@ export function useCreatePurchase() {
         }
       }
 
-      // Створюємо розподіли, якщо є шаблон
-      if (data.template_id && data.distributions && Array.isArray(data.distributions) && data.distributions.length > 0) {
-        // Перевіряємо, чи всі елементи мають необхідні властивості shares
-        const validDistributions = data.distributions.filter(dist => 
-          dist.user_id && typeof dist.shares === 'number' && dist.shares > 0
-        ) as Array<{ user_id: string; shares: number }>;
-        
-        if (validDistributions.length > 0) {
-          // Використовуємо утилітарну функцію для коректного розрахунку
+      // Розраховуємо розподіли за шаблоном
+      if (data.template_id) {
+        let sourceDistributions: Array<{ user_id: string; shares: number }> = [];
+
+        if (data.distributions && Array.isArray(data.distributions) && data.distributions.length > 0) {
+          sourceDistributions = data.distributions.filter(dist => 
+            dist.user_id && typeof dist.shares === 'number' && dist.shares > 0
+          ) as Array<{ user_id: string; shares: number }>;
+        }
+
+        // Якщо з інтерфейсу нічого не прийшло — тягнемо користувачів з шаблону
+        if (sourceDistributions.length === 0) {
+          const templateResult = await supabase
+            .from('distribution_templates')
+            .select(`
+              *,
+              distribution_template_users (
+                user_id,
+                shares
+              )
+            `)
+            .eq('id', data.template_id)
+            .single();
+
+          if (templateResult.data?.distribution_template_users?.length) {
+            sourceDistributions = templateResult.data.distribution_template_users as Array<{ user_id: string; shares: number }>;
+          }
+        }
+
+        if (sourceDistributions.length > 0) {
           const normalizedDistributions = buildDistributionsFromShares(
-            validDistributions,
+            sourceDistributions,
             data.total_amount || 0
           );
 
