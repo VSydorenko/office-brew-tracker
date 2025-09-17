@@ -105,6 +105,7 @@ export const CoffeeCombobox = ({
   return (
     <>
       <Button
+        type="button"
         variant="outline"
         role="combobox"
         aria-expanded={open}

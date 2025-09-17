@@ -187,8 +187,40 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     return priceCache[coffeeId] || null;
   };
 
-  // Хук для отримання останньої ціни кави (для автоматичного заповнення)
-  const { data: latestPriceData } = useLatestCoffeePrice('');
+  // Завантажуємо ціни всіх кав при відкритті діалогу
+  useEffect(() => {
+    if (!open || !coffeeTypes?.length) return;
+    
+    let cancelled = false;
+    const loadPrices = async () => {
+      try {
+        const results = await Promise.all(
+          coffeeTypes.map(async (coffee) => {
+            const { data } = await supabase.rpc('get_latest_coffee_price', { 
+              coffee_id: coffee.id 
+            });
+            return [coffee.id, data] as const;
+          })
+        );
+        
+        if (cancelled) return;
+        
+        const newPriceCache: Record<string, number> = {};
+        results.forEach(([coffeeId, price]) => {
+          if (typeof price === 'number' && price > 0) {
+            newPriceCache[coffeeId] = price;
+          }
+        });
+        
+        setPriceCache(newPriceCache);
+      } catch (error) {
+        console.error('Помилка завантаження останніх цін:', error);
+      }
+    };
+    
+    loadPrices();
+    return () => { cancelled = true; };
+  }, [open, coffeeTypes]);
 
   const updatePurchaseItem = async (index: number, field: keyof PurchaseItem, value: any) => {
     const updatedItems = [...purchaseItems];
@@ -228,7 +260,14 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     
     // Оновити загальну суму покупки
     const totalAmount = updatedItems.reduce((sum, item) => sum + (item.unit_price || 0), 0);
-    setFormData(prev => ({ ...prev, total_amount: totalAmount.toString() }));
+    
+    // Оновлюємо поле тільки якщо сума > 0 або поле порожнє
+    setFormData(prev => {
+      const shouldUpdate = totalAmount > 0 || prev.total_amount === '';
+      return shouldUpdate 
+        ? { ...prev, total_amount: totalAmount > 0 ? totalAmount.toString() : '' }
+        : prev;
+    });
   };
 
   const removePurchaseItem = (index: number) => {
@@ -445,6 +484,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                               step="1"
                               value={item.quantity}
                               onChange={(e) => updatePurchaseItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                             />
                           </div>
                           <div className="w-24">
@@ -456,6 +496,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                               placeholder="0.00"
                               value={item.unit_price || ''}
                               onChange={(e) => updatePurchaseItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                             />
                           </div>
                           <Button

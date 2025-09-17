@@ -368,6 +368,7 @@ export const PurchaseDistributionStep = ({
             </Select>
           </div>
           <Button 
+            type="button"
             variant="outline" 
             size="sm" 
             onClick={recalculateFromTemplate}
@@ -403,6 +404,7 @@ export const PurchaseDistributionStep = ({
                 {distribution.calculated_amount.toFixed(2)} ₴
               </span>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => removeUserFromDistribution(distribution.user_id)}
