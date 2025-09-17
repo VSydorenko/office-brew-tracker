@@ -16,6 +16,7 @@ import { PurchaseDistributionStep } from './PurchaseDistributionStep';
 import { useProfiles, useCurrentProfile } from '@/hooks/use-profiles';
 import { useCoffeeTypes, useCreateCoffeeType } from '@/hooks/use-coffee-types';
 import { usePurchase, useCreatePurchase, useUpdatePurchase, useLatestCoffeePrice, useLastPurchaseTemplate } from '@/hooks/use-purchases';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/ui/auth-provider';
 
 interface Profile {
@@ -144,7 +145,10 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     }
   };
 
-  const addPurchaseItem = () => {
+  const addPurchaseItem = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
     // Додаємо валідацію перед додаванням нової позиції
     if (purchaseItems.length === 0 || purchaseItems[purchaseItems.length - 1].coffee_type_id) {
       setPurchaseItems([...purchaseItems, {
@@ -176,16 +180,42 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     }
   };
 
+  // Створюємо кеш для цін кави
+  const [priceCache, setPriceCache] = useState<Record<string, number>>({});
+  
+  const getLastPrice = (coffeeId: string): number | null => {
+    return priceCache[coffeeId] || null;
+  };
+
+  // Хук для отримання останньої ціни кави (для автоматичного заповнення)
+  const { data: latestPriceData } = useLatestCoffeePrice('');
+
   const updatePurchaseItem = async (index: number, field: keyof PurchaseItem, value: any) => {
     const updatedItems = [...purchaseItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     
     // Автозаповнення ціни при виборі кави
     if (field === 'coffee_type_id' && value) {
-      // Використовуємо React Query для отримання останньої ціни
-      // Пока что оставим простую логику без дополнительного хука в цикле
-      updatedItems[index].unit_price = 0;
-      updatedItems[index].total_price = 0;
+      // Отримуємо останню ціну для цієї кави
+      try {
+        const { data: priceData } = await supabase.rpc('get_latest_coffee_price', { 
+          coffee_id: value 
+        });
+        
+        if (priceData && priceData > 0) {
+          updatedItems[index].unit_price = priceData;
+          updatedItems[index].total_price = priceData;
+          // Зберігаємо в кеш для швидкого доступу
+          setPriceCache(prev => ({ ...prev, [value]: priceData }));
+        } else {
+          updatedItems[index].unit_price = 0;
+          updatedItems[index].total_price = 0;
+        }
+      } catch (error) {
+        console.error('Error fetching latest price:', error);
+        updatedItems[index].unit_price = 0;
+        updatedItems[index].total_price = 0;
+      }
     }
     
     // Автоматично розрахувати загальну ціну для позиції (завжди quantity = 1)
@@ -320,7 +350,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
             <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="purchase">Покупка</TabsTrigger>
-                <TabsTrigger value="distribution" disabled={!formData.total_amount || parseFloat(formData.total_amount) <= 0}>
+                <TabsTrigger value="distribution" disabled={purchaseItems.length === 0 || !purchaseItems.some(item => item.coffee_type_id && (item.unit_price || 0) > 0)}>
                   Розподіл
                   {distributions.length > 0 && (
                     <Badge variant="secondary" className="ml-2">
@@ -403,7 +433,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                               onValueChange={(value) => updatePurchaseItem(index, 'coffee_type_id', value)}
                               onCreateNew={createNewCoffeeType}
                               placeholder="Оберіть або створіть тип кави"
-                              showLastPrice={false}
+                              showLastPrice={true}
+                              onGetLastPrice={getLastPrice}
                             />
                           </div>
                           <div className="w-24">
