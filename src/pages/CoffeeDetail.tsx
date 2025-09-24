@@ -46,49 +46,63 @@ const CoffeeDetail = () => {
   const { data: coffee, isLoading: coffeeLoading, refetch: refetchCoffee } = useCoffeeType(id!);
   const deleteMutation = useDeleteCoffeeType();
 
-  // Запит для історії покупок
+  // Запит для історії покупок (2-кроковий без join)
   const { data: purchases = [], isLoading: purchasesLoading } = useSupabaseQuery(
     ['purchases', 'by-coffee', id],
     async () => {
       if (!id) return { data: [], error: null };
-      
-      return await supabase
-        .from('purchases')
-        .select(`
-          id,
-          date,
-          purchase_items!inner (
-            id,
-            coffee_type_id,
-            quantity,
-            unit_price,
-            total_price
-          )
-        `)
-        .eq('purchase_items.coffee_type_id', id)
-        .order('date', { ascending: false });
+
+      // 1) Отримуємо всі позиції покупки для цієї кави
+      const { data: items, error: itemsError } = await supabase
+        .from('purchase_items')
+        .select('id, purchase_id, quantity, unit_price, total_price')
+        .eq('coffee_type_id', id)
+        .order('created_at', { ascending: false });
+
+      if (itemsError) {
+        console.error('Помилка отримання purchase_items:', itemsError);
+        return { data: [], error: itemsError };
+      }
+
+      if (!items || items.length === 0) {
+        return { data: [], error: null };
+      }
+
+      // 2) Тягнемо дати покупок окремо
+      const purchaseIds = Array.from(new Set(items.map((i: any) => i.purchase_id).filter(Boolean)));
+
+      let purchasesMap = new Map<string, { id: string; date: string | null }>();
+      if (purchaseIds.length > 0) {
+        const { data: purchaseRows, error: purchasesError } = await supabase
+          .from('purchases')
+          .select('id, date')
+          .in('id', purchaseIds);
+
+        if (purchasesError) {
+          console.error('Помилка отримання purchases:', purchasesError);
+        } else if (purchaseRows) {
+          for (const p of purchaseRows as any[]) {
+            purchasesMap.set(p.id, { id: p.id, date: p.date });
+          }
+        }
+      }
+
+      const flat = (items as any[]).map((item) => ({
+        id: item.id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+        purchase: purchasesMap.get(item.purchase_id) ?? { id: item.purchase_id, date: null },
+      }));
+
+      return { data: flat, error: null };
     },
     {
       enabled: !!id,
-      select: (data) => {
-        if (!data.data) return [];
-        
-        // Transform the nested structure into a flat array of PurchaseItem
-        return data.data.flatMap((purchase: any) =>
-          purchase.purchase_items.map((item: any) => ({
-            id: item.id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            purchase: {
-              id: purchase.id,
-              date: purchase.date
-            }
-          }))
-        );
-      }
+      select: (res) => res.data || [],
     }
   );
+
 
   // Realtime invalidation
   useRealtimeInvalidation('purchases', [['purchases', 'by-coffee', id]]);
