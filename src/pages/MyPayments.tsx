@@ -326,49 +326,61 @@ const MyPayments = () => {
         </div>
         
         {/* Підсумкові плашки */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                    {showAll ? 'Всього мені винні' : 'Мені винні'}
-                  </p>
-                  <p className="text-xl font-bold text-green-900 dark:text-green-100">
-                    {(showAll ? totalAllOwedToMe : totalOwedToMe).toFixed(2)} ₴
-                  </p>
-                  {showAll && (
-                    <p className="text-xs text-green-600">
-                      Неоплачено: {totalOwedToMe.toFixed(2)} ₴
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <TrendingDown className="h-5 w-5 text-red-600" />
-                <div>
-                  <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                    {showAll ? 'Всього я винен' : 'Я винен'}
-                  </p>
-                  <p className="text-xl font-bold text-red-900 dark:text-red-100">
-                    {(showAll ? totalAllIOwe : totalIOwe).toFixed(2)} ₴
-                  </p>
-                  {showAll && (
-                    <p className="text-xs text-red-600">
-                      Неоплачено: {totalIOwe.toFixed(2)} ₴
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {(((showAll && totalAllOwedToMe > 0) || (!showAll && totalOwedToMe > 0)) || 
+          ((showAll && totalAllIOwe > 0) || (!showAll && totalIOwe > 0))) && (
+          <div className={`grid gap-4 ${
+            (((showAll && totalAllOwedToMe > 0) || (!showAll && totalOwedToMe > 0)) && 
+             ((showAll && totalAllIOwe > 0) || (!showAll && totalIOwe > 0))) 
+              ? 'grid-cols-1 md:grid-cols-2' 
+              : 'grid-cols-1'
+          }`}>
+            {((showAll && totalAllOwedToMe > 0) || (!showAll && totalOwedToMe > 0)) && (
+              <Card className="border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                        {showAll ? 'Всього мені винні' : 'Мені винні'}
+                      </p>
+                      <p className="text-xl font-bold text-green-900 dark:text-green-100">
+                        {(showAll ? totalAllOwedToMe : totalOwedToMe).toFixed(2)} ₴
+                      </p>
+                      {showAll && (
+                        <p className="text-xs text-green-600">
+                          Неоплачено: {totalOwedToMe.toFixed(2)} ₴
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {((showAll && totalAllIOwe > 0) || (!showAll && totalIOwe > 0)) && (
+              <Card className="border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <TrendingDown className="h-5 w-5 text-red-600" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                        {showAll ? 'Всього я винен' : 'Я винен'}
+                      </p>
+                      <p className="text-xl font-bold text-red-900 dark:text-red-100">
+                        {(showAll ? totalAllIOwe : totalIOwe).toFixed(2)} ₴
+                      </p>
+                      {showAll && (
+                        <p className="text-xs text-red-600">
+                          Неоплачено: {totalIOwe.toFixed(2)} ₴
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Перемикач режимів відображення */}
         {(filteredOwedToMe.length > 0 || filteredIOwe.length > 0) && (
