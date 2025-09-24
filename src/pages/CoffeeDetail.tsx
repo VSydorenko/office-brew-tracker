@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar, Edit, Trash2 } from 'lucide-react';
 import { CoffeeEditDialog } from '@/components/coffee/CoffeeEditDialog';
 import { useCoffeeType, useDeleteCoffeeType } from '@/hooks/use-coffee-types';
-import { useSupabaseQuery } from '@/hooks/use-supabase-query';
+import { useSupabaseQuery, useRealtimeInvalidation } from '@/hooks/use-supabase-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CoffeeType {
@@ -48,27 +48,51 @@ const CoffeeDetail = () => {
 
   // Запит для історії покупок
   const { data: purchases = [], isLoading: purchasesLoading } = useSupabaseQuery(
-    ['purchase-items', 'by-coffee', id],
+    ['purchases', 'by-coffee', id],
     async () => {
       if (!id) return { data: [], error: null };
       
       return await supabase
-        .from('purchase_items')
+        .from('purchases')
         .select(`
-          *,
-          purchase:purchases (
+          id,
+          date,
+          purchase_items!inner (
             id,
-            date
+            coffee_type_id,
+            quantity,
+            unit_price,
+            total_price
           )
         `)
-        .eq('coffee_type_id', id)
-        .order('created_at', { ascending: false });
+        .eq('purchase_items.coffee_type_id', id)
+        .order('date', { ascending: false });
     },
     {
       enabled: !!id,
-      select: (data) => data.data || []
+      select: (data) => {
+        if (!data.data) return [];
+        
+        // Transform the nested structure into a flat array of PurchaseItem
+        return data.data.flatMap((purchase: any) =>
+          purchase.purchase_items.map((item: any) => ({
+            id: item.id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            purchase: {
+              id: purchase.id,
+              date: purchase.date
+            }
+          }))
+        );
+      }
     }
   );
+
+  // Realtime invalidation
+  useRealtimeInvalidation('purchases', [['purchases', 'by-coffee', id]]);
+  useRealtimeInvalidation('purchase_items', [['purchases', 'by-coffee', id]]);
 
   const loading = coffeeLoading || purchasesLoading;
 
