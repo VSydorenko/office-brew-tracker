@@ -123,35 +123,17 @@ export const PaymentRecord = ({ debt, onMarkAsPaid, showBuyerInfo = false, showD
           </p>
         )}
         
-        {/* Показуємо номер карти для неоплачених боргів */}
-        {!debt.is_paid && (
-          <>
-            {/* Карта покупця для секції "Я винен" */}
-            {showBuyerInfo && debt.purchases?.profiles?.card_number && (
-              <div className="mt-2">
-                <p className="text-xs text-muted-foreground mb-1">Карта для переказу:</p>
-                <CardNumberDisplay 
-                  cardNumber={debt.purchases.profiles.card_number}
-                  cardHolderName={debt.purchases.profiles.card_holder_name}
-                  className="text-xs"
-                  defaultMasked={true}
-                />
-              </div>
-            )}
-            
-            {/* Карта боржника для секції "Мені винні" */}
-            {!showBuyerInfo && debt.profiles?.card_number && (
-              <div className="mt-2">
-                <p className="text-xs text-muted-foreground mb-1">Карта для переказу:</p>
-                <CardNumberDisplay 
-                  cardNumber={debt.profiles.card_number}
-                  cardHolderName={debt.profiles.card_holder_name}
-                  className="text-xs"
-                  defaultMasked={true}
-                />
-              </div>
-            )}
-          </>
+        {/* Показуємо номер карти покупця для переказу в секції "Я винен" */}
+        {showBuyerInfo && !debt.is_paid && debt.purchases?.profiles?.card_number && (
+          <div className="mt-2">
+            <p className="text-xs text-muted-foreground mb-1">Карта для переказу:</p>
+            <CardNumberDisplay 
+              cardNumber={debt.purchases.profiles.card_number}
+              cardHolderName={debt.purchases.profiles.card_holder_name}
+              className="text-xs"
+              defaultMasked={true}
+            />
+          </div>
         )}
         </div>
       </div>
