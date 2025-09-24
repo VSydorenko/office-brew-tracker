@@ -452,7 +452,7 @@ const MyPayments = () => {
                             key={debt.id}
                             debt={debt}
                             onMarkAsPaid={markAsPaid}
-                            showBuyerInfo={true}
+                            showBuyerInfo={false}
                             showDateInfo={false}
                           />
                         ))}
@@ -494,7 +494,7 @@ const MyPayments = () => {
                             key={debt.id}
                             debt={debt}
                             onMarkAsPaid={markAsPaid}
-                            showBuyerInfo={false}
+                            showBuyerInfo={true}
                             showDateInfo={true}
                           />
                         ))}
@@ -526,7 +526,7 @@ const MyPayments = () => {
                             key={debt.id}
                             debt={debt}
                             onMarkAsPaid={markAsPaid}
-                            showBuyerInfo={false}
+                            showBuyerInfo={true}
                             showDateInfo={false}
                           />
                         ))}
