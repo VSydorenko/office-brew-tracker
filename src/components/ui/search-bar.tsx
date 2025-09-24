@@ -44,7 +44,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           placeholder={placeholder}
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
-          className="pl-10 pr-10 h-12 md:h-10"
+          className="pl-10 pr-12 h-12 md:h-10"
         />
         {searchValue && (
           <Button

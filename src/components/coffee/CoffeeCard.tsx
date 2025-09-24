@@ -77,8 +77,15 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
     onCoffeeUpdated?.();
   };
 
+  const handleCardClick = () => {
+    navigate(`/coffee-catalog/${coffee.id}`);
+  };
+
   return (
-    <Card className="shadow-coffee hover:shadow-coffee-hover transition-all duration-300 border-accent/20">
+    <Card 
+      className="shadow-coffee hover:shadow-coffee-hover transition-all duration-300 border-accent/20 cursor-pointer hover:scale-[1.02]" 
+      onClick={handleCardClick}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
@@ -86,18 +93,14 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
             <CardTitle className="text-lg text-primary">{coffee.name}</CardTitle>
           </div>
           <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(`/coffee-catalog/${coffee.id}`)}
-              className="text-coffee-dark hover:text-primary"
-            >
-              <TrendingUp className="h-4 w-4" />
-            </Button>
-            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-coffee-dark hover:text-primary">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-coffee-dark hover:text-primary"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -164,18 +167,10 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
           </p>
         )}
 
-        <div className="flex justify-between items-center pt-2">
+        <div className="pt-2">
           <span className="text-xs text-muted-foreground">
             Додано: {new Date(coffee.created_at).toLocaleDateString('uk-UA')}
           </span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate(`/coffee-catalog/${coffee.id}`)}
-            className="border-coffee-light hover:bg-coffee-light/10"
-          >
-            Детальніше
-          </Button>
         </div>
       </CardContent>
 
