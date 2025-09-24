@@ -78,6 +78,32 @@ const CoffeeDetail = () => {
 
   const loading = coffeeLoading || purchasesLoading;
 
+  // Calculate statistics - MUST be before conditional returns
+  const { totalPurchases, totalQuantity, totalSpent, avgPrice, priceHistory } = useMemo(() => {
+    if (!purchases || purchases.length === 0) {
+      return { totalPurchases: 0, totalQuantity: 0, totalSpent: 0, avgPrice: 0, priceHistory: [] };
+    }
+
+    const totalPurchases = purchases.length;
+    const totalQuantity = purchases.reduce((sum, item) => sum + item.quantity, 0);
+    const totalSpent = purchases.reduce((sum, item) => sum + (item.total_price || 0), 0);
+    const avgPrice = purchases.filter(p => p.unit_price).length > 0 
+      ? purchases.filter(p => p.unit_price).reduce((sum, item) => sum + (item.unit_price || 0), 0) / purchases.filter(p => p.unit_price).length
+      : 0;
+
+    // Price history for chart
+    const priceHistory = purchases
+      .filter(p => p.unit_price)
+      .map(p => ({
+        date: p.purchase.date,
+        price: p.unit_price!,
+        quantity: p.quantity
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return { totalPurchases, totalQuantity, totalSpent, avgPrice, priceHistory };
+  }, [purchases]);
+
   useEffect(() => {
     if (!id) {
       navigate('/coffee-catalog');
@@ -145,28 +171,6 @@ const CoffeeDetail = () => {
       </div>
     );
   }
-
-  // Calculate statistics
-  const { totalPurchases, totalQuantity, totalSpent, avgPrice, priceHistory } = useMemo(() => {
-    const totalPurchases = purchases.length;
-    const totalQuantity = purchases.reduce((sum, item) => sum + item.quantity, 0);
-    const totalSpent = purchases.reduce((sum, item) => sum + (item.total_price || 0), 0);
-    const avgPrice = purchases.filter(p => p.unit_price).length > 0 
-      ? purchases.filter(p => p.unit_price).reduce((sum, item) => sum + (item.unit_price || 0), 0) / purchases.filter(p => p.unit_price).length
-      : 0;
-
-    // Price history for chart
-    const priceHistory = purchases
-      .filter(p => p.unit_price)
-      .map(p => ({
-        date: p.purchase.date,
-        price: p.unit_price!,
-        quantity: p.quantity
-      }))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    return { totalPurchases, totalQuantity, totalSpent, avgPrice, priceHistory };
-  }, [purchases]);
 
   return (
     <div className="min-h-screen bg-gradient-brew p-6">
