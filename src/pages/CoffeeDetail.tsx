@@ -69,9 +69,9 @@ const CoffeeDetail = () => {
     },
     {
       enabled: !!id,
-      select: (data) => {
-        if (!data.data) return [];
-        return data.data.map((item: any) => ({
+      select: (result) => {
+        if (!result.data) return [];
+        return result.data.map((item: any) => ({
           id: item.id,
           quantity: item.quantity,
           unit_price: item.unit_price,
