@@ -53,7 +53,7 @@ const RequireApproved = () => {
   }
 
   if (status !== 'approved') {
-    return <Navigate to="/waiting-approval" replace />;
+    return <Navigate to="/waiting-approval" state={{ from: location }} replace />;
   }
 
   return <Outlet />;

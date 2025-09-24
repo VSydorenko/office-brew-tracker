@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,9 @@ const Auth = () => {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const from = (location.state as any)?.from?.pathname || '/';
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +71,7 @@ const Auth = () => {
             throw error;
           }
         } else {
-          navigate('/');
+          navigate(from, { replace: true });
         }
       }
     } catch (error: any) {
