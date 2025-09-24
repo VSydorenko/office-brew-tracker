@@ -34,7 +34,7 @@ const useMyPaymentsData = () => {
             total_amount,
             buyer_id
           ),
-          profiles!purchase_distributions_user_id_fkey(name, avatar_path, avatar_url)
+          profiles!purchase_distributions_user_id_fkey(name, avatar_path, avatar_url, card_number, card_holder_name)
         `)
         .eq('purchases.buyer_id', user.id)
         .neq('user_id', user.id)

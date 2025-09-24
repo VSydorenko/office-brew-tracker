@@ -107,7 +107,7 @@ export const PaymentRecord = ({ debt, onMarkAsPaid, showBuyerInfo = false, showD
         </div>
         
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span>Частка: {debt.percentage}%</span>
+          <span>Частки: {debt.shares || 'н/д'}</span>
           <span className="font-medium text-foreground">₴{amount.toFixed(2)}</span>
           
           {debt.is_paid && debt.paid_at && (
@@ -123,16 +123,35 @@ export const PaymentRecord = ({ debt, onMarkAsPaid, showBuyerInfo = false, showD
           </p>
         )}
         
-        {/* Показуємо номер карти покупця для неоплачених боргів */}
-        {showBuyerInfo && !debt.is_paid && debt.purchases?.profiles?.card_number && (
-          <div className="mt-2">
-            <CardNumberDisplay 
-              cardNumber={debt.purchases.profiles.card_number}
-              cardHolderName={debt.purchases.profiles.card_holder_name}
-              className="text-xs"
-              defaultMasked={true}
-            />
-          </div>
+        {/* Показуємо номер карти для неоплачених боргів */}
+        {!debt.is_paid && (
+          <>
+            {/* Карта покупця для секції "Я винен" */}
+            {showBuyerInfo && debt.purchases?.profiles?.card_number && (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground mb-1">Карта для переказу:</p>
+                <CardNumberDisplay 
+                  cardNumber={debt.purchases.profiles.card_number}
+                  cardHolderName={debt.purchases.profiles.card_holder_name}
+                  className="text-xs"
+                  defaultMasked={true}
+                />
+              </div>
+            )}
+            
+            {/* Карта боржника для секції "Мені винні" */}
+            {!showBuyerInfo && debt.profiles?.card_number && (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground mb-1">Карта для переказу:</p>
+                <CardNumberDisplay 
+                  cardNumber={debt.profiles.card_number}
+                  cardHolderName={debt.profiles.card_holder_name}
+                  className="text-xs"
+                  defaultMasked={true}
+                />
+              </div>
+            )}
+          </>
         )}
         </div>
       </div>
