@@ -69,13 +69,13 @@ const CoffeeDetail = () => {
     },
     {
       enabled: !!id,
-      select: (result) => {
-        if (!result.data) return [];
-        return result.data.map((item: any) => ({
+      select: (rows) => {
+        const list = rows ?? [];
+        return list.map((item: any) => ({
           id: item.id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
+          quantity: Number(item.quantity) || 0,
+          unit_price: item.unit_price != null ? Number(item.unit_price) : undefined,
+          total_price: item.total_price != null ? Number(item.total_price) : undefined,
           purchase: {
             id: item.purchases.id,
             date: item.purchases.date
