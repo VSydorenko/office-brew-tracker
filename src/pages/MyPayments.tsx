@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, AlertCircle, TrendingUp, TrendingDown, User, ShoppingCart, Bell, BellOff, RefreshCw } from 'lucide-react';
+import { CheckCircle, CheckCircle2, AlertCircle, TrendingUp, TrendingDown, User, ShoppingCart, Bell, BellOff, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/components/ui/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { useNotifications } from '@/hooks/use-notifications';
@@ -539,13 +539,16 @@ const MyPayments = () => {
           </div>
         )}
 
-        {/* Повідомлення коли немає боргів */}
+        {/* Позитивне повідомлення коли немає боргів */}
         {filteredOwedToMe.length === 0 && filteredIOwe.length === 0 && (
-          <Card>
+          <Card className="border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950">
             <CardContent className="py-8 text-center">
-              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">
-                {showAll ? 'Немає записів в історії' : 'Немає неоплачених розрахунків'}
+              <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-600" />
+              <p className="text-green-800 dark:text-green-200 font-medium">
+                {showAll ? 'Відмінно! У вас чиста історія розрахунків' : '🎉 Відмінно! Всі розрахунки завершені'}
+              </p>
+              <p className="text-sm text-green-600 dark:text-green-400 mt-2">
+                {showAll ? 'Всі ваші фінансові операції завершені' : 'У вас немає активних боргів'}
               </p>
             </CardContent>
           </Card>
