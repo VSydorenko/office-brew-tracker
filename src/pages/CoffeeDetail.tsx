@@ -33,9 +33,6 @@ interface PurchaseItem {
   purchase: {
     id: string;
     date: string;
-    buyer: {
-      name: string;
-    };
   };
 }
 
@@ -61,10 +58,7 @@ const CoffeeDetail = () => {
           *,
           purchase:purchases (
             id,
-            date,
-            buyer:profiles!purchases_buyer_id_fkey (
-              name
-            )
+            date
           )
         `)
         .eq('coffee_type_id', id)
@@ -451,9 +445,6 @@ const CoffeeDetail = () => {
                   <div key={item.id} className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
                     <div>
                       <p className="font-medium">{new Date(item.purchase.date).toLocaleDateString('uk-UA')}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Покупець: {item.purchase.buyer.name}
-                      </p>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{item.quantity} уп.</p>
