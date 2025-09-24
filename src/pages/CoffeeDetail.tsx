@@ -79,21 +79,36 @@ const CoffeeDetail = () => {
   const loading = coffeeLoading || purchasesLoading;
 
   // Calculate statistics - MUST be before conditional returns
-  const { totalPurchases, totalQuantity, totalSpent, avgPrice, priceHistory } = useMemo(() => {
+  const { totalPurchases, totalQuantity, totalSpent, avgPrice, priceHistory, purchasesWithPrices, purchasesWithTotalPrice } = useMemo(() => {
     if (!purchases || purchases.length === 0) {
-      return { totalPurchases: 0, totalQuantity: 0, totalSpent: 0, avgPrice: 0, priceHistory: [] };
+      return { 
+        totalPurchases: 0, 
+        totalQuantity: 0, 
+        totalSpent: 0, 
+        avgPrice: 0, 
+        priceHistory: [], 
+        purchasesWithPrices: 0,
+        purchasesWithTotalPrice: 0
+      };
     }
 
     const totalPurchases = purchases.length;
     const totalQuantity = purchases.reduce((sum, item) => sum + item.quantity, 0);
-    const totalSpent = purchases.reduce((sum, item) => sum + (item.total_price || 0), 0);
-    const avgPrice = purchases.filter(p => p.unit_price).length > 0 
-      ? purchases.filter(p => p.unit_price).reduce((sum, item) => sum + (item.unit_price || 0), 0) / purchases.filter(p => p.unit_price).length
+    
+    // Рахуємо тільки записи з вказаною загальною ціною
+    const itemsWithTotalPrice = purchases.filter(p => p.total_price && p.total_price > 0);
+    const totalSpent = itemsWithTotalPrice.reduce((sum, item) => sum + item.total_price!, 0);
+    const purchasesWithTotalPrice = itemsWithTotalPrice.length;
+    
+    // Рахуємо середню ціну тільки з записів з вказаною ціною за одиницю
+    const itemsWithUnitPrice = purchases.filter(p => p.unit_price && p.unit_price > 0);
+    const avgPrice = itemsWithUnitPrice.length > 0 
+      ? itemsWithUnitPrice.reduce((sum, item) => sum + item.unit_price!, 0) / itemsWithUnitPrice.length
       : 0;
+    const purchasesWithPrices = itemsWithUnitPrice.length;
 
-    // Price history for chart
-    const priceHistory = purchases
-      .filter(p => p.unit_price)
+    // Price history for chart - тільки записи з цінами
+    const priceHistory = itemsWithUnitPrice
       .map(p => ({
         date: p.purchase.date,
         price: p.unit_price!,
@@ -101,7 +116,15 @@ const CoffeeDetail = () => {
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    return { totalPurchases, totalQuantity, totalSpent, avgPrice, priceHistory };
+    return { 
+      totalPurchases, 
+      totalQuantity, 
+      totalSpent, 
+      avgPrice, 
+      priceHistory, 
+      purchasesWithPrices,
+      purchasesWithTotalPrice
+    };
   }, [purchases]);
 
   useEffect(() => {
@@ -338,6 +361,11 @@ const CoffeeDetail = () => {
                   <p className="text-xl font-bold text-primary">
                     {avgPrice > 0 ? `₴${avgPrice.toFixed(0)}` : '—'}
                   </p>
+                  {purchasesWithPrices > 0 && purchasesWithPrices < totalPurchases && (
+                    <p className="text-xs text-muted-foreground">
+                      з {purchasesWithPrices} з цінами
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -349,7 +377,14 @@ const CoffeeDetail = () => {
                 <Coffee className="h-5 w-5 text-coffee-dark" />
                 <div>
                   <p className="text-sm text-muted-foreground">Витрачено</p>
-                  <p className="text-xl font-bold text-primary">₴{totalSpent.toFixed(0)}</p>
+                  <p className="text-xl font-bold text-primary">
+                    {totalSpent > 0 ? `₴${totalSpent.toFixed(0)}` : '—'}
+                  </p>
+                  {purchasesWithTotalPrice > 0 && purchasesWithTotalPrice < totalPurchases && (
+                    <p className="text-xs text-muted-foreground">
+                      з {purchasesWithTotalPrice} закупок
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -364,6 +399,11 @@ const CoffeeDetail = () => {
                 <TrendingUp className="h-5 w-5 text-coffee-dark" />
                 Динаміка цін
               </CardTitle>
+              {purchasesWithPrices < totalPurchases && (
+                <p className="text-sm text-muted-foreground">
+                  Показано {purchasesWithPrices} з {totalPurchases} закупок (тільки з вказаними цінами)
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -393,6 +433,11 @@ const CoffeeDetail = () => {
               <ShoppingCart className="h-5 w-5 text-coffee-dark" />
               Історія закупок
             </CardTitle>
+            {(purchasesWithPrices > 0 && purchasesWithPrices < totalPurchases) && (
+              <p className="text-sm text-muted-foreground">
+                {purchasesWithPrices} з {totalPurchases} закупок мають вказані ціни
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             {purchases.length === 0 ? (
@@ -412,11 +457,15 @@ const CoffeeDetail = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{item.quantity} уп.</p>
-                      {item.unit_price && (
+                      {item.unit_price ? (
                         <p className="text-sm text-muted-foreground">₴{item.unit_price} за уп.</p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Ціна не вказана</p>
                       )}
-                      {item.total_price && (
+                      {item.total_price ? (
                         <p className="text-sm font-medium">Всього: ₴{item.total_price}</p>
+                      ) : !item.unit_price && (
+                        <p className="text-sm text-muted-foreground">Сума не вказана</p>
                       )}
                     </div>
                   </div>
