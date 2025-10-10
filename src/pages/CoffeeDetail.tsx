@@ -8,19 +8,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar, Trash2 } from 'lucide-react';
 import { InlineTextEdit } from '@/components/coffee/InlineTextEdit';
 import { InlineTextareaEdit } from '@/components/coffee/InlineTextareaEdit';
-import { InlineComboboxEdit } from '@/components/coffee/InlineComboboxEdit';
+import { InlineSelectEdit } from '@/components/coffee/InlineSelectEdit';
 import { useCoffeeType, useDeleteCoffeeType, useUpdateCoffeeField } from '@/hooks/use-coffee-types';
 import { useSupabaseQuery, useRealtimeInvalidation } from '@/hooks/use-supabase-query';
-import { 
-  useBrands, 
-  useCreateBrand, 
-  useVarieties, 
-  useCreateVariety, 
-  useOrigins, 
-  useCreateOrigin, 
-  useProcessingMethods, 
-  useCreateProcessingMethod 
-} from '@/hooks/use-reference-tables';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CoffeeType {
@@ -58,17 +48,30 @@ const CoffeeDetail = () => {
   const deleteMutation = useDeleteCoffeeType();
   const updateFieldMutation = useUpdateCoffeeField();
 
-  // Довідники з хуків
-  const { data: brands = [] } = useBrands();
-  const { data: varieties = [] } = useVarieties();
-  const { data: origins = [] } = useOrigins();
-  const { data: processingMethods = [] } = useProcessingMethods();
+  // Lookup дані для випадаючих списків
+  const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
+  const [varieties, setVarieties] = useState<Array<{ id: string; name: string }>>([]);
+  const [origins, setOrigins] = useState<Array<{ id: string; name: string }>>([]);
+  const [processingMethods, setProcessingMethods] = useState<Array<{ id: string; name: string }>>([]);
 
-  // Мутації для створення нових записів
-  const createBrand = useCreateBrand();
-  const createVariety = useCreateVariety();
-  const createOrigin = useCreateOrigin();
-  const createProcessingMethod = useCreateProcessingMethod();
+  // Завантаження довідників
+  useEffect(() => {
+    const loadLookupData = async () => {
+      const [brandsRes, varietiesRes, originsRes, methodsRes] = await Promise.all([
+        supabase.from('brands').select('id, name').order('name'),
+        supabase.from('coffee_varieties').select('id, name').order('name'),
+        supabase.from('origins').select('id, name').order('name'),
+        supabase.from('processing_methods').select('id, name').order('name'),
+      ]);
+
+      if (brandsRes.data) setBrands(brandsRes.data);
+      if (varietiesRes.data) setVarieties(varietiesRes.data);
+      if (originsRes.data) setOrigins(originsRes.data);
+      if (methodsRes.data) setProcessingMethods(methodsRes.data);
+    };
+
+    loadLookupData();
+  }, []);
 
   // Простий запит з JOIN для історії покупок
   const { data: purchases = [], isLoading: purchasesLoading } = useSupabaseQuery(
@@ -308,61 +311,37 @@ const CoffeeDetail = () => {
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <InlineComboboxEdit
+                  <InlineSelectEdit
                     value={coffee.brand_id}
                     options={brands}
                     onSave={(value) => handleFieldUpdate('brand_id', value)}
-                    onCreateNew={async (name) => {
-                      const result = await createBrand.mutateAsync(name);
-                      return result.id;
-                    }}
-                    placeholder="Оберіть бренд..."
+                    placeholder="Бренд"
                     emptyText="Без бренду"
-                    createText="Створити бренд"
-                    searchPlaceholder="Пошук бренду або введіть новий..."
                     badgeVariant="secondary"
                     className="bg-coffee-light/20 text-coffee-dark"
                   />
-                  <InlineComboboxEdit
+                  <InlineSelectEdit
                     value={coffee.variety_id}
                     options={varieties}
                     onSave={(value) => handleFieldUpdate('variety_id', value)}
-                    onCreateNew={async (name) => {
-                      const result = await createVariety.mutateAsync(name);
-                      return result.id;
-                    }}
-                    placeholder="Оберіть різновид..."
+                    placeholder="Різновид"
                     emptyText="Без різновиду"
-                    createText="Створити різновид"
-                    searchPlaceholder="Пошук різновиду або введіть новий..."
                     badgeVariant="outline"
                   />
-                  <InlineComboboxEdit
+                  <InlineSelectEdit
                     value={coffee.origin_id}
                     options={origins}
                     onSave={(value) => handleFieldUpdate('origin_id', value)}
-                    onCreateNew={async (name) => {
-                      const result = await createOrigin.mutateAsync(name);
-                      return result.id;
-                    }}
-                    placeholder="Оберіть походження..."
+                    placeholder="Походження"
                     emptyText="Без походження"
-                    createText="Створити походження"
-                    searchPlaceholder="Пошук походження або введіть нове..."
                     badgeVariant="outline"
                   />
-                  <InlineComboboxEdit
+                  <InlineSelectEdit
                     value={coffee.processing_method_id}
                     options={processingMethods}
                     onSave={(value) => handleFieldUpdate('processing_method_id', value)}
-                    onCreateNew={async (name) => {
-                      const result = await createProcessingMethod.mutateAsync(name);
-                      return result.id;
-                    }}
-                    placeholder="Оберіть обробку..."
+                    placeholder="Обробка"
                     emptyText="Без обробки"
-                    createText="Створити метод обробки"
-                    searchPlaceholder="Пошук обробки або введіть нову..."
                     badgeVariant="outline"
                   />
                 </div>
