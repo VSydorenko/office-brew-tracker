@@ -48,9 +48,9 @@ export const SearchableSelect = ({
     const parts = text.split(new RegExp(`(${searchQuery})`, 'gi'));
     return parts.map((part, index) => 
       part.toLowerCase() === searchQuery.toLowerCase() ? (
-        <mark key={index} className="bg-yellow-200 dark:bg-yellow-900/50 font-medium">
+        <span key={index} className="font-bold">
           {part}
-        </mark>
+        </span>
       ) : (
         part
       )
