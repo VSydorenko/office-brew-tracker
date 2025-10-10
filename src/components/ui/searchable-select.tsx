@@ -39,6 +39,24 @@ export const SearchableSelect = ({
 
   const selectedOption = options.find((opt) => opt.id === value);
 
+  /**
+   * Підсвічує співпадіння пошукового запиту в тексті
+   */
+  const highlightMatch = (text: string, searchQuery: string) => {
+    if (!searchQuery.trim()) return text;
+    
+    const parts = text.split(new RegExp(`(${searchQuery})`, 'gi'));
+    return parts.map((part, index) => 
+      part.toLowerCase() === searchQuery.toLowerCase() ? (
+        <mark key={index} className="bg-yellow-200 dark:bg-yellow-900/50 font-medium">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  };
+
   const filteredOptions = options.filter((opt) =>
     opt.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -132,7 +150,7 @@ export const SearchableSelect = ({
                         value === option.id ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    {option.name}
+                    {highlightMatch(option.name, search)}
                   </CommandItem>
                 ))}
               </CommandGroup>
