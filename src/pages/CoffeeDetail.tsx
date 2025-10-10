@@ -8,10 +8,20 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar, Trash2 } from 'lucide-react';
 import { InlineTextEdit } from '@/components/coffee/InlineTextEdit';
 import { InlineTextareaEdit } from '@/components/coffee/InlineTextareaEdit';
-import { InlineSelectEdit } from '@/components/coffee/InlineSelectEdit';
+import { InlineSearchableSelectEdit } from '@/components/coffee/InlineSearchableSelectEdit';
 import { useCoffeeType, useDeleteCoffeeType, useUpdateCoffeeField } from '@/hooks/use-coffee-types';
 import { useSupabaseQuery, useRealtimeInvalidation } from '@/hooks/use-supabase-query';
 import { supabase } from '@/integrations/supabase/client';
+import { 
+  useBrands, 
+  useCreateBrand, 
+  useVarieties, 
+  useCreateVariety, 
+  useOrigins, 
+  useCreateOrigin, 
+  useProcessingMethods, 
+  useCreateProcessingMethod 
+} from '@/hooks/use-reference-tables';
 
 interface CoffeeType {
   id: string;
@@ -48,30 +58,16 @@ const CoffeeDetail = () => {
   const deleteMutation = useDeleteCoffeeType();
   const updateFieldMutation = useUpdateCoffeeField();
 
-  // Lookup дані для випадаючих списків
-  const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
-  const [varieties, setVarieties] = useState<Array<{ id: string; name: string }>>([]);
-  const [origins, setOrigins] = useState<Array<{ id: string; name: string }>>([]);
-  const [processingMethods, setProcessingMethods] = useState<Array<{ id: string; name: string }>>([]);
-
-  // Завантаження довідників
-  useEffect(() => {
-    const loadLookupData = async () => {
-      const [brandsRes, varietiesRes, originsRes, methodsRes] = await Promise.all([
-        supabase.from('brands').select('id, name').order('name'),
-        supabase.from('coffee_varieties').select('id, name').order('name'),
-        supabase.from('origins').select('id, name').order('name'),
-        supabase.from('processing_methods').select('id, name').order('name'),
-      ]);
-
-      if (brandsRes.data) setBrands(brandsRes.data);
-      if (varietiesRes.data) setVarieties(varietiesRes.data);
-      if (originsRes.data) setOrigins(originsRes.data);
-      if (methodsRes.data) setProcessingMethods(methodsRes.data);
-    };
-
-    loadLookupData();
-  }, []);
+  // Довідники
+  const { data: brands = [] } = useBrands();
+  const { data: varieties = [] } = useVarieties();
+  const { data: origins = [] } = useOrigins();
+  const { data: processingMethods = [] } = useProcessingMethods();
+  
+  const createBrand = useCreateBrand();
+  const createVariety = useCreateVariety();
+  const createOrigin = useCreateOrigin();
+  const createProcessingMethod = useCreateProcessingMethod();
 
   // Простий запит з JOIN для історії покупок
   const { data: purchases = [], isLoading: purchasesLoading } = useSupabaseQuery(
@@ -311,37 +307,56 @@ const CoffeeDetail = () => {
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <InlineSelectEdit
+                  <InlineSearchableSelectEdit
                     value={coffee.brand_id}
                     options={brands}
                     onSave={(value) => handleFieldUpdate('brand_id', value)}
+                    onCreateNew={async (name) => {
+                      const brand = await createBrand.mutateAsync(name);
+                      return brand.id;
+                    }}
                     placeholder="Бренд"
                     emptyText="Без бренду"
+                    searchPlaceholder="Пошук бренду..."
                     badgeVariant="secondary"
-                    className="bg-coffee-light/20 text-coffee-dark"
                   />
-                  <InlineSelectEdit
+                  <InlineSearchableSelectEdit
                     value={coffee.variety_id}
                     options={varieties}
                     onSave={(value) => handleFieldUpdate('variety_id', value)}
+                    onCreateNew={async (name) => {
+                      const variety = await createVariety.mutateAsync(name);
+                      return variety.id;
+                    }}
                     placeholder="Різновид"
                     emptyText="Без різновиду"
+                    searchPlaceholder="Пошук різновиду..."
                     badgeVariant="outline"
                   />
-                  <InlineSelectEdit
+                  <InlineSearchableSelectEdit
                     value={coffee.origin_id}
                     options={origins}
                     onSave={(value) => handleFieldUpdate('origin_id', value)}
+                    onCreateNew={async (name) => {
+                      const origin = await createOrigin.mutateAsync(name);
+                      return origin.id;
+                    }}
                     placeholder="Походження"
                     emptyText="Без походження"
+                    searchPlaceholder="Пошук походження..."
                     badgeVariant="outline"
                   />
-                  <InlineSelectEdit
+                  <InlineSearchableSelectEdit
                     value={coffee.processing_method_id}
                     options={processingMethods}
                     onSave={(value) => handleFieldUpdate('processing_method_id', value)}
+                    onCreateNew={async (name) => {
+                      const method = await createProcessingMethod.mutateAsync(name);
+                      return method.id;
+                    }}
                     placeholder="Обробка"
                     emptyText="Без обробки"
+                    searchPlaceholder="Пошук методу обробки..."
                     badgeVariant="outline"
                   />
                 </div>
