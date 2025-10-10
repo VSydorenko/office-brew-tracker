@@ -250,6 +250,24 @@ export function useUpdateCoffeeType() {
 }
 
 /**
+ * Хук для оновлення окремого поля типу кави
+ */
+export function useUpdateCoffeeField() {
+  return useSupabaseMutation(
+    async ({ id, field, value }: { id: string; field: string; value: any }) => {
+      return supabase
+        .from('coffee_types')
+        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .eq('id', id);
+    },
+    {
+      invalidateQueries: [[...queryKeys.coffeeTypes.all]],
+      successMessage: 'Поле оновлено успішно',
+    }
+  );
+}
+
+/**
  * Хук для видалення типу кави
  */
 export function useDeleteCoffeeType() {

@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar, Edit, Trash2 } from 'lucide-react';
-import { CoffeeEditDialog } from '@/components/coffee/CoffeeEditDialog';
-import { useCoffeeType, useDeleteCoffeeType } from '@/hooks/use-coffee-types';
+import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar, Trash2 } from 'lucide-react';
+import { InlineTextEdit } from '@/components/coffee/InlineTextEdit';
+import { InlineTextareaEdit } from '@/components/coffee/InlineTextareaEdit';
+import { InlineSelectEdit } from '@/components/coffee/InlineSelectEdit';
+import { useCoffeeType, useDeleteCoffeeType, useUpdateCoffeeField } from '@/hooks/use-coffee-types';
 import { useSupabaseQuery, useRealtimeInvalidation } from '@/hooks/use-supabase-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -40,11 +42,36 @@ const CoffeeDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // React Query хуки
-  const { data: coffee, isLoading: coffeeLoading, refetch: refetchCoffee } = useCoffeeType(id!);
+  const { data: coffee, isLoading: coffeeLoading } = useCoffeeType(id!);
   const deleteMutation = useDeleteCoffeeType();
+  const updateFieldMutation = useUpdateCoffeeField();
+
+  // Lookup дані для випадаючих списків
+  const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
+  const [varieties, setVarieties] = useState<Array<{ id: string; name: string }>>([]);
+  const [origins, setOrigins] = useState<Array<{ id: string; name: string }>>([]);
+  const [processingMethods, setProcessingMethods] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Завантаження довідників
+  useEffect(() => {
+    const loadLookupData = async () => {
+      const [brandsRes, varietiesRes, originsRes, methodsRes] = await Promise.all([
+        supabase.from('brands').select('id, name').order('name'),
+        supabase.from('coffee_varieties').select('id, name').order('name'),
+        supabase.from('origins').select('id, name').order('name'),
+        supabase.from('processing_methods').select('id, name').order('name'),
+      ]);
+
+      if (brandsRes.data) setBrands(brandsRes.data);
+      if (varietiesRes.data) setVarieties(varietiesRes.data);
+      if (originsRes.data) setOrigins(originsRes.data);
+      if (methodsRes.data) setProcessingMethods(methodsRes.data);
+    };
+
+    loadLookupData();
+  }, []);
 
   // Простий запит з JOIN для історії покупок
   const { data: purchases = [], isLoading: purchasesLoading } = useSupabaseQuery(
@@ -167,8 +194,19 @@ const CoffeeDetail = () => {
     }
   };
 
-  const handleEditSuccess = () => {
-    refetchCoffee();
+  const handleFieldUpdate = async (field: string, value: any) => {
+    if (!id) return;
+    
+    try {
+      await updateFieldMutation.mutateAsync({ id, field, value });
+    } catch (error: any) {
+      toast({
+        title: "Помилка",
+        description: error.message || "Не вдалося оновити поле",
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
 
   if (loading) {
@@ -224,15 +262,6 @@ const CoffeeDetail = () => {
           </Button>
           
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setEditDialogOpen(true)}
-              className="border-coffee-light hover:bg-coffee-light/10"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Редагувати
-            </Button>
-            
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button 
@@ -274,29 +303,47 @@ const CoffeeDetail = () => {
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
                   <Coffee className="h-6 w-6 text-coffee-dark" />
-                  <CardTitle className="text-2xl text-primary">{coffee.name}</CardTitle>
+                  <InlineTextEdit
+                    value={coffee.name}
+                    onSave={(value) => handleFieldUpdate('name', value)}
+                    className="text-2xl text-primary font-semibold"
+                    placeholder="Назва кави"
+                  />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {coffee.brands && (
-                    <Badge variant="secondary" className="bg-coffee-light/20 text-coffee-dark">
-                      {coffee.brands.name}
-                    </Badge>
-                  )}
-                  {coffee.coffee_varieties && (
-                    <Badge variant="outline" className="text-coffee-dark">
-                      {coffee.coffee_varieties.name}
-                    </Badge>
-                   )}
-                   {coffee.origins && (
-                     <Badge variant="outline" className="text-coffee-dark">
-                       {coffee.origins.name}
-                     </Badge>
-                   )}
-                   {coffee.processing_methods && (
-                     <Badge variant="outline" className="text-coffee-dark">
-                       {coffee.processing_methods.name}
-                     </Badge>
-                   )}
+                  <InlineSelectEdit
+                    value={coffee.brand_id}
+                    options={brands}
+                    onSave={(value) => handleFieldUpdate('brand_id', value)}
+                    placeholder="Бренд"
+                    emptyText="Без бренду"
+                    badgeVariant="secondary"
+                    className="bg-coffee-light/20 text-coffee-dark"
+                  />
+                  <InlineSelectEdit
+                    value={coffee.variety_id}
+                    options={varieties}
+                    onSave={(value) => handleFieldUpdate('variety_id', value)}
+                    placeholder="Різновид"
+                    emptyText="Без різновиду"
+                    badgeVariant="outline"
+                  />
+                  <InlineSelectEdit
+                    value={coffee.origin_id}
+                    options={origins}
+                    onSave={(value) => handleFieldUpdate('origin_id', value)}
+                    placeholder="Походження"
+                    emptyText="Без походження"
+                    badgeVariant="outline"
+                  />
+                  <InlineSelectEdit
+                    value={coffee.processing_method_id}
+                    options={processingMethods}
+                    onSave={(value) => handleFieldUpdate('processing_method_id', value)}
+                    placeholder="Обробка"
+                    emptyText="Без обробки"
+                    badgeVariant="outline"
+                  />
                 </div>
               </div>
               <div className="text-right text-sm text-muted-foreground">
@@ -309,13 +356,16 @@ const CoffeeDetail = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {coffee.package_size && (
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-coffee-dark" />
-                  <span className="font-medium">Розмір упаковки:</span>
-                  <span>{coffee.package_size}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-coffee-dark" />
+                <span className="font-medium">Розмір упаковки:</span>
+                <InlineTextEdit
+                  value={coffee.package_size || ''}
+                  onSave={(value) => handleFieldUpdate('package_size', value || null)}
+                  placeholder="Не вказано"
+                  required={false}
+                />
+              </div>
             </div>
             
             {coffee.coffee_flavors && coffee.coffee_flavors.length > 0 && (
@@ -331,12 +381,14 @@ const CoffeeDetail = () => {
               </div>
             )}
             
-            {coffee.description && (
-              <div>
-                <h4 className="font-medium mb-2">Опис:</h4>
-                <p className="text-muted-foreground">{coffee.description}</p>
-              </div>
-            )}
+            <div>
+              <h4 className="font-medium mb-2">Опис:</h4>
+              <InlineTextareaEdit
+                value={coffee.description}
+                onSave={(value) => handleFieldUpdate('description', value)}
+                placeholder="Додати опис кави..."
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -486,23 +538,6 @@ const CoffeeDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Edit Dialog */}
-        {coffee && (
-          <CoffeeEditDialog
-            coffee={{
-              id: coffee.id,
-              name: coffee.name,
-              description: coffee.description,
-              package_size: coffee.package_size,
-              brand_id: (coffee as any).brand_id,
-              variety_id: (coffee as any).variety_id,
-              processing_method_id: (coffee as any).processing_method_id,
-            }}
-            open={editDialogOpen}
-            onOpenChange={setEditDialogOpen}
-            onSuccess={handleEditSuccess}
-          />
-        )}
       </div>
     </div>
   );
