@@ -29,17 +29,21 @@ export const InlineSelectEdit = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const EMPTY_VALUE = "__none__";
   const selectedOption = options.find(opt => opt.id === value);
 
   const handleValueChange = async (newValue: string) => {
-    if (newValue === value) {
+    // Конвертуємо спеціальне значення в undefined
+    const actualValue = newValue === EMPTY_VALUE ? undefined : newValue;
+    
+    if (actualValue === value) {
       setIsEditing(false);
       return;
     }
 
     setIsLoading(true);
     try {
-      await onSave(newValue || undefined);
+      await onSave(actualValue);
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to save:', error);
@@ -51,7 +55,7 @@ export const InlineSelectEdit = ({
   if (isEditing) {
     return (
       <Select 
-        value={value || ""} 
+        value={value || EMPTY_VALUE} 
         onValueChange={handleValueChange}
         disabled={isLoading}
         onOpenChange={(open) => {
@@ -65,7 +69,7 @@ export const InlineSelectEdit = ({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">
+          <SelectItem value={EMPTY_VALUE}>
             <span className="text-muted-foreground italic">{emptyText}</span>
           </SelectItem>
           {options.map((option) => (
