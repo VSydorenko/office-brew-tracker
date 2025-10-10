@@ -46,14 +46,18 @@ export const SearchableSelect = ({
     if (!searchQuery.trim()) return text;
     
     const parts = text.split(new RegExp(`(${searchQuery})`, 'gi'));
-    return parts.map((part, index) => 
-      part.toLowerCase() === searchQuery.toLowerCase() ? (
-        <span key={index} className="font-bold">
-          {part}
-        </span>
-      ) : (
-        part
-      )
+    return (
+      <>
+        {parts.map((part, index) => 
+          part.toLowerCase() === searchQuery.toLowerCase() ? (
+            <span key={index} className="font-bold">
+              {part}
+            </span>
+          ) : (
+            part
+          )
+        )}
+      </>
     );
   };
 
