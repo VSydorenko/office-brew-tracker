@@ -3,7 +3,7 @@
  * Підтримує пошук та створення нових елементів
  */
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ interface SearchableSelectProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
+  /** Автоматично відкрити Popover при монтуванні */
+  autoOpen?: boolean;
 }
 
 export const SearchableSelect = ({
@@ -32,12 +34,20 @@ export const SearchableSelect = ({
   emptyText = "Не знайдено",
   className,
   disabled = false,
+  autoOpen = false,
 }: SearchableSelectProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const selectedOption = options.find((opt) => opt.id === value);
+
+  // Автоматичне відкриття при монтуванні
+  useEffect(() => {
+    if (autoOpen) {
+      setOpen(true);
+    }
+  }, [autoOpen]);
 
   /**
    * Підсвічує співпадіння пошукового запиту в тексті

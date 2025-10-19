@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar, Trash2 } from 'lucide-react';
 import { InlineTextEdit } from '@/components/coffee/InlineTextEdit';
 import { InlineTextareaEdit } from '@/components/coffee/InlineTextareaEdit';
-import { InlineSearchableSelectEdit } from '@/components/coffee/InlineSearchableSelectEdit';
+import { SelectEdit } from '@/components/ui/select-edit';
 import { useCoffeeType, useDeleteCoffeeType, useUpdateCoffeeField } from '@/hooks/use-coffee-types';
 import { useSupabaseQuery, useRealtimeInvalidation } from '@/hooks/use-supabase-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -307,7 +307,7 @@ const CoffeeDetail = () => {
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <InlineSearchableSelectEdit
+                  <SelectEdit
                     value={coffee.brand_id}
                     options={brands}
                     onSave={(value) => handleFieldUpdate('brand_id', value)}
@@ -318,9 +318,8 @@ const CoffeeDetail = () => {
                     placeholder="Бренд"
                     emptyText="Без бренду"
                     searchPlaceholder="Пошук бренду..."
-                    badgeVariant="secondary"
                   />
-                  <InlineSearchableSelectEdit
+                  <SelectEdit
                     value={coffee.variety_id}
                     options={varieties}
                     onSave={(value) => handleFieldUpdate('variety_id', value)}
@@ -331,9 +330,8 @@ const CoffeeDetail = () => {
                     placeholder="Різновид"
                     emptyText="Без різновиду"
                     searchPlaceholder="Пошук різновиду..."
-                    badgeVariant="outline"
                   />
-                  <InlineSearchableSelectEdit
+                  <SelectEdit
                     value={coffee.origin_id}
                     options={origins}
                     onSave={(value) => handleFieldUpdate('origin_id', value)}
@@ -344,9 +342,8 @@ const CoffeeDetail = () => {
                     placeholder="Походження"
                     emptyText="Без походження"
                     searchPlaceholder="Пошук походження..."
-                    badgeVariant="outline"
                   />
-                  <InlineSearchableSelectEdit
+                  <SelectEdit
                     value={coffee.processing_method_id}
                     options={processingMethods}
                     onSave={(value) => handleFieldUpdate('processing_method_id', value)}
@@ -357,7 +354,6 @@ const CoffeeDetail = () => {
                     placeholder="Обробка"
                     emptyText="Без обробки"
                     searchPlaceholder="Пошук методу обробки..."
-                    badgeVariant="outline"
                   />
                 </div>
               </div>
