@@ -47,7 +47,7 @@ export const SearchableSelect = ({
     
     const parts = text.split(new RegExp(`(${searchQuery})`, 'gi'));
     return (
-      <>
+      <span className="inline">
         {parts.map((part, index) => 
           part.toLowerCase() === searchQuery.toLowerCase() ? (
             <span key={index} className="font-bold">
@@ -57,7 +57,7 @@ export const SearchableSelect = ({
             part
           )
         )}
-      </>
+      </span>
     );
   };
 
