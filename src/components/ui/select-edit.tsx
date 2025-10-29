@@ -64,7 +64,8 @@ export const SelectEdit = ({
   const selectedOption = options.find(opt => opt.id === value);
 
   const handleChange = async (newValue: string | undefined) => {
-    if (newValue === value) {
+    // Якщо значення не змінилось (і це не очищення), просто закрити
+    if (newValue === value && newValue !== undefined) {
       setIsOpen(false);
       return;
     }
