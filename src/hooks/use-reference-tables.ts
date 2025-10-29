@@ -202,3 +202,51 @@ export const useCreateProcessingMethod = () => {
     },
   });
 };
+
+// Flavors
+export const useFlavors = () => {
+  return useQuery({
+    queryKey: ['flavors'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('flavors')
+        .select('id, name')
+        .order('name');
+      
+      if (error) throw error;
+      return data as ReferenceItem[];
+    },
+  });
+};
+
+export const useCreateFlavor = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase
+        .from('flavors')
+        .insert({ name })
+        .select('id, name')
+        .single();
+      
+      if (error) throw error;
+      return data as ReferenceItem;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['flavors'] });
+      toast({
+        title: "Успіх",
+        description: `Смак "${data.name}" створено`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Помилка",
+        description: error.message || "Не вдалося створити смак",
+        variant: "destructive",
+      });
+    },
+  });
+};

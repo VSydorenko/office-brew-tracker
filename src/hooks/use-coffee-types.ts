@@ -268,6 +268,47 @@ export function useUpdateCoffeeField() {
 }
 
 /**
+ * Хук для оновлення смакових якостей кави
+ */
+export function useUpdateCoffeeFlavors() {
+  return useSupabaseMutation(
+    async ({ coffeeId, flavorIds }: { coffeeId: string; flavorIds: string[] }) => {
+      // 1. Видалити всі існуючі зв'язки
+      const deleteResult = await supabase
+        .from('coffee_flavors')
+        .delete()
+        .eq('coffee_type_id', coffeeId);
+      
+      if (deleteResult.error) {
+        return { data: null, error: deleteResult.error };
+      }
+
+      // 2. Якщо є нові смаки, додати їх
+      if (flavorIds.length > 0) {
+        const insertResult = await supabase
+          .from('coffee_flavors')
+          .insert(
+            flavorIds.map(flavorId => ({
+              coffee_type_id: coffeeId,
+              flavor_id: flavorId
+            }))
+          );
+        
+        if (insertResult.error) {
+          return { data: null, error: insertResult.error };
+        }
+      }
+
+      return { data: { coffeeId, flavorIds }, error: null };
+    },
+    {
+      invalidateQueries: [[...queryKeys.coffeeTypes.all]],
+      successMessage: 'Смакові якості оновлено',
+    }
+  );
+}
+
+/**
  * Хук для видалення типу кави
  */
 export function useDeleteCoffeeType() {

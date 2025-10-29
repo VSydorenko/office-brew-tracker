@@ -9,7 +9,8 @@ import { ArrowLeft, Coffee, Package, TrendingUp, ShoppingCart, Calendar, Trash2 
 import { InlineTextEdit } from '@/components/coffee/InlineTextEdit';
 import { InlineTextareaEdit } from '@/components/coffee/InlineTextareaEdit';
 import { SelectEdit } from '@/components/ui/select-edit';
-import { useCoffeeType, useDeleteCoffeeType, useUpdateCoffeeField } from '@/hooks/use-coffee-types';
+import { MultiSelectEdit } from '@/components/ui/multi-select-edit';
+import { useCoffeeType, useDeleteCoffeeType, useUpdateCoffeeField, useUpdateCoffeeFlavors } from '@/hooks/use-coffee-types';
 import { useSupabaseQuery, useRealtimeInvalidation } from '@/hooks/use-supabase-query';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -20,7 +21,9 @@ import {
   useOrigins, 
   useCreateOrigin, 
   useProcessingMethods, 
-  useCreateProcessingMethod 
+  useCreateProcessingMethod,
+  useFlavors,
+  useCreateFlavor
 } from '@/hooks/use-reference-tables';
 
 interface CoffeeType {
@@ -34,7 +37,7 @@ interface CoffeeType {
   coffee_varieties?: { name: string } | null;
   origins?: { name: string } | null;
   processing_methods?: { name: string } | null;
-  coffee_flavors?: Array<{ flavors: { name: string } }>;
+  coffee_flavors?: Array<{ flavors: { id: string; name: string } }>;
 }
 
 interface PurchaseItem {
@@ -63,11 +66,14 @@ const CoffeeDetail = () => {
   const { data: varieties = [] } = useVarieties();
   const { data: origins = [] } = useOrigins();
   const { data: processingMethods = [] } = useProcessingMethods();
+  const { data: flavors = [] } = useFlavors();
   
   const createBrand = useCreateBrand();
   const createVariety = useCreateVariety();
   const createOrigin = useCreateOrigin();
   const createProcessingMethod = useCreateProcessingMethod();
+  const createFlavor = useCreateFlavor();
+  const updateFlavors = useUpdateCoffeeFlavors();
 
   // Простий запит з JOIN для історії покупок
   const { data: purchases = [], isLoading: purchasesLoading } = useSupabaseQuery(
@@ -379,18 +385,29 @@ const CoffeeDetail = () => {
               </div>
             </div>
             
-            {coffee.coffee_flavors && coffee.coffee_flavors.length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2">Смакові якості:</h4>
-                <div className="flex flex-wrap gap-2">
-                  {coffee.coffee_flavors.map((cf, index) => (
-                    <Badge key={index} variant="outline" className="text-coffee-dark">
-                      {cf.flavors.name}
-                    </Badge>
-                  ))}
+                <div>
+                  <h4 className="font-medium mb-2">Смакові якості:</h4>
+                  <MultiSelectEdit
+                    value={coffee.coffee_flavors?.map(cf => cf.flavors.id) || []}
+                    options={flavors}
+                    onSave={async (flavorIds) => {
+                      if (!coffee.id) return;
+                      await updateFlavors.mutateAsync({ 
+                        coffeeId: coffee.id, 
+                        flavorIds 
+                      });
+                    }}
+                    onCreateNew={async (name) => {
+                      const flavor = await createFlavor.mutateAsync(name);
+                      return flavor.id;
+                    }}
+                    placeholder="Смакові якості"
+                    emptyText="Не вказано"
+                    searchPlaceholder="Пошук смаку..."
+                    emptySearchText="Смак не знайдено"
+                    maxDisplayItems={5}
+                  />
                 </div>
-              </div>
-            )}
             
             <div>
               <h4 className="font-medium mb-2">Опис:</h4>
