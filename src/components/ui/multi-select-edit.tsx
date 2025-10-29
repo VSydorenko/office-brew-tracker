@@ -197,18 +197,17 @@ export const MultiSelectEdit = ({
                 {/* Список з чекбоксами */}
                 {filteredOptions.length > 0 ? (
                   filteredOptions.map(option => (
-                    <CommandItem 
-                      key={option.id} 
-                      onSelect={() => handleToggle(option.id)}
-                      className="cursor-pointer"
-                    >
-                      <Checkbox 
-                        checked={selectedIds.includes(option.id)}
-                        className="mr-2"
-                        onCheckedChange={() => handleToggle(option.id)}
-                      />
-                      {highlightMatch(option.name, search)}
-                    </CommandItem>
+            <CommandItem 
+              key={option.id} 
+              onSelect={() => handleToggle(option.id)}
+              className="cursor-pointer"
+            >
+              <Checkbox 
+                checked={selectedIds.includes(option.id)}
+                className="mr-2 pointer-events-none"
+              />
+              {highlightMatch(option.name, search)}
+            </CommandItem>
                   ))
                 ) : (
                   !shouldShowCreate && (
