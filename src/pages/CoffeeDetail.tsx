@@ -310,7 +310,7 @@ const CoffeeDetail = () => {
                   <SelectEdit
                     value={coffee.brand_id}
                     options={brands}
-                    onSave={(value) => handleFieldUpdate('brand_id', value)}
+                    onSave={(value) => handleFieldUpdate('brand_id', value ?? null)}
                     onCreateNew={async (name) => {
                       const brand = await createBrand.mutateAsync(name);
                       return brand.id;
@@ -322,7 +322,7 @@ const CoffeeDetail = () => {
                   <SelectEdit
                     value={coffee.variety_id}
                     options={varieties}
-                    onSave={(value) => handleFieldUpdate('variety_id', value)}
+                    onSave={(value) => handleFieldUpdate('variety_id', value ?? null)}
                     onCreateNew={async (name) => {
                       const variety = await createVariety.mutateAsync(name);
                       return variety.id;
@@ -334,7 +334,7 @@ const CoffeeDetail = () => {
                   <SelectEdit
                     value={coffee.origin_id}
                     options={origins}
-                    onSave={(value) => handleFieldUpdate('origin_id', value)}
+                    onSave={(value) => handleFieldUpdate('origin_id', value ?? null)}
                     onCreateNew={async (name) => {
                       const origin = await createOrigin.mutateAsync(name);
                       return origin.id;
@@ -346,7 +346,7 @@ const CoffeeDetail = () => {
                   <SelectEdit
                     value={coffee.processing_method_id}
                     options={processingMethods}
-                    onSave={(value) => handleFieldUpdate('processing_method_id', value)}
+                    onSave={(value) => handleFieldUpdate('processing_method_id', value ?? null)}
                     onCreateNew={async (name) => {
                       const method = await createProcessingMethod.mutateAsync(name);
                       return method.id;
