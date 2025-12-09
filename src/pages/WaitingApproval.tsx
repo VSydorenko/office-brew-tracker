@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/ui/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -8,12 +8,10 @@ import { Coffee, LogOut } from 'lucide-react';
 
 /**
  * Сторінка очікування підтвердження облікового запису.
- * Користувач бачить цю сторінку, якщо його статус відмінний від "approved".
+ * Використовує централізований стан з AuthContext для оптимізації.
  */
 const WaitingApproval = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [status, setStatus] = useState<'pending' | 'rejected' | 'blocked' | 'approved' | null>(null);
+  const { user, profileStatus, loading, profileLoading, isApproved } = useAuth();
 
   useEffect(() => {
     document.title = 'Очікування підтвердження | Облік кави';
@@ -26,25 +24,19 @@ const WaitingApproval = () => {
     if (!canonical.parentNode) document.head.appendChild(canonical);
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      if (!user) return;
-      const { data } = await supabase.from('profiles').select('status').eq('id', user.id).maybeSingle();
-      if (active) setStatus((data?.status as any) ?? null);
-    };
-    load();
-    return () => { active = false; };
-  }, [user]);
+  // Редірект на auth якщо не залогінений
+  if (!loading && !profileLoading && !user) {
+    return <Navigate to="/auth" replace />;
+  }
 
-  // Автоматичне перенаправлення для підтверджених користувачів
-  useEffect(() => {
-    if (status === 'approved') {
-      navigate('/');
-    }
-  }, [status, navigate]);
+  // Негайний редірект для підтверджених користувачів
+  if (!loading && !profileLoading && isApproved) {
+    return <Navigate to="/" replace />;
+  }
 
-  const signOut = async () => { await supabase.auth.signOut(); };
+  const signOut = async () => { 
+    await supabase.auth.signOut(); 
+  };
 
   const titleMap: Record<string, string> = {
     pending: 'Ваш акаунт очікує підтвердження',
@@ -60,7 +52,19 @@ const WaitingApproval = () => {
     approved: 'Ви вже маєте доступ. Перейдіть на головну сторінку.',
   };
 
-  const current = status ?? 'pending';
+  const current = profileStatus ?? 'pending';
+
+  // Показуємо спінер під час завантаження
+  if (loading || profileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-brew">
+        <div className="flex items-center gap-2 text-primary">
+          <Coffee className="h-8 w-8 animate-pulse" />
+          <span className="text-xl">Завантаження...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-brew p-4">
