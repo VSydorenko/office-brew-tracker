@@ -109,8 +109,8 @@ export function useSpendingTimeseries(startDate?: string, endDate?: string) {
     },
     {
       select: (data) => {
-        // Трансформуємо дані з month_start у month
-        return (data.data || []).map((r: any) => ({
+        // data - вже масив, не потрібно .data
+        return (data || []).map((r: any) => ({
           month: new Date(r.month_start).toLocaleDateString('uk-UA', { month: 'short', year: 'numeric' }),
           total_spent: Number(r.total_spent || 0),
         }));
@@ -155,7 +155,7 @@ export function useTopDrivers(startDate?: string, endDate?: string, limit = 5) {
     {
       select: (data) => {
         // Трансформуємо сирі дані в стек-структуру для графіку
-        const rawDrivers = data.data || [];
+        const rawDrivers = data || [];
         
         // Отримуємо унікальні місяці та імена водіїв
         const monthsIsoSet = new Set<string>();

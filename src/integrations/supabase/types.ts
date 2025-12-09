@@ -671,14 +671,10 @@ export type Database = {
           unpaid_total: number
         }[]
       }
-      get_last_purchase_template_id: {
-        Args: Record<PropertyKey, never> | { buyer_user_id: string }
-        Returns: string
-      }
-      get_latest_coffee_price: {
-        Args: { coffee_id: string }
-        Returns: number
-      }
+      get_last_purchase_template_id:
+        | { Args: never; Returns: string }
+        | { Args: { buyer_user_id: string }; Returns: string }
+      get_latest_coffee_price: { Args: { coffee_id: string }; Returns: number }
       get_profiles_for_picker: {
         Args: { limit_n?: number; offset_n?: number; search?: string }
         Returns: {
@@ -736,14 +732,8 @@ export type Database = {
           trips: number
         }[]
       }
-      is_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      is_approved: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_approved: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
