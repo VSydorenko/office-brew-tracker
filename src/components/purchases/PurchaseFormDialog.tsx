@@ -56,6 +56,25 @@ interface PurchaseFormDialogProps {
   children?: React.ReactNode; // Для кастомного тригера
 }
 
+/** Ключ для зберігання чернетки форми в sessionStorage */
+const PURCHASE_FORM_DRAFT_KEY = 'purchase-form-draft';
+
+/** Інтерфейс для збереження чернетки */
+interface PurchaseFormDraft {
+  formData: {
+    date: string;
+    total_amount: string;
+    notes: string;
+    buyer_id: string;
+    driver_id: string;
+  };
+  purchaseItems: PurchaseItem[];
+  distributions: PurchaseDistribution[];
+  selectedTemplate: string;
+  currentTab: string;
+  savedAt: number;
+}
+
 /**
  * Універсальний діалог для створення та редагування покупок кави
  * @param onSuccess - функція зворотного виклику після успішної операції
@@ -77,6 +96,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
   const [currentTab, setCurrentTab] = useState('purchase');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [isDistributionManuallyModified, setIsDistributionManuallyModified] = useState(false);
+  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const { toast } = useToast();
 
   const isEditMode = !!purchaseId;
@@ -126,10 +146,77 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     }
   }, [isEditMode, purchaseData, open]);
 
+  /**
+   * Завантаження чернетки з sessionStorage при відкритті форми для нової покупки
+   */
+  useEffect(() => {
+    if (open && !isEditMode && !isDraftLoaded) {
+      try {
+        const savedDraft = sessionStorage.getItem(PURCHASE_FORM_DRAFT_KEY);
+        if (savedDraft) {
+          const draft: PurchaseFormDraft = JSON.parse(savedDraft);
+          // Перевіряємо, чи чернетка не застаріла (не старше 24 годин)
+          const isExpired = Date.now() - draft.savedAt > 24 * 60 * 60 * 1000;
+          if (!isExpired) {
+            setFormData(draft.formData);
+            setPurchaseItems(draft.purchaseItems);
+            setDistributions(draft.distributions);
+            setSelectedTemplate(draft.selectedTemplate);
+            setCurrentTab(draft.currentTab);
+            setIsDraftLoaded(true);
+            return; // Не скидаємо форму, якщо завантажили чернетку
+          } else {
+            // Видаляємо застарілу чернетку
+            sessionStorage.removeItem(PURCHASE_FORM_DRAFT_KEY);
+          }
+        }
+      } catch (error) {
+        console.error('Помилка завантаження чернетки:', error);
+        sessionStorage.removeItem(PURCHASE_FORM_DRAFT_KEY);
+      }
+      setIsDraftLoaded(true);
+    }
+  }, [open, isEditMode, isDraftLoaded]);
+
+  /**
+   * Автозбереження форми в sessionStorage при зміні даних
+   */
+  useEffect(() => {
+    if (open && !isEditMode && isDraftLoaded) {
+      // Зберігаємо тільки якщо є значущі дані
+      const hasData = 
+        formData.total_amount || 
+        formData.notes || 
+        purchaseItems.length > 0 || 
+        distributions.length > 0;
+      
+      if (hasData) {
+        const draft: PurchaseFormDraft = {
+          formData,
+          purchaseItems,
+          distributions,
+          selectedTemplate,
+          currentTab,
+          savedAt: Date.now(),
+        };
+        sessionStorage.setItem(PURCHASE_FORM_DRAFT_KEY, JSON.stringify(draft));
+      }
+    }
+  }, [open, isEditMode, isDraftLoaded, formData, purchaseItems, distributions, selectedTemplate, currentTab]);
+
+  /**
+   * Очищення чернетки
+   */
+  const clearDraft = () => {
+    sessionStorage.removeItem(PURCHASE_FORM_DRAFT_KEY);
+  };
+
   const handleOpenChange = async (newOpen: boolean) => {
     setOpen(newOpen);
     if (newOpen && !isEditMode) {
-      // Скинути форму для нової покупки і встановити поточного користувача як покупця та водія
+      // Скинути isDraftLoaded, щоб спробувати завантажити чернетку
+      setIsDraftLoaded(false);
+      // Значення за замовчуванням (будуть перезаписані, якщо є чернетка)
       setFormData({
         date: new Date().toISOString().split('T')[0],
         total_amount: '',
@@ -144,6 +231,9 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
       setDistributionValidation(null);
       setIsDistributionManuallyModified(false);
       setCurrentTab('purchase');
+    } else if (!newOpen) {
+      // При закритті скидаємо прапорець завантаження чернетки
+      setIsDraftLoaded(false);
     }
   };
 
@@ -348,6 +438,8 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
         await createPurchaseMutation.mutateAsync(purchaseData);
       }
 
+      // Очищуємо чернетку після успішного збереження
+      clearDraft();
       setOpen(false);
       onSuccess?.();
     } catch (error: any) {

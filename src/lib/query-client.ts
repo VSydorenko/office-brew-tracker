@@ -25,8 +25,8 @@ export const createQueryClient = () => {
         },
         // Затримка між спробами
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-        // Рефетчити при фокусуванні вікна
-        refetchOnWindowFocus: true,
+        // Вимкнено автоматичний рефетч при фокусі - це спричиняло втрату даних форм
+        refetchOnWindowFocus: false,
         // Рефетчити при відновленні з'єднання
         refetchOnReconnect: true,
       },
