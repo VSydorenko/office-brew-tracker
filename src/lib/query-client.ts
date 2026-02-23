@@ -58,6 +58,7 @@ export const queryKeys = {
     all: ['coffee-types'] as const,
     detail: (id: string) => ['coffee-types', 'detail', id] as const,
     search: (query: string) => ['coffee-types', 'search', query] as const,
+    purchaseStats: ['coffee-types', 'purchase-stats'] as const,
   },
   // Покупки
   purchases: {

@@ -1,6 +1,7 @@
 /**
  * React Query хуки для роботи з типами кави
  */
+import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseQuery, useSupabaseMutation, useRealtimeInvalidation } from './use-supabase-query';
 import { queryKeys } from '@/lib/query-client';
@@ -331,4 +332,48 @@ export function useDeleteCoffeeType() {
       successMessage: 'Тип кави видалено успішно',
     }
   );
+}
+
+/**
+ * Інтерфейс статистики покупок кави
+ */
+export interface CoffeePurchaseStat {
+  coffee_type_id: string;
+  last_price: number;
+  last_purchase_date: string;
+}
+
+/**
+ * Хук для отримання статистики покупок всіх кав одним запитом
+ */
+export function useCoffeePurchaseStats() {
+  const query = useSupabaseQuery(
+    queryKeys.coffeeTypes.purchaseStats,
+    async () => supabase.rpc('get_coffee_purchase_stats'),
+    { staleTime: 5 * 60 * 1000 }
+  );
+
+  useRealtimeInvalidation('purchase_items', [[...queryKeys.coffeeTypes.purchaseStats]]);
+
+  return query;
+}
+
+/**
+ * Хук, який повертає Map<coffeeId, { lastPrice, lastPurchaseDate }> для зручного доступу
+ */
+export function useCoffeePurchaseStatsMap() {
+  const { data: stats } = useCoffeePurchaseStats();
+
+  return useMemo(() => {
+    const map = new Map<string, { lastPrice: number; lastPurchaseDate: string }>();
+    if (!stats) return map;
+
+    (stats as CoffeePurchaseStat[]).forEach((stat) => {
+      map.set(stat.coffee_type_id, {
+        lastPrice: stat.last_price,
+        lastPurchaseDate: stat.last_purchase_date,
+      });
+    });
+    return map;
+  }, [stats]);
 }

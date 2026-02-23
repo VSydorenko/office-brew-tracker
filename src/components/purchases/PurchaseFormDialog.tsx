@@ -15,9 +15,9 @@ import { UserAvatarPicker } from './UserAvatarPicker';
 import { CoffeeCombobox } from './CoffeeCombobox';
 import { PurchaseDistributionStep } from './PurchaseDistributionStep';
 import { useProfiles, useCurrentProfile } from '@/hooks/use-profiles';
-import { useCoffeeTypes, useCreateCoffeeType } from '@/hooks/use-coffee-types';
-import { usePurchase, useCreatePurchase, useUpdatePurchase, useLatestCoffeePrice, useLastPurchaseTemplate } from '@/hooks/use-purchases';
-import { supabase } from '@/integrations/supabase/client';
+import { useCoffeeTypes, useCreateCoffeeType, useCoffeePurchaseStatsMap } from '@/hooks/use-coffee-types';
+import { usePurchase, useCreatePurchase, useUpdatePurchase, useLastPurchaseTemplate } from '@/hooks/use-purchases';
+
 import { useAuth } from '@/components/ui/auth-provider';
 import { useIsMobile } from '@/hooks/use-mobile';
 interface Profile {
@@ -272,71 +272,20 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
     }
   };
 
-  // Створюємо кеш для цін кави
-  const [priceCache, setPriceCache] = useState<Record<string, number>>({});
-  
-  const getLastPrice = (coffeeId: string): number | null => {
-    return priceCache[coffeeId] || null;
-  };
+  // Статистика покупок кави через централізований хук
+  const purchaseStatsMap = useCoffeePurchaseStatsMap();
 
-  // Завантажуємо ціни всіх кав при відкритті діалогу
-  useEffect(() => {
-    if (!open || !coffeeTypes?.length) return;
-    
-    let cancelled = false;
-    const loadPrices = async () => {
-      try {
-        const results = await Promise.all(
-          coffeeTypes.map(async (coffee) => {
-            const { data } = await supabase.rpc('get_latest_coffee_price', { 
-              coffee_id: coffee.id 
-            });
-            return [coffee.id, data] as const;
-          })
-        );
-        
-        if (cancelled) return;
-        
-        const newPriceCache: Record<string, number> = {};
-        results.forEach(([coffeeId, price]) => {
-          if (typeof price === 'number' && price > 0) {
-            newPriceCache[coffeeId] = price;
-          }
-        });
-        
-        setPriceCache(newPriceCache);
-      } catch (error) {
-        console.error('Помилка завантаження останніх цін:', error);
-      }
-    };
-    
-    loadPrices();
-    return () => { cancelled = true; };
-  }, [open, coffeeTypes]);
-
-  const updatePurchaseItem = async (index: number, field: keyof PurchaseItem, value: any) => {
+  const updatePurchaseItem = (index: number, field: keyof PurchaseItem, value: any) => {
     const updatedItems = [...purchaseItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     
-    // Автозаповнення ціни при виборі кави
+    // Автозаповнення ціни при виборі кави з кешу статистики
     if (field === 'coffee_type_id' && value) {
-      // Отримуємо останню ціну для цієї кави
-      try {
-        const { data: priceData } = await supabase.rpc('get_latest_coffee_price', { 
-          coffee_id: value 
-        });
-        
-        if (priceData && priceData > 0) {
-          updatedItems[index].unit_price = priceData;
-          updatedItems[index].total_price = priceData;
-          // Зберігаємо в кеш для швидкого доступу
-          setPriceCache(prev => ({ ...prev, [value]: priceData }));
-        } else {
-          updatedItems[index].unit_price = 0;
-          updatedItems[index].total_price = 0;
-        }
-      } catch (error) {
-        console.error('Error fetching latest price:', error);
+      const stat = purchaseStatsMap.get(value);
+      if (stat && stat.lastPrice > 0) {
+        updatedItems[index].unit_price = stat.lastPrice;
+        updatedItems[index].total_price = stat.lastPrice;
+      } else {
         updatedItems[index].unit_price = 0;
         updatedItems[index].total_price = 0;
       }
@@ -575,8 +524,6 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
                             onValueChange={(value) => updatePurchaseItem(index, 'coffee_type_id', value)}
                             onCreateNew={createNewCoffeeType}
                             placeholder="Оберіть тип кави"
-                            showLastPrice={true}
-                            onGetLastPrice={getLastPrice}
                           />
                         </div>
                         

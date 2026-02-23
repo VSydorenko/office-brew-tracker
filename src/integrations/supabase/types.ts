@@ -660,6 +660,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_coffee_purchase_stats: {
+        Args: never
+        Returns: {
+          coffee_type_id: string
+          last_price: number
+          last_purchase_date: string
+        }[]
+      }
       get_dashboard_kpis: {
         Args: { end_date: string; start_date: string }
         Returns: {
