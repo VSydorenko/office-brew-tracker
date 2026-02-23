@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { CoffeeCard } from './CoffeeCard';
+import { CoffeeFilters, CoffeeFiltersValue, emptyFilters } from './CoffeeFilters';
 import { Card, CardContent } from '@/components/ui/card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { SearchBar } from '@/components/ui/search-bar';
@@ -12,10 +13,10 @@ interface CoffeeType {
   description?: string;
   package_size?: string;
   created_at: string;
-  brands?: { name: string } | null;
-  coffee_varieties?: { name: string } | null;
-  origins?: { name: string } | null;
-  processing_methods?: { name: string } | null;
+  brands?: { id: string; name: string } | null;
+  coffee_varieties?: { id: string; name: string } | null;
+  origins?: { id: string; name: string } | null;
+  processing_methods?: { id: string; name: string } | null;
   coffee_flavors?: Array<{ flavors: { name: string } }>;
 }
 
@@ -25,6 +26,8 @@ interface CoffeeListProps {
 
 export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<CoffeeFiltersValue>(emptyFilters);
 
   // Використовуємо React Query хук для отримання даних
   const { data: rawCoffees, isLoading: loading, error } = useCoffeeTypes();
@@ -69,6 +72,19 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
       );
     }
 
+    if (filters.brand_id) {
+      result = result.filter(coffee => coffee.brands?.id === filters.brand_id);
+    }
+    if (filters.variety_id) {
+      result = result.filter(coffee => coffee.coffee_varieties?.id === filters.variety_id);
+    }
+    if (filters.origin_id) {
+      result = result.filter(coffee => coffee.origins?.id === filters.origin_id);
+    }
+    if (filters.processing_method_id) {
+      result = result.filter(coffee => coffee.processing_methods?.id === filters.processing_method_id);
+    }
+
     // Сортування за датою останньої покупки (найновіші зверху), без покупок — в кінці
     return [...result].sort((a, b) => {
       const statA = statsMap.get(a.id);
@@ -78,7 +94,7 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
       if (!statB) return -1;
       return statB.lastPurchaseDate.localeCompare(statA.lastPurchaseDate);
     });
-  }, [coffees, searchQuery, statsMap]);
+  }, [coffees, searchQuery, filters, statsMap]);
 
   // Фіктивна функція для сумісності з CoffeeCard
   const handleCoffeeUpdated = () => {
@@ -123,7 +139,13 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
       <SearchBar
         placeholder="Пошук кави за назвою, брендом, походженням..."
         onSearch={handleSearch}
+        onFilter={() => setShowFilters(prev => !prev)}
       />
+
+      {/* Filter panel */}
+      {showFilters && (
+        <CoffeeFilters filters={filters} onChange={setFilters} />
+      )}
 
       {/* Coffee Grid */}
       {filteredCoffees.length === 0 ? (
@@ -131,11 +153,11 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
           <CardContent className="p-8 md:p-12 text-center">
             <Coffee className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-primary mb-2">
-              {searchQuery ? 'Кава не знайдена' : 'Каталог порожній'}
+              {searchQuery || Object.values(filters).some(Boolean) ? 'Кава не знайдена' : 'Каталог порожній'}
             </h3>
             <p className="text-muted-foreground">
-              {searchQuery 
-                ? 'Спробуйте змінити умови пошуку'
+              {searchQuery || Object.values(filters).some(Boolean)
+                ? 'Спробуйте змінити умови пошуку або фільтри'
                 : 'Додайте першу каву до каталогу, щоб почати облік'
               }
             </p>
