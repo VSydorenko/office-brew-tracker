@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, CheckCircle2, AlertCircle, TrendingUp, TrendingDown, User, ShoppingCart, Bell, BellOff, RefreshCw } from 'lucide-react';
+import { CheckCircle, CheckCircle2, AlertCircle, TrendingUp, TrendingDown, User, ShoppingCart, Bell, BellOff, RefreshCw, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/components/ui/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { useNotifications } from '@/hooks/use-notifications';
@@ -113,6 +114,7 @@ const MyPayments = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isSupported, isEnabled, enableNotifications, disableNotifications } = useNotifications();
+  const navigate = useNavigate();
 
   const { owedToMe, iOwe, allDistributions, loading, refetch } = useMyPaymentsData();
 
@@ -188,6 +190,7 @@ const MyPayments = () => {
       const purchaseId = debt.purchase_id;
       if (!acc[purchaseId]) {
         acc[purchaseId] = {
+          purchaseId,
           purchaseDate: debt.purchases.date,
           totalAmount: debt.purchases.total_amount,
           debts: []
@@ -223,6 +226,7 @@ const MyPayments = () => {
       const purchaseId = debt.purchase_id;
       if (!acc[purchaseId]) {
         acc[purchaseId] = {
+          purchaseId,
           purchaseDate: debt.purchases.date,
           buyerName: debt.purchases.profiles.name,
           totalAmount: debt.purchases.total_amount,
@@ -455,6 +459,15 @@ const MyPayments = () => {
                             Загальна сума: {group.totalAmount.toFixed(2)} ₴
                           </p>
                         </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-1 text-green-700 border-green-500 hover:bg-green-50"
+                          onClick={() => navigate(`/purchases?highlight=${group.purchaseId}`)}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Покупка
+                        </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -529,6 +542,15 @@ const MyPayments = () => {
                             Покупець: {group.buyerName} • Загальна сума: {group.totalAmount.toFixed(2)} ₴
                           </p>
                         </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-1 text-red-700 border-red-500 hover:bg-red-50"
+                          onClick={() => navigate(`/purchases?highlight=${group.purchaseId}`)}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Покупка
+                        </Button>
                       </div>
                     </CardHeader>
                     <CardContent>

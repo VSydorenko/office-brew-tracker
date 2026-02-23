@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { usePurchases, useDeletePurchase, useCanDeletePurchase } from '@/hooks/use-purchases';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -68,6 +69,8 @@ interface PurchaseListItem {
 
 export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight');
   const { toast } = useToast();
   
   // React Query хуки
@@ -173,6 +176,7 @@ export const PurchaseList = ({ refreshTrigger }: { refreshTrigger?: number }) =>
               onDelete={handleDelete}
               onUpdate={handlePurchaseUpdated}
               isDeleting={deletePurchaseMutation.isPending}
+              isHighlighted={highlightId === purchase.id}
             />
           ))
         )}
@@ -186,15 +190,26 @@ interface PurchaseCardProps {
   onDelete: (id: string) => void;
   onUpdate: () => void;
   isDeleting: boolean;
+  isHighlighted?: boolean;
 }
 
-const PurchaseCard = ({ purchase, onDelete, onUpdate, isDeleting }: PurchaseCardProps) => {
+const PurchaseCard = ({ purchase, onDelete, onUpdate, isDeleting, isHighlighted }: PurchaseCardProps) => {
   const { data: canDeleteData } = useCanDeletePurchase(purchase.id);
   const canDelete = canDeleteData?.canDelete ?? false;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const hasScrolled = useRef(false);
+
+  useEffect(() => {
+    if (isHighlighted && cardRef.current && !hasScrolled.current) {
+      hasScrolled.current = true;
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isHighlighted]);
 
   return (
+    <div ref={cardRef}>
     <SimpleCard
-      className="shadow-coffee hover:shadow-coffee-hover"
+      className={`shadow-coffee hover:shadow-coffee-hover transition-all duration-300 ${isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''}`}
     >
       <div className="space-y-4 lg:space-y-6">
         {/* Header info */}
@@ -377,5 +392,6 @@ const PurchaseCard = ({ purchase, onDelete, onUpdate, isDeleting }: PurchaseCard
         </div>
       </div>
     </SimpleCard>
+    </div>
   );
 };
