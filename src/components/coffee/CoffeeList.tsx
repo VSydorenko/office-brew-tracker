@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { SearchBar } from '@/components/ui/search-bar';
 import { Coffee } from 'lucide-react';
-import { useCoffeeTypes, CoffeeTypeWithDetails } from '@/hooks/use-coffee-types';
+import { useCoffeeTypes, CoffeeTypeWithDetails, useCoffeePurchaseStatsMap } from '@/hooks/use-coffee-types';
 
 interface CoffeeType {
   id: string;
@@ -28,6 +28,7 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
 
   // Використовуємо React Query хук для отримання даних
   const { data: rawCoffees, isLoading: loading, error } = useCoffeeTypes();
+  const statsMap = useCoffeePurchaseStatsMap();
 
   // Трансформуємо дані з нового формату у старий для сумісності з CoffeeCard
   const coffees = useMemo(() => {
@@ -52,22 +53,32 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
     setSearchQuery(query);
   }, []);
 
-  // Фільтровані кави на основі пошукового запиту
+  // Фільтровані та відсортовані кави
   const filteredCoffees = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return coffees;
+    let result = coffees;
+
+    if (searchQuery.trim()) {
+      result = result.filter(coffee =>
+        coffee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        coffee.brands?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        coffee.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        coffee.coffee_varieties?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        coffee.origins?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        coffee.processing_methods?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        coffee.coffee_flavors?.some(cf => cf.flavors.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
     }
 
-    return coffees.filter(coffee =>
-      coffee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coffee.brands?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coffee.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coffee.coffee_varieties?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coffee.origins?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coffee.processing_methods?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coffee.coffee_flavors?.some(cf => cf.flavors.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  }, [coffees, searchQuery]);
+    // Сортування за датою останньої покупки (найновіші зверху), без покупок — в кінці
+    return [...result].sort((a, b) => {
+      const statA = statsMap.get(a.id);
+      const statB = statsMap.get(b.id);
+      if (!statA && !statB) return 0;
+      if (!statA) return 1;
+      if (!statB) return -1;
+      return statB.lastPurchaseDate.localeCompare(statA.lastPurchaseDate);
+    });
+  }, [coffees, searchQuery, statsMap]);
 
   // Фіктивна функція для сумісності з CoffeeCard
   const handleCoffeeUpdated = () => {

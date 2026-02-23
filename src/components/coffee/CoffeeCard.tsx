@@ -4,11 +4,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Coffee, Package, TrendingUp, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { Coffee, Package, MoreVertical, Edit, Trash2, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CoffeeEditDialog } from './CoffeeEditDialog';
+import { useCoffeePurchaseStatsMap } from '@/hooks/use-coffee-types';
+import { format, parseISO } from 'date-fns';
 
 interface CoffeeType {
   id: string;
@@ -34,52 +36,34 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const statsMap = useCoffeePurchaseStatsMap();
+  const stat = statsMap.get(coffee.id);
 
   const handleDelete = async () => {
     try {
       setDeleteLoading(true);
-      
-      // Delete coffee flavors first
       const { error: flavorsError } = await supabase
         .from('coffee_flavors')
         .delete()
         .eq('coffee_type_id', coffee.id);
-      
       if (flavorsError) throw flavorsError;
-      
-      // Delete coffee type
       const { error: coffeeError } = await supabase
         .from('coffee_types')
         .delete()
         .eq('id', coffee.id);
-      
       if (coffeeError) throw coffeeError;
-      
-      toast({
-        title: "Успіх",
-        description: "Кава видалена з каталогу",
-      });
-      
+      toast({ title: "Успіх", description: "Кава видалена з каталогу" });
       setDeleteDialogOpen(false);
       onCoffeeUpdated?.();
     } catch (error: any) {
-      toast({
-        title: "Помилка",
-        description: error.message || "Не вдалося видалити каву",
-        variant: "destructive",
-      });
+      toast({ title: "Помилка", description: error.message || "Не вдалося видалити каву", variant: "destructive" });
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  const handleEditSuccess = () => {
-    onCoffeeUpdated?.();
-  };
-
-  const handleCardClick = () => {
-    navigate(`/coffee-catalog/${coffee.id}`);
-  };
+  const handleEditSuccess = () => { onCoffeeUpdated?.(); };
+  const handleCardClick = () => { navigate(`/coffee-catalog/${coffee.id}`); };
 
   return (
     <Card 
@@ -95,29 +79,16 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
           <div className="flex gap-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-coffee-dark hover:text-primary"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <Button variant="ghost" size="sm" className="text-coffee-dark hover:text-primary" onClick={(e) => e.stopPropagation()}>
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-background border shadow-md z-50">
-                <DropdownMenuItem 
-                  onClick={() => setEditDialogOpen(true)}
-                  className="cursor-pointer"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Редагувати
+                <DropdownMenuItem onClick={() => setEditDialogOpen(true)} className="cursor-pointer">
+                  <Edit className="h-4 w-4 mr-2" /> Редагувати
                 </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => setDeleteDialogOpen(true)}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Видалити
+                <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="cursor-pointer text-destructive focus:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" /> Видалити
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -125,19 +96,13 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
         </div>
         <div className="flex flex-wrap gap-2">
           {coffee.brands && (
-            <Badge variant="secondary" className="w-fit bg-coffee-light/20 text-coffee-dark">
-              {coffee.brands.name}
-            </Badge>
+            <Badge variant="secondary" className="w-fit bg-coffee-light/20 text-coffee-dark">{coffee.brands.name}</Badge>
           )}
           {coffee.coffee_varieties && (
-            <Badge variant="outline" className="w-fit">
-              {coffee.coffee_varieties.name}
-            </Badge>
+            <Badge variant="outline" className="w-fit">{coffee.coffee_varieties.name}</Badge>
           )}
           {coffee.origins && (
-            <Badge variant="outline" className="w-fit">
-              {coffee.origins.name}
-            </Badge>
+            <Badge variant="outline" className="w-fit">{coffee.origins.name}</Badge>
           )}
         </div>
       </CardHeader>
@@ -162,19 +127,21 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
         )}
         
         {coffee.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {coffee.description}
-          </p>
+          <p className="text-sm text-muted-foreground line-clamp-2">{coffee.description}</p>
         )}
 
-        <div className="pt-2">
-          <span className="text-xs text-muted-foreground">
-            Додано: {new Date(coffee.created_at).toLocaleDateString('uk-UA')}
-          </span>
+        <div className="pt-2 flex items-center gap-1.5">
+          <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
+          {stat ? (
+            <span className="text-xs text-primary font-medium">
+              {format(parseISO(stat.lastPurchaseDate), 'dd.MM.yyyy')} — ₴{stat.lastPrice}/уп.
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">Ще не купувалась</span>
+          )}
         </div>
       </CardContent>
 
-      {/* Edit Dialog */}
       <CoffeeEditDialog
         coffee={{
           id: coffee.id,
@@ -190,7 +157,6 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
         onSuccess={handleEditSuccess}
       />
 
-      {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

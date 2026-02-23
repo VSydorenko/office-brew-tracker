@@ -556,27 +556,7 @@ export function useLatestCoffeePrice(coffeeId?: string) {
   );
 }
 
-/**
- * Хук для створення нового типу кави
- */
-export function useCreateCoffeeType() {
-  return useSupabaseMutation(
-    async (name: string) => {
-      return supabase
-        .from('coffee_types')
-        .insert([{ name: name.trim() }])
-        .select()
-        .single();
-    },
-    {
-      invalidateQueries: [
-        // Інвалідуємо кеш типів кави після створення
-        ['coffee_types'],
-      ],
-      successMessage: `Новий тип кави створено`,
-    }
-  );
-}
+// useCreateCoffeeType видалено — використовуйте useCreateCoffeeType з use-coffee-types.ts
 
 /**
  * Хук для перевірки можливості видалення покупки

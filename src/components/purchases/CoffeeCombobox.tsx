@@ -3,6 +3,8 @@ import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useCoffeePurchaseStatsMap } from '@/hooks/use-coffee-types';
+import { format, parseISO } from 'date-fns';
 
 interface CoffeeType {
   id: string;
@@ -24,14 +26,11 @@ interface CoffeeComboboxProps {
   placeholder?: string;
   /** Чи компонент відключений */
   disabled?: boolean;
-  /** Показувати останню ціну замість розміру упаковки */
-  showLastPrice?: boolean;
-  /** Функція для отримання останньої ціни */
-  onGetLastPrice?: (coffeeId: string) => number | null;
 }
 
 /**
- * Компонент для вибору кави з можливістю додавання нової
+ * Компонент для вибору кави з можливістю додавання нової.
+ * Автоматично показує останню ціну та дату покупки через useCoffeePurchaseStatsMap.
  */
 export const CoffeeCombobox = ({
   coffeeTypes,
@@ -40,28 +39,24 @@ export const CoffeeCombobox = ({
   onCreateNew,
   placeholder = "Оберіть або введіть назву кави...",
   disabled = false,
-  showLastPrice = false,
-  onGetLastPrice
 }: CoffeeComboboxProps) => {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [creating, setCreating] = useState(false);
   const [debouncedSearchValue, setDebouncedSearchValue] = useState('');
 
+  const statsMap = useCoffeePurchaseStatsMap();
   const selectedCoffee = coffeeTypes.find(coffee => coffee.id === value);
   
-  // Дебаунс для пошуку
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchValue(searchValue);
     }, 150);
-    
     return () => clearTimeout(timer);
   }, [searchValue]);
   
   const filteredCoffees = useMemo(() => {
     if (!debouncedSearchValue.trim()) return coffeeTypes;
-    
     const lowerSearch = debouncedSearchValue.toLowerCase().trim();
     return coffeeTypes.filter(coffee =>
       coffee.name.toLowerCase().includes(lowerSearch) ||
@@ -74,6 +69,14 @@ export const CoffeeCombobox = ({
     return coffee.brand ? `${coffee.name} (${coffee.brand})` : coffee.name;
   };
 
+  /** Форматує інфо про останню покупку */
+  const getStatsLabel = (coffeeId: string) => {
+    const stat = statsMap.get(coffeeId);
+    if (!stat) return 'Ще не купувалась';
+    const dateStr = format(parseISO(stat.lastPurchaseDate), 'dd.MM.yyyy');
+    return `₴${stat.lastPrice}/уп. — ${dateStr}`;
+  };
+
   const handleSelect = (coffeeId: string) => {
     onValueChange(coffeeId === value ? '' : coffeeId);
     setOpen(false);
@@ -82,7 +85,6 @@ export const CoffeeCombobox = ({
 
   const handleCreateNew = async () => {
     if (!searchValue.trim() || !onCreateNew || creating) return;
-    
     try {
       setCreating(true);
       const newCoffeeId = await onCreateNew(searchValue.trim());
@@ -126,61 +128,40 @@ export const CoffeeCombobox = ({
         <CommandList>
           <CommandEmpty>
             {searchValue ? (
-              shouldShowCreateOption ? (
-                <div className="py-2">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Кава не знайдена
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Кава не знайдена
-                </p>
-              )
+              <p className="text-sm text-muted-foreground">Кава не знайдена</p>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Почніть вводити назву кави...
-              </p>
+              <p className="text-sm text-muted-foreground">Почніть вводити назву кави...</p>
             )}
           </CommandEmpty>
           
           {filteredCoffees.length > 0 && (
             <CommandGroup heading="Існуючі типи кави">
-              {filteredCoffees.map((coffee) => (
-                <CommandItem
-                  key={coffee.id}
-                  value={getCoffeeDisplayName(coffee)}
-                  onSelect={() => handleSelect(coffee.id)}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === coffee.id ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  <div className="flex flex-col">
-                    <span>{getCoffeeDisplayName(coffee)}</span>
-                    {showLastPrice && onGetLastPrice ? (
-                      (() => {
-                        const lastPrice = onGetLastPrice(coffee.id);
-                        return lastPrice ? (
-                          <span className="text-xs text-primary font-medium">
-                            Остання ціна: ₴{lastPrice}/уп.
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            Ціна невідома
-                          </span>
-                        );
-                      })()
-                    ) : coffee.package_size ? (
-                      <span className="text-xs text-muted-foreground">
-                        {coffee.package_size}
+              {filteredCoffees.map((coffee) => {
+                const hasStat = statsMap.has(coffee.id);
+                return (
+                  <CommandItem
+                    key={coffee.id}
+                    value={getCoffeeDisplayName(coffee)}
+                    onSelect={() => handleSelect(coffee.id)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === coffee.id ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <div className="flex flex-col">
+                      <span>{getCoffeeDisplayName(coffee)}</span>
+                      <span className={cn(
+                        "text-xs",
+                        hasStat ? "text-primary font-medium" : "text-muted-foreground"
+                      )}>
+                        {getStatsLabel(coffee.id)}
                       </span>
-                    ) : null}
-                  </div>
-                </CommandItem>
-              ))}
+                    </div>
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
           )}
 
