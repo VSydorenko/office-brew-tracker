@@ -111,7 +111,7 @@ export function useSupabaseMutation<TData, TVariables = void>(
       }
 
       // Викликати користувацький onSuccess
-      onSuccess?.(data, variables, context);
+      (onSuccess as any)?.(data, variables, context);
     },
     onError: (error, variables, context) => {
       // Показати тост помилки
@@ -124,7 +124,7 @@ export function useSupabaseMutation<TData, TVariables = void>(
       }
 
       // Викликати користувацький onError
-      onError?.(error, variables, context);
+      (onError as any)?.(error, variables, context);
     },
     ...mutationOptions,
   });
