@@ -370,7 +370,7 @@ export function useCoffeePurchaseStatsMap() {
 
     (stats as CoffeePurchaseStat[]).forEach((stat) => {
       map.set(stat.coffee_type_id, {
-        lastPrice: stat.last_price,
+        lastPrice: Number(stat.last_price) || 0,
         lastPurchaseDate: stat.last_purchase_date,
       });
     });
