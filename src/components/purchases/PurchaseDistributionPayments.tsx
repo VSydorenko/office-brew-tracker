@@ -56,7 +56,6 @@ export const PurchaseDistributionPayments = ({
   onPaymentUpdate
 }: PurchaseDistributionPaymentsProps) => {
   const [loadingPayment, setLoadingPayment] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     distributionId: string;
@@ -65,69 +64,57 @@ export const PurchaseDistributionPayments = ({
     amount: number;
   } | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
+  const updatePaymentMutation = useUpdateDistributionPayment();
+  const autoPaidRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id || null);
-    };
-    getCurrentUser();
-  }, []);
-
-  // Автоматично відмічати покупця як оплаченого
-  useEffect(() => {
-    const autoPayBuyer = async () => {
-      if (!currentUserId || !buyerId || currentUserId !== buyerId) return;
-      
-      const buyerDistribution = distributions.find(dist => 
-        dist.user_id === buyerId && !dist.is_paid
-      );
-      
-      if (buyerDistribution) {
-        await handlePaymentChange(buyerDistribution.id, true);
-      }
-    };
-    
-    if (currentUserId && buyerId && distributions.length > 0) {
-      autoPayBuyer();
-    }
-  }, [currentUserId, buyerId, distributions]);
-
+  /**
+   * Оновлює статус оплати через React Query мутацію
+   */
   const handlePaymentChange = async (distributionId: string, isPaid: boolean) => {
-    try {
-      setLoadingPayment(distributionId);
-      
-      const updateData: any = {
-        is_paid: isPaid,
-        paid_at: isPaid ? new Date().toISOString() : null,
-      };
-
-      const { error } = await supabase
-        .from('purchase_distributions')
-        .update(updateData)
-        .eq('id', distributionId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Успіх",
-        description: isPaid 
-          ? "Оплату відмічено як виконану"
-          : "Оплату відмічено як невиконану",
-      });
-
-      onPaymentUpdate();
-    } catch (error: any) {
-      toast({
-        title: "Помилка",
-        description: error.message || "Не вдалося оновити статус оплати",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingPayment(null);
-      setConfirmDialog(null);
-    }
+    setLoadingPayment(distributionId);
+    updatePaymentMutation.mutate(
+      { distributionId, isPaid },
+      {
+        onSuccess: () => {
+          toast({
+            title: 'Успіх',
+            description: isPaid
+              ? 'Оплату відмічено як виконану'
+              : 'Оплату відмічено як невиконану',
+          });
+          onPaymentUpdate();
+        },
+        onError: (error: any) => {
+          toast({
+            title: 'Помилка',
+            description: error?.message || 'Не вдалося оновити статус оплати',
+            variant: 'destructive',
+          });
+        },
+        onSettled: () => {
+          setLoadingPayment(null);
+          setConfirmDialog(null);
+        },
+      }
+    );
   };
+
+  // Автоматично відмічати покупця як оплаченого (один раз для розподілу)
+  useEffect(() => {
+    if (!currentUserId || !buyerId || currentUserId !== buyerId) return;
+
+    const buyerDistribution = distributions.find(
+      (dist) => dist.user_id === buyerId && !dist.is_paid && !autoPaidRef.current.has(dist.id)
+    );
+
+    if (buyerDistribution) {
+      autoPaidRef.current.add(buyerDistribution.id);
+      handlePaymentChange(buyerDistribution.id, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, buyerId, distributions]);
 
   const openConfirmDialog = (
     distributionId: string,
