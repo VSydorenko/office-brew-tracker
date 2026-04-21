@@ -6,10 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Coffee, Package, MoreVertical, Edit, Trash2, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { CoffeeEditDialog } from './CoffeeEditDialog';
-import { useCoffeePurchaseStatsMap } from '@/hooks/use-coffee-types';
+import { useCoffeePurchaseStatsMap, useDeleteCoffeeType } from '@/hooks/use-coffee-types';
 import { format, parseISO } from 'date-fns';
 
 interface CoffeeType {
@@ -30,40 +27,29 @@ interface CoffeeCardProps {
   onCoffeeUpdated?: () => void;
 }
 
+/**
+ * Картка кави в каталозі. Редагування виконується на сторінці /coffee-catalog/:id
+ * через inline-компоненти (InlineTextEdit/SelectEdit/MultiSelectEdit).
+ */
 export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const statsMap = useCoffeePurchaseStatsMap();
   const stat = statsMap.get(coffee.id);
+  const deleteCoffee = useDeleteCoffeeType();
 
   const handleDelete = async () => {
     try {
-      setDeleteLoading(true);
-      const { error: flavorsError } = await supabase
-        .from('coffee_flavors')
-        .delete()
-        .eq('coffee_type_id', coffee.id);
-      if (flavorsError) throw flavorsError;
-      const { error: coffeeError } = await supabase
-        .from('coffee_types')
-        .delete()
-        .eq('id', coffee.id);
-      if (coffeeError) throw coffeeError;
-      toast({ title: "Успіх", description: "Кава видалена з каталогу" });
+      await deleteCoffee.mutateAsync(coffee.id);
       setDeleteDialogOpen(false);
       onCoffeeUpdated?.();
-    } catch (error: any) {
-      toast({ title: "Помилка", description: error.message || "Не вдалося видалити каву", variant: "destructive" });
-    } finally {
-      setDeleteLoading(false);
+    } catch {
+      // Тост помилки вже показано в useSupabaseMutation
     }
   };
 
-  const handleEditSuccess = () => { onCoffeeUpdated?.(); };
-  const handleCardClick = () => { navigate(`/coffee-catalog/${coffee.id}`); };
+  const handleCardClick = () => navigate(`/coffee-catalog/${coffee.id}`);
+  const handleEditClick = () => navigate(`/coffee-catalog/${coffee.id}`);
 
   return (
     <Card 
@@ -84,7 +70,7 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-background border shadow-md z-50">
-                <DropdownMenuItem onClick={() => setEditDialogOpen(true)} className="cursor-pointer">
+                <DropdownMenuItem onClick={handleEditClick} className="cursor-pointer">
                   <Edit className="h-4 w-4 mr-2" /> Редагувати
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="cursor-pointer text-destructive focus:text-destructive">
@@ -142,23 +128,8 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
         </div>
       </CardContent>
 
-      <CoffeeEditDialog
-        coffee={{
-          id: coffee.id,
-          name: coffee.name,
-          description: coffee.description,
-          package_size: coffee.package_size,
-          brand_id: (coffee as any).brand_id,
-          variety_id: (coffee as any).variety_id,
-          processing_method_id: (coffee as any).processing_method_id,
-        }}
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        onSuccess={handleEditSuccess}
-      />
-
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Видалити каву?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -169,10 +140,10 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
             <AlertDialogCancel>Скасувати</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDelete} 
-              disabled={deleteLoading}
+              disabled={deleteCoffee.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteLoading ? 'Видалення...' : 'Видалити'}
+              {deleteCoffee.isPending ? 'Видалення...' : 'Видалити'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
