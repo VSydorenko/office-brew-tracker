@@ -139,28 +139,29 @@ export function useRealtimeInvalidation(
   options?: {
     events?: ('INSERT' | 'UPDATE' | 'DELETE')[];
     schema?: string;
+    /** Унікальне імʼя каналу — щоб уникнути конфліктів між різними хуками для тієї самої таблиці */
+    channelName?: string;
   }
 ) {
   const queryClient = useQueryClient();
-  const { events = ['INSERT', 'UPDATE', 'DELETE'], schema = 'public' } = options || {};
+  const { events = ['INSERT', 'UPDATE', 'DELETE'], schema = 'public', channelName } = options || {};
+  const keysSerialized = JSON.stringify(queryKeysToInvalidate);
 
-  // Використовуємо useEffect для підписки на зміни
   React.useEffect(() => {
+    // Унікалізуємо канал, щоб у різних місцях не виникало колізій підписок
+    const uniqueName = channelName ?? `${tableName}-${Math.random().toString(36).slice(2, 8)}`;
     const channel = supabase
-      .channel(`${tableName}-realtime`)
+      .channel(uniqueName)
       .on(
         'postgres_changes',
-        { 
-          event: '*', 
-          schema, 
+        {
+          event: '*',
+          schema,
           table: tableName,
-          filter: events.length < 3 ? events.join(',') : undefined 
+          filter: events.length < 3 ? events.join(',') : undefined,
         },
-        (payload) => {
-          console.log(`Realtime update for ${tableName}:`, payload);
-          
-          // Інвалідуємо всі вказані запити
-          queryKeysToInvalidate.forEach(queryKey => {
+        () => {
+          queryKeysToInvalidate.forEach((queryKey) => {
             queryClient.invalidateQueries({ queryKey });
           });
         }
@@ -170,7 +171,8 @@ export function useRealtimeInvalidation(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tableName, queryClient, JSON.stringify(queryKeysToInvalidate)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableName, channelName, queryClient, keysSerialized]);
 }
 
 // Потрібен import React для useEffect
