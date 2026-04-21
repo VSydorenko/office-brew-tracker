@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/ui/auth-provider';
+import { useUpdateDistributionPayment } from '@/hooks/use-purchases';
 import { useToast } from '@/hooks/use-toast';
 import { getAvatarUrl, optimizeGoogleAvatarUrl } from '@/utils/avatar';
 import { Check, CreditCard, Clock, Loader2 } from 'lucide-react';
