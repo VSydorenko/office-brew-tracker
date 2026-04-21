@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { queryKeys } from '@/lib/query-client';
 
 // Типи для довідників
 interface ReferenceItem {
@@ -14,13 +15,13 @@ interface ReferenceItem {
 // Brands
 export const useBrands = () => {
   return useQuery({
-    queryKey: ['brands'],
+    queryKey: queryKeys.reference.brands,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('brands')
         .select('id, name')
         .order('name');
-      
+
       if (error) throw error;
       return data as ReferenceItem[];
     },
@@ -38,12 +39,12 @@ export const useCreateBrand = () => {
         .insert({ name })
         .select('id, name')
         .single();
-      
+
       if (error) throw error;
       return data as ReferenceItem;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['brands'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reference.brands });
       toast({
         title: "Успіх",
         description: `Бренд "${data.name}" створено`,
@@ -62,13 +63,13 @@ export const useCreateBrand = () => {
 // Varieties
 export const useVarieties = () => {
   return useQuery({
-    queryKey: ['coffee_varieties'],
+    queryKey: queryKeys.reference.varieties,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('coffee_varieties')
         .select('id, name')
         .order('name');
-      
+
       if (error) throw error;
       return data as ReferenceItem[];
     },
@@ -86,12 +87,12 @@ export const useCreateVariety = () => {
         .insert({ name })
         .select('id, name')
         .single();
-      
+
       if (error) throw error;
       return data as ReferenceItem;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['coffee_varieties'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reference.varieties });
       toast({
         title: "Успіх",
         description: `Різновид "${data.name}" створено`,
@@ -110,13 +111,13 @@ export const useCreateVariety = () => {
 // Origins
 export const useOrigins = () => {
   return useQuery({
-    queryKey: ['origins'],
+    queryKey: queryKeys.reference.origins,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('origins')
         .select('id, name')
         .order('name');
-      
+
       if (error) throw error;
       return data as ReferenceItem[];
     },
@@ -134,12 +135,12 @@ export const useCreateOrigin = () => {
         .insert({ name })
         .select('id, name')
         .single();
-      
+
       if (error) throw error;
       return data as ReferenceItem;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['origins'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reference.origins });
       toast({
         title: "Успіх",
         description: `Походження "${data.name}" створено`,
@@ -158,13 +159,13 @@ export const useCreateOrigin = () => {
 // Processing Methods
 export const useProcessingMethods = () => {
   return useQuery({
-    queryKey: ['processing_methods'],
+    queryKey: queryKeys.reference.processingMethods,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('processing_methods')
         .select('id, name')
         .order('name');
-      
+
       if (error) throw error;
       return data as ReferenceItem[];
     },
@@ -182,12 +183,12 @@ export const useCreateProcessingMethod = () => {
         .insert({ name })
         .select('id, name')
         .single();
-      
+
       if (error) throw error;
       return data as ReferenceItem;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['processing_methods'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reference.processingMethods });
       toast({
         title: "Успіх",
         description: `Метод обробки "${data.name}" створено`,
@@ -206,13 +207,13 @@ export const useCreateProcessingMethod = () => {
 // Flavors
 export const useFlavors = () => {
   return useQuery({
-    queryKey: ['flavors'],
+    queryKey: queryKeys.reference.flavors,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('flavors')
         .select('id, name')
         .order('name');
-      
+
       if (error) throw error;
       return data as ReferenceItem[];
     },
@@ -230,12 +231,12 @@ export const useCreateFlavor = () => {
         .insert({ name })
         .select('id, name')
         .single();
-      
+
       if (error) throw error;
       return data as ReferenceItem;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['flavors'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reference.flavors });
       toast({
         title: "Успіх",
         description: `Смак "${data.name}" створено`,
