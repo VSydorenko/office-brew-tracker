@@ -5,20 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import { SearchBar } from '@/components/ui/search-bar';
 import { Coffee } from 'lucide-react';
-import { useCoffeeTypes, CoffeeTypeWithDetails, useCoffeePurchaseStatsMap } from '@/hooks/use-coffee-types';
-
-interface CoffeeType {
-  id: string;
-  name: string;
-  description?: string;
-  package_size?: string;
-  created_at: string;
-  brands?: { id: string; name: string } | null;
-  coffee_varieties?: { id: string; name: string } | null;
-  origins?: { id: string; name: string } | null;
-  processing_methods?: { id: string; name: string } | null;
-  coffee_flavors?: Array<{ flavors: { name: string } }>;
-}
+import { useCoffeeTypes, useCoffeePurchaseStatsMap } from '@/hooks/use-coffee-types';
 
 interface CoffeeListProps {
   refreshTrigger?: number;
@@ -30,26 +17,8 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
   const [filters, setFilters] = useState<CoffeeFiltersValue>(emptyFilters);
 
   // Використовуємо React Query хук для отримання даних
-  const { data: rawCoffees, isLoading: loading, error } = useCoffeeTypes();
+  const { data: coffees = [], isLoading: loading, error } = useCoffeeTypes();
   const statsMap = useCoffeePurchaseStatsMap();
-
-  // Трансформуємо дані з нового формату у старий для сумісності з CoffeeCard
-  const coffees = useMemo(() => {
-    if (!rawCoffees) return [];
-    
-    return rawCoffees.map((coffee: CoffeeTypeWithDetails): CoffeeType => ({
-      id: coffee.id,
-      name: coffee.name,
-      description: coffee.description,
-      package_size: coffee.package_size,
-      created_at: coffee.created_at,
-      brands: coffee.brands,
-      coffee_varieties: coffee.coffee_varieties,
-      origins: coffee.origins,
-      processing_methods: coffee.processing_methods,
-      coffee_flavors: coffee.coffee_flavors?.map(cf => ({ flavors: cf.flavors })) || [],
-    }));
-  }, [rawCoffees]);
 
   // Пошук та фільтрація
   const handleSearch = useCallback((query: string) => {
