@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { usePurchases, useDeletePurchase, useCanDeletePurchase } from '@/hooks/use-purchases';
+import { usePurchases, useDeletePurchase } from '@/hooks/use-purchases';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -194,8 +194,14 @@ interface PurchaseCardProps {
 }
 
 const PurchaseCard = ({ purchase, onDelete, onUpdate, isDeleting, isHighlighted }: PurchaseCardProps) => {
-  const { data: canDeleteData } = useCanDeletePurchase(purchase.id);
-  const canDelete = canDeleteData?.canDelete ?? false;
+  // Обчислюємо локально з уже завантажених distributions — без додаткового запиту
+  const canDelete = useMemo(() => {
+    const distributions = purchase.purchase_distributions ?? [];
+    return !distributions.some((d) => d.is_paid);
+  }, [purchase.purchase_distributions]);
+  const canDeleteReason = canDelete
+    ? null
+    : 'Неможливо видалити покупку з оплаченими розподілами';
   const cardRef = useRef<HTMLDivElement>(null);
   const hasScrolled = useRef(false);
 
