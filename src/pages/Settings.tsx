@@ -1,8 +1,13 @@
 import { ReferenceTableManager } from '@/components/settings/ReferenceTableManager';
+import type { ReferenceTableName } from '@/hooks/use-reference-tables';
 import { Coffee, Award, Palette, Settings2, MapPin } from 'lucide-react';
 
 const Settings = () => {
-  const referenceConfigs = [
+  const referenceConfigs: Array<{
+    tableName: ReferenceTableName;
+    displayName: string;
+    icon: React.ReactNode;
+  }> = [
     {
       tableName: 'brands',
       displayName: 'Бренди',

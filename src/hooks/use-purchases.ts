@@ -457,34 +457,17 @@ export function useUpdatePurchase() {
 }
 
 /**
- * Хук для видалення покупки
+ * Хук для видалення покупки.
+ * Використовує серверну RPC `delete_purchase_cascade`, яка одним викликом
+ * видаляє покупку та всі повʼязані записи (позиції, розподіли, історія змін суми).
  */
 export function useDeletePurchase() {
   return useSupabaseMutation(
     async (id: string) => {
-      // Видаляємо розподіли
-      await supabase
-        .from('purchase_distributions')
-        .delete()
-        .eq('purchase_id', id);
-
-      // Видаляємо позиції
-      await supabase
-        .from('purchase_items')
-        .delete()
-        .eq('purchase_id', id);
-
-      // Видаляємо записи змін суми
-      await supabase
-        .from('purchase_amount_changes')
-        .delete()
-        .eq('purchase_id', id);
-
-      // Видаляємо покупку
-      return supabase
-        .from('purchases')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.rpc('delete_purchase_cascade', {
+        p_purchase_id: id,
+      });
+      return { data: null, error };
     },
     {
       invalidateQueries: [
@@ -516,38 +499,8 @@ export function useLatestCoffeePrice(coffeeId?: string) {
   );
 }
 
-/**
- * Хук для перевірки можливості видалення покупки
- */
-export function useCanDeletePurchase(purchaseId?: string) {
-  return useSupabaseQuery(
-    queryKeys.purchases.canDelete(purchaseId || ''),
-    async () => {
-      if (!purchaseId) return { data: { canDelete: false }, error: null };
-      
-      const { data: paidDistributions, error } = await supabase
-        .from('purchase_distributions')
-        .select('id')
-        .eq('purchase_id', purchaseId)
-        .eq('is_paid', true);
-
-      if (error) return { data: null, error };
-
-      const canDelete = !paidDistributions || paidDistributions.length === 0;
-      return { 
-        data: { 
-          canDelete, 
-          reason: canDelete ? null : 'Неможливо видалити покупку з оплаченими розподілами'
-        }, 
-        error: null 
-      };
-    },
-    {
-      enabled: !!purchaseId,
-      staleTime: 30 * 1000, // 30 секунд
-    }
-  );
-}
+// useCanDeletePurchase видалено: PurchaseList тепер обчислює canDelete локально
+// з уже завантажених purchase_distributions, без N+1 запитів.
 
 /**
  * Хук для отримання template_id з останньої покупки користувача

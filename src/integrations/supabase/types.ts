@@ -660,6 +660,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_purchase_cascade: {
+        Args: { p_purchase_id: string }
+        Returns: undefined
+      }
       get_coffee_purchase_stats: {
         Args: never
         Returns: {
@@ -738,6 +742,12 @@ export type Database = {
           month_start: string
           total_trips: number
           trips: number
+        }[]
+      }
+      get_undeletable_purchase_ids: {
+        Args: { p_ids: string[] }
+        Returns: {
+          purchase_id: string
         }[]
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
