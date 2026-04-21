@@ -23,7 +23,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface Profile {
   id: string;
   name: string;
-  email: string;
+  email?: string;
 }
 
 interface CoffeeType {
