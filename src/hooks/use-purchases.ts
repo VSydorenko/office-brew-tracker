@@ -457,34 +457,17 @@ export function useUpdatePurchase() {
 }
 
 /**
- * Хук для видалення покупки
+ * Хук для видалення покупки.
+ * Використовує серверну RPC `delete_purchase_cascade`, яка одним викликом
+ * видаляє покупку та всі повʼязані записи (позиції, розподіли, історія змін суми).
  */
 export function useDeletePurchase() {
   return useSupabaseMutation(
     async (id: string) => {
-      // Видаляємо розподіли
-      await supabase
-        .from('purchase_distributions')
-        .delete()
-        .eq('purchase_id', id);
-
-      // Видаляємо позиції
-      await supabase
-        .from('purchase_items')
-        .delete()
-        .eq('purchase_id', id);
-
-      // Видаляємо записи змін суми
-      await supabase
-        .from('purchase_amount_changes')
-        .delete()
-        .eq('purchase_id', id);
-
-      // Видаляємо покупку
-      return supabase
-        .from('purchases')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.rpc('delete_purchase_cascade', {
+        p_purchase_id: id,
+      });
+      return { data: null, error };
     },
     {
       invalidateQueries: [
