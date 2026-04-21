@@ -6,10 +6,11 @@ import { useSupabaseQuery, useSupabaseMutation, useRealtimeInvalidation } from '
 import { queryKeys } from '@/lib/query-client';
 
 /**
- * Утилітарна функція для побудови розподілів з часток
- * Забезпечує коректне округлення відсотків та сум
+ * Утилітарна функція для побудови розподілів з часток.
+ * Забезпечує коректне округлення відсотків та сум — останній учасник
+ * отримує залишок, щоб сума розподілу збігалася з totalAmount до копійки.
  */
-function buildDistributionsFromShares(
+export function buildDistributionsFromShares(
   templateUsers: Array<{ user_id: string; shares: number }>,
   totalAmount: number
 ): Array<{ user_id: string; shares: number; calculated_amount: number }> {
