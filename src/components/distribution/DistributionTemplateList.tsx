@@ -1,10 +1,7 @@
-import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, Users, MoreVertical } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
@@ -13,132 +10,30 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DistributionTemplateForm } from './DistributionTemplateForm';
-
-interface TemplateUser {
-  user_id: string;
-  shares: number;
-  percentage: number;
-  profiles: {
-    name: string;
-    email: string;
-  };
-}
-
-interface DistributionTemplate {
-  id: string;
-  name: string;
-  effective_from: string;
-  is_active: boolean;
-  created_at: string;
-  total_shares?: number;
-  distribution_template_users: TemplateUser[];
-}
-
-interface DistributionTemplateListProps {
-  refreshTrigger?: number;
-}
+import {
+  useDistributionTemplates,
+  useDeleteDistributionTemplate,
+  useToggleDistributionTemplate,
+} from '@/hooks/use-distribution-templates';
 
 /**
- * Список шаблонів розподілу кави з можливістю перегляду, редагування та видалення
+ * Список шаблонів розподілу кави з можливістю перегляду, редагування та видалення.
+ * Дані оновлюються автоматично через React Query + Realtime.
  */
-export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplateListProps) => {
-  const [templates, setTemplates] = useState<DistributionTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const { toast } = useToast();
+export const DistributionTemplateList = () => {
+  const { data: templates = [], isLoading } = useDistributionTemplates();
+  const deleteTemplate = useDeleteDistributionTemplate();
+  const toggleTemplate = useToggleDistributionTemplate();
 
-  useEffect(() => {
-    fetchTemplates();
-  }, [refreshTrigger]);
-
-  const fetchTemplates = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('distribution_templates')
-        .select(`
-          *,
-          distribution_template_users (
-            user_id,
-            shares,
-            percentage,
-            profiles (
-              name,
-              email
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTemplates(data || []);
-    } catch (error) {
-      console.error('Помилка завантаження шаблонів:', error);
-      toast({
-        title: "Помилка",
-        description: "Не вдалося завантажити шаблони розподілу",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  const handleDelete = (templateId: string) => {
+    deleteTemplate.mutate(templateId);
   };
 
-  const handleDelete = async (templateId: string) => {
-    try {
-      setDeletingId(templateId);
-      
-      const { error } = await supabase
-        .from('distribution_templates')
-        .delete()
-        .eq('id', templateId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Успіх",
-        description: "Шаблон розподілу видалено",
-      });
-
-      fetchTemplates();
-    } catch (error) {
-      console.error('Помилка видалення шаблону:', error);
-      toast({
-        title: "Помилка",
-        description: "Не вдалося видалити шаблон розподілу",
-        variant: "destructive",
-      });
-    } finally {
-      setDeletingId(null);
-    }
+  const handleToggle = (templateId: string, currentStatus: boolean) => {
+    toggleTemplate.mutate({ id: templateId, isActive: !currentStatus });
   };
 
-  const toggleActiveStatus = async (templateId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('distribution_templates')
-        .update({ is_active: !currentStatus })
-        .eq('id', templateId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Успіх",
-        description: `Шаблон ${!currentStatus ? 'активовано' : 'деактивовано'}`,
-      });
-
-      fetchTemplates();
-    } catch (error) {
-      console.error('Помилка оновлення статусу шаблону:', error);
-      toast({
-        title: "Помилка",
-        description: "Не вдалося змінити статус шаблону",
-        variant: "destructive",
-      });
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         {[1, 2, 3].map(i => (
@@ -171,14 +66,14 @@ export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplat
 
   return (
     <div className="space-y-4">
-      {templates.map(template => (
+      {templates.map((template: any) => (
         <Card key={template.id} className="shadow-coffee">
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   {template.name}
-                  <Badge variant={template.is_active ? "default" : "secondary"}>
+                  <Badge variant={template.is_active ? 'default' : 'secondary'}>
                     {template.is_active ? 'Активний' : 'Неактивний'}
                   </Badge>
                 </CardTitle>
@@ -193,15 +88,12 @@ export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplat
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background border border-border">
-                  <DropdownMenuItem 
-                    onClick={() => toggleActiveStatus(template.id, template.is_active)}
+                  <DropdownMenuItem
+                    onClick={() => handleToggle(template.id, template.is_active)}
                   >
                     {template.is_active ? 'Деактивувати' : 'Активувати'}
                   </DropdownMenuItem>
-                  <DistributionTemplateForm 
-                    templateId={template.id} 
-                    onSuccess={fetchTemplates}
-                  >
+                  <DistributionTemplateForm templateId={template.id}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                       <Edit className="h-4 w-4 mr-2" />
                       Редагувати
@@ -209,10 +101,10 @@ export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplat
                   </DistributionTemplateForm>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onSelect={(e) => e.preventDefault()}
                         className="text-destructive focus:text-destructive"
-                        disabled={deletingId === template.id}
+                        disabled={deleteTemplate.isPending}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Видалити
@@ -244,16 +136,16 @@ export const DistributionTemplateList = ({ refreshTrigger }: DistributionTemplat
             <div className="space-y-2">
               <h4 className="font-medium text-sm">Розподіл користувачів:</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {template.distribution_template_users.map(user => (
+                {template.distribution_template_users?.map((user: any) => (
                   <div key={user.user_id} className="flex justify-between items-center p-2 bg-muted rounded">
-                    <span className="text-sm font-medium">{user.profiles.name}</span>
+                    <span className="text-sm font-medium">{user.profiles?.name}</span>
                     <div className="flex gap-1">
                       <Badge variant="outline">{user.shares} ч.</Badge>
                     </div>
                   </div>
                 ))}
               </div>
-              {template.total_shares && (
+              {template.total_shares != null && (
                 <div className="text-xs text-muted-foreground mt-2">
                   Всього часток: {template.total_shares}
                 </div>

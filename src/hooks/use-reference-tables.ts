@@ -12,6 +12,132 @@ interface ReferenceItem {
   name: string;
 }
 
+/**
+ * Назви таблиць-довідників, з якими працює застосунок
+ */
+export type ReferenceTableName =
+  | 'brands'
+  | 'flavors'
+  | 'coffee_varieties'
+  | 'origins'
+  | 'processing_methods';
+
+/**
+ * Зіставлення назви таблиці з її query-key
+ */
+const REFERENCE_TABLE_KEYS: Record<ReferenceTableName, readonly string[]> = {
+  brands: queryKeys.reference.brands,
+  flavors: queryKeys.reference.flavors,
+  coffee_varieties: queryKeys.reference.varieties,
+  origins: queryKeys.reference.origins,
+  processing_methods: queryKeys.reference.processingMethods,
+};
+
+/**
+ * Узагальнений хук для роботи з будь-якою довідковою таблицею.
+ * Повертає список елементів і методи створення/оновлення/видалення з
+ * автоматичною інвалідацією кешу.
+ */
+export function useReferenceTable(tableName: ReferenceTableName) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const queryKey = REFERENCE_TABLE_KEYS[tableName];
+
+  const listQuery = useQuery({
+    queryKey,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+      return (data || []) as ReferenceItem[];
+    },
+  });
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: [...queryKey] });
+
+  const createMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase
+        .from(tableName)
+        .insert({ name })
+        .select('id, name')
+        .single();
+      if (error) throw error;
+      return data as ReferenceItem;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: 'Успіх', description: 'Елемент створено' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Помилка',
+        description: error.message || 'Не вдалося створити елемент',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { data, error } = await supabase
+        .from(tableName)
+        .update({ name })
+        .eq('id', id)
+        .select('id, name')
+        .single();
+      if (error) throw error;
+      return data as ReferenceItem;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: 'Успіх', description: 'Елемент оновлено' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Помилка',
+        description: error.message || 'Не вдалося оновити елемент',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from(tableName).delete().eq('id', id);
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: 'Успіх', description: 'Елемент видалено' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Помилка',
+        description: error.message || 'Не вдалося видалити елемент',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  return {
+    items: listQuery.data || [],
+    isLoading: listQuery.isLoading,
+    error: listQuery.error,
+    createItem: createMutation.mutateAsync,
+    updateItem: updateMutation.mutateAsync,
+    deleteItem: deleteMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+  };
+}
+
 // Brands
 export const useBrands = () => {
   return useQuery({

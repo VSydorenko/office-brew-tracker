@@ -4,102 +4,56 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-interface Profile {
-  id: string;
-  name: string;
-  email: string;
-}
+import { useProfiles } from '@/hooks/use-profiles';
+import {
+  useDistributionTemplate,
+  useUpsertDistributionTemplate,
+} from '@/hooks/use-distribution-templates';
 
 interface TemplateUser {
   user_id: string;
   shares: number;
-  profile?: Profile;
 }
 
 interface DistributionTemplateFormProps {
   onSuccess?: () => void;
   children?: React.ReactNode;
-  templateId?: string; // Для редагування
+  templateId?: string;
 }
 
 /**
- * Форма для створення та редагування шаблонів розподілу кави
+ * Форма для створення та редагування шаблонів розподілу кави.
+ * Використовує React Query хуки для роботи з даними.
  */
 export const DistributionTemplateForm = ({ onSuccess, children, templateId }: DistributionTemplateFormProps) => {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [templateName, setTemplateName] = useState('');
   const [effectiveFrom, setEffectiveFrom] = useState('');
   const [templateUsers, setTemplateUsers] = useState<TemplateUser[]>([]);
   const { toast } = useToast();
 
   const isEditMode = !!templateId;
+  const { data: profiles = [] } = useProfiles();
+  const { data: templateData } = useDistributionTemplate(open && isEditMode ? templateId : undefined);
+  const upsertTemplate = useUpsertDistributionTemplate();
 
   useEffect(() => {
     if (open) {
-      fetchProfiles();
-      if (isEditMode) {
-        fetchTemplateData();
-      } else {
-        // Ініціалізуємо з одним користувачем
+      if (isEditMode && templateData) {
+        setTemplateName((templateData as any).name);
+        setEffectiveFrom((templateData as any).effective_from);
+        setTemplateUsers(
+          ((templateData as any).distribution_template_users || []).map((u: any) => ({
+            user_id: u.user_id,
+            shares: u.shares,
+          }))
+        );
+      } else if (!isEditMode) {
         setTemplateUsers([{ user_id: '', shares: 1 }]);
       }
     }
-  }, [open, isEditMode]);
-
-  const fetchProfiles = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      setProfiles(data || []);
-    } catch (error) {
-      console.error('Помилка завантаження профілів:', error);
-      toast({
-        title: "Помилка",
-        description: "Не вдалося завантажити список користувачів",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const fetchTemplateData = async () => {
-    if (!templateId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('distribution_templates')
-        .select(`
-          *,
-          distribution_template_users (
-            user_id,
-            shares
-          )
-        `)
-        .eq('id', templateId)
-        .single();
-
-      if (error) throw error;
-
-      setTemplateName(data.name);
-      setEffectiveFrom(data.effective_from);
-      setTemplateUsers(data.distribution_template_users || []);
-    } catch (error) {
-      console.error('Помилка завантаження шаблону:', error);
-      toast({
-        title: "Помилка",
-        description: "Не вдалося завантажити дані шаблону",
-        variant: "destructive",
-      });
-    }
-  };
+  }, [open, isEditMode, templateData]);
 
   const addTemplateUser = () => {
     setTemplateUsers([...templateUsers, { user_id: '', shares: 1 }]);
@@ -107,15 +61,13 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
 
   const addEqualDistribution = () => {
     if (profiles.length === 0) return;
-    
-    const equalUsers = profiles.map(profile => ({
+    const equalUsers = profiles.map((profile: any) => ({
       user_id: profile.id,
-      shares: 1 // Рівномірний розподіл - по 1 частці кожному
+      shares: 1,
     }));
-    
     setTemplateUsers(equalUsers);
     toast({
-      title: "Розподіл створено",
+      title: 'Розподіл створено',
       description: `Додано ${profiles.length} користувачів з рівномірним розподілом`,
     });
   };
@@ -126,132 +78,56 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
 
   const updateTemplateUser = (index: number, field: keyof TemplateUser, value: string | number) => {
     const updated = [...templateUsers];
-    updated[index] = { ...updated[index], [field]: value };
+    updated[index] = { ...updated[index], [field]: value } as TemplateUser;
     setTemplateUsers(updated);
   };
 
-  const getTotalShares = () => {
-    return templateUsers.reduce((sum, user) => sum + (user.shares || 0), 0);
-  };
-
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const totalShares = getTotalShares();
-    if (totalShares <= 0) {
-      toast({
-        title: "Помилка валідації",
-        description: "Загальна кількість часток повинна бути більше 0",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const validUsers = templateUsers.filter(user => user.user_id && user.shares > 0);
-    if (validUsers.length === 0) {
-      toast({
-        title: "Помилка валідації",
-        description: "Додайте хоча б одного користувача з частками більше 0",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      if (isEditMode) {
-        // Оновлюємо шаблон
-        const { error: templateError } = await supabase
-          .from('distribution_templates')
-          .update({
-            name: templateName,
-            effective_from: effectiveFrom,
-            total_shares: totalShares,
-          })
-          .eq('id', templateId);
-
-        if (templateError) throw templateError;
-
-        // Видаляємо старих користувачів
-        const { error: deleteError } = await supabase
-          .from('distribution_template_users')
-          .delete()
-          .eq('template_id', templateId);
-
-        if (deleteError) throw deleteError;
-
-        // Додаємо нових користувачів (тільки shares, без percentage)
-        const templateUsersData = validUsers.map(user => ({
-          template_id: templateId,
-          user_id: user.user_id,
-          shares: user.shares
-        }));
-
-        const { error: usersError } = await supabase
-          .from('distribution_template_users')
-          .insert(templateUsersData);
-
-        if (usersError) throw usersError;
-
-        toast({
-          title: "Успіх",
-          description: "Шаблон розподілу оновлено успішно",
-        });
-      } else {
-        // Створюємо шаблон
-        const { data: template, error: templateError } = await supabase
-          .from('distribution_templates')
-          .insert({
-            name: templateName,
-            effective_from: effectiveFrom,
-            is_active: true,
-            total_shares: totalShares
-          })
-          .select()
-          .single();
-
-        if (templateError) throw templateError;
-
-        // Додаємо користувачів до шаблону (тільки shares, без percentage)
-        const templateUsersData = validUsers.map(user => ({
-          template_id: template.id,
-          user_id: user.user_id,
-          shares: user.shares
-        }));
-
-        const { error: usersError } = await supabase
-          .from('distribution_template_users')
-          .insert(templateUsersData);
-
-        if (usersError) throw usersError;
-
-        toast({
-          title: "Успіх",
-          description: "Шаблон розподілу створено успішно",
-        });
-      }
-
-      setOpen(false);
-      resetForm();
-      onSuccess?.();
-    } catch (error: any) {
-      console.error('Помилка:', error);
-      const errorMessage = error.message || 'Невідома помилка';
-      toast({
-        title: "Помилка",
-        description: `Не вдалося ${isEditMode ? 'оновити' : 'створити'} шаблон розподілу. ${errorMessage}`,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const getTotalShares = () => templateUsers.reduce((sum, user) => sum + (user.shares || 0), 0);
 
   const resetForm = () => {
     setTemplateName('');
     setEffectiveFrom('');
     setTemplateUsers([{ user_id: '', shares: 1 }]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const totalShares = getTotalShares();
+    if (totalShares <= 0) {
+      toast({
+        title: 'Помилка валідації',
+        description: 'Загальна кількість часток повинна бути більше 0',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const validUsers = templateUsers.filter((user) => user.user_id && user.shares > 0);
+    if (validUsers.length === 0) {
+      toast({
+        title: 'Помилка валідації',
+        description: 'Додайте хоча б одного користувача з частками більше 0',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await upsertTemplate.mutateAsync({
+        id: templateId,
+        name: templateName,
+        effective_from: effectiveFrom,
+        total_shares: totalShares,
+        users: validUsers,
+      });
+
+      setOpen(false);
+      resetForm();
+      onSuccess?.();
+    } catch {
+      // Тост помилки вже показано в useSupabaseMutation
+    }
   };
 
   const defaultTrigger = (
@@ -270,7 +146,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Редагувати' : 'Створити'} шаблон розподілу</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -302,10 +178,10 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
                 <span className="text-sm text-primary">
                   Всього часток: {getTotalShares()}
                 </span>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={addEqualDistribution}
                   title="Додати всіх користувачів з рівномірним розподілом"
                 >
@@ -323,50 +199,48 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
                 <span className="col-span-2">Частки</span>
                 <span className="col-span-1"></span>
               </div>
-              {templateUsers.map((templateUser, index) => {
-                return (
-                  <div key={index} className="grid grid-cols-9 gap-3 items-center">
-                    <div className="col-span-6">
-                      <select
-                        value={templateUser.user_id}
-                        onChange={(e) => updateTemplateUser(index, 'user_id', e.target.value)}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                        required
-                      >
-                        <option value="">Оберіть користувача</option>
-                        {profiles.map(profile => (
-                          <option key={profile.id} value={profile.id}>
-                            {profile.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={templateUser.shares || ''}
-                        onChange={(e) => updateTemplateUser(index, 'shares', parseInt(e.target.value) || 1)}
-                        placeholder="1"
-                        required
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      {templateUsers.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeTemplateUser(index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
+              {templateUsers.map((templateUser, index) => (
+                <div key={index} className="grid grid-cols-9 gap-3 items-center">
+                  <div className="col-span-6">
+                    <select
+                      value={templateUser.user_id}
+                      onChange={(e) => updateTemplateUser(index, 'user_id', e.target.value)}
+                      className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                      required
+                    >
+                      <option value="">Оберіть користувача</option>
+                      {profiles.map((profile: any) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                );
-              })}
+                  <div className="col-span-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={templateUser.shares || ''}
+                      onChange={(e) => updateTemplateUser(index, 'shares', parseInt(e.target.value) || 1)}
+                      placeholder="1"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    {templateUsers.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeTemplateUser(index)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -374,12 +248,12 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Скасувати
             </Button>
-            <Button 
-              type="submit" 
-              disabled={loading || getTotalShares() <= 0}
+            <Button
+              type="submit"
+              disabled={upsertTemplate.isPending || getTotalShares() <= 0}
               className="bg-gradient-coffee shadow-brew"
             >
-              {loading ? 'Збереження...' : isEditMode ? 'Оновити шаблон' : 'Створити шаблон'}
+              {upsertTemplate.isPending ? 'Збереження...' : isEditMode ? 'Оновити шаблон' : 'Створити шаблон'}
             </Button>
           </div>
         </form>

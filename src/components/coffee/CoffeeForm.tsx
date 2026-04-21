@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,11 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus } from 'lucide-react';
-
-interface LookupItem {
-  id: string;
-  name: string;
-}
+import {
+  useBrands,
+  useFlavors,
+  useProcessingMethods,
+  useVarieties,
+  useOrigins,
+} from '@/hooks/use-reference-tables';
 
 interface CoffeeFormProps {
   onSuccess?: () => void;
@@ -23,12 +25,13 @@ interface CoffeeFormProps {
 export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [brands, setBrands] = useState<LookupItem[]>([]);
-  const [flavors, setFlavors] = useState<LookupItem[]>([]);
-  const [processingMethods, setProcessingMethods] = useState<LookupItem[]>([]);
-  const [varieties, setVarieties] = useState<LookupItem[]>([]);
-  const [origins, setOrigins] = useState<LookupItem[]>([]);
-  
+  // Кешовані довідники з React Query
+  const { data: brands = [] } = useBrands();
+  const { data: flavors = [] } = useFlavors();
+  const { data: processingMethods = [] } = useProcessingMethods();
+  const { data: varieties = [] } = useVarieties();
+  const { data: origins = [] } = useOrigins();
+
   const [formData, setFormData] = useState({
     name: '',
     brand_id: '',
@@ -40,40 +43,6 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
     flavor_ids: [] as string[],
   });
   const { toast } = useToast();
-
-  useEffect(() => {
-    fetchLookupData();
-  }, []);
-
-  const fetchLookupData = async () => {
-    try {
-      const [brandsRes, flavorsRes, methodsRes, varietiesRes, originsRes] = await Promise.all([
-        supabase.from('brands').select('id, name').order('name'),
-        supabase.from('flavors').select('id, name').order('name'),
-        supabase.from('processing_methods').select('id, name').order('name'),
-        supabase.from('coffee_varieties').select('id, name').order('name'),
-        supabase.from('origins').select('id, name').order('name'),
-      ]);
-
-      if (brandsRes.error) throw brandsRes.error;
-      if (flavorsRes.error) throw flavorsRes.error;
-      if (methodsRes.error) throw methodsRes.error;
-      if (varietiesRes.error) throw varietiesRes.error;
-      if (originsRes.error) throw originsRes.error;
-
-      setBrands(brandsRes.data || []);
-      setFlavors(flavorsRes.data || []);
-      setProcessingMethods(methodsRes.data || []);
-      setVarieties(varietiesRes.data || []);
-      setOrigins(originsRes.data || []);
-    } catch (error: any) {
-      toast({
-        title: "Помилка",
-        description: "Не вдалося завантажити довідники",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

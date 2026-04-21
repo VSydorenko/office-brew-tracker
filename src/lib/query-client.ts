@@ -79,7 +79,7 @@ export const queryKeys = {
   distributionTemplates: {
     all: ['distribution-templates'] as const,
     detail: (id: string) => ['distribution-templates', 'detail', id] as const,
-    active: ['distribution-templates', 'active'] as const,
+    active: (date?: string) => ['distribution-templates', 'active', date] as const,
   },
   // Dashboard KPI
   dashboard: {
