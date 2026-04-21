@@ -499,38 +499,8 @@ export function useLatestCoffeePrice(coffeeId?: string) {
   );
 }
 
-/**
- * Хук для перевірки можливості видалення покупки
- */
-export function useCanDeletePurchase(purchaseId?: string) {
-  return useSupabaseQuery(
-    queryKeys.purchases.canDelete(purchaseId || ''),
-    async () => {
-      if (!purchaseId) return { data: { canDelete: false }, error: null };
-      
-      const { data: paidDistributions, error } = await supabase
-        .from('purchase_distributions')
-        .select('id')
-        .eq('purchase_id', purchaseId)
-        .eq('is_paid', true);
-
-      if (error) return { data: null, error };
-
-      const canDelete = !paidDistributions || paidDistributions.length === 0;
-      return { 
-        data: { 
-          canDelete, 
-          reason: canDelete ? null : 'Неможливо видалити покупку з оплаченими розподілами'
-        }, 
-        error: null 
-      };
-    },
-    {
-      enabled: !!purchaseId,
-      staleTime: 30 * 1000, // 30 секунд
-    }
-  );
-}
+// useCanDeletePurchase видалено: PurchaseList тепер обчислює canDelete локально
+// з уже завантажених purchase_distributions, без N+1 запитів.
 
 /**
  * Хук для отримання template_id з останньої покупки користувача
