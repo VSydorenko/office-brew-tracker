@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,28 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calculator, RefreshCw, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useActiveDistributionTemplates, type DistributionTemplateWithUsers } from '@/hooks/use-distribution-templates';
+import { buildDistributionsFromShares } from '@/hooks/use-purchases';
 
 interface Profile {
   id: string;
   name: string;
-  email: string;
-}
-
-interface TemplateUser {
-  user_id: string;
-  shares: number;
-  profiles: Profile;
-}
-
-interface DistributionTemplate {
-  id: string;
-  name: string;
-  effective_from: string;
-  is_active: boolean;
-  total_shares?: number;
-  distribution_template_users: TemplateUser[];
+  email?: string;
 }
 
 interface PurchaseDistribution {
@@ -49,247 +35,187 @@ interface PurchaseDistributionStepProps {
 }
 
 /**
- * Компонент для налаштування розподілу кави в рамках покупки
+ * Компонент для налаштування розподілу кави в рамках покупки.
+ * Використовує React Query хук для отримання активних шаблонів та
+ * спільну утиліту buildDistributionsFromShares для розрахунку сум.
  */
-export const PurchaseDistributionStep = ({ 
-  totalAmount, 
-  purchaseDate, 
+export const PurchaseDistributionStep = ({
+  totalAmount,
+  purchaseDate,
   onDistributionChange,
   initialDistributions,
   initialSelectedTemplate,
   isManuallyModified = false,
-  onManualModificationChange
+  onManualModificationChange,
 }: PurchaseDistributionStepProps) => {
-  const [templates, setTemplates] = useState<DistributionTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [distributions, setDistributions] = useState<PurchaseDistribution[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>(initialSelectedTemplate || '');
+  const [distributions, setDistributions] = useState<PurchaseDistribution[]>(initialDistributions || []);
   const [manuallyModified, setManuallyModified] = useState(isManuallyModified);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchActiveTemplates();
-  }, [purchaseDate]);
+  const { data: templates = [], isLoading: loading } = useActiveDistributionTemplates(purchaseDate);
 
-  // Автоматичний перерахунок при зміні totalAmount
-  useEffect(() => {
-    if (distributions.length > 0 && totalAmount > 0) {
-      const totalShares = distributions.reduce((sum, dist) => sum + dist.shares, 0);
-      const updatedDistributions = distributions.map(dist => ({
-        ...dist,
-        calculated_amount: totalShares > 0 ? (totalAmount * dist.shares) / totalShares : 0
-      }));
-      setDistributions(updatedDistributions);
-    }
-  }, [totalAmount]);
-
-  const fetchActiveTemplates = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('distribution_templates')
-        .select(`
-          *,
-          distribution_template_users (
-            user_id,
-            shares,
-            profiles (
-              id,
-              name,
-              email
-            )
-          )
-        `)
-        .eq('is_active', true)
-        .lte('effective_from', purchaseDate)
-        .order('effective_from', { ascending: false });
-
-      if (error) throw error;
-
-      const templatesData = data || [];
-      setTemplates(templatesData);
-
-      // Ініціалізуємо початкові дані якщо передані
-      if (initialDistributions && initialDistributions.length > 0) {
-        setDistributions(initialDistributions);
-        if (initialSelectedTemplate) {
-          setSelectedTemplate(initialSelectedTemplate);
-        }
-      } else if (initialSelectedTemplate) {
-        // Якщо передано шаблон з попередньої покупки, використовуємо його
-        const templateFromPreviousPurchase = templatesData.find(t => t.id === initialSelectedTemplate);
-        if (templateFromPreviousPurchase) {
-          setSelectedTemplate(initialSelectedTemplate);
-          applyTemplate(templateFromPreviousPurchase);
-        } else if (templatesData.length > 0) {
-          // Якщо шаблон з попередньої покупки не знайдено, використовуємо найактуальніший
-          const latestTemplate = templatesData[0];
-          setSelectedTemplate(latestTemplate.id);
-          applyTemplate(latestTemplate);
-        }
-      } else if (templatesData.length > 0) {
-        // Автоматично обираємо найактуальніший шаблон тільки якщо немає початкових даних
-        const latestTemplate = templatesData[0];
-        setSelectedTemplate(latestTemplate.id);
-        applyTemplate(latestTemplate);
-      }
-    } catch (error) {
-      console.error('Помилка завантаження шаблонів:', error);
-      toast({
-        title: "Помилка",
-        description: "Не вдалося завантажити шаблони розподілу",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const applyTemplate = (template: DistributionTemplate) => {
-    const totalShares = template.total_shares || template.distribution_template_users.reduce((sum, user) => sum + user.shares, 0);
-    const newDistributions = template.distribution_template_users.map(templateUser => ({
-      user_id: templateUser.user_id,
-      shares: templateUser.shares,
-      calculated_amount: totalShares > 0 ? (totalAmount * templateUser.shares) / totalShares : 0,
-      profile: templateUser.profiles
+  /**
+   * Застосовує шаблон до поточної суми, формуючи розподіли через спільну утиліту.
+   */
+  const applyTemplate = (template: DistributionTemplateWithUsers, amount: number = totalAmount) => {
+    const templateUsers = template.distribution_template_users.map((tu) => ({
+      user_id: tu.user_id,
+      shares: tu.shares,
+    }));
+    const built = buildDistributionsFromShares(templateUsers, amount);
+    const profileMap = new Map(
+      template.distribution_template_users.map((tu) => [tu.user_id, tu.profiles])
+    );
+    const newDistributions = built.map((d) => ({
+      ...d,
+      profile: profileMap.get(d.user_id) as Profile | undefined,
     }));
     setDistributions(newDistributions);
   };
 
+  // Ініціалізація після завантаження шаблонів
+  useEffect(() => {
+    if (loading || hasInitialized || templates.length === 0) return;
+
+    if (initialDistributions && initialDistributions.length > 0) {
+      setDistributions(initialDistributions);
+      if (initialSelectedTemplate) {
+        setSelectedTemplate(initialSelectedTemplate);
+      }
+    } else if (initialSelectedTemplate) {
+      const templateFromPrev = templates.find((t) => t.id === initialSelectedTemplate);
+      if (templateFromPrev) {
+        setSelectedTemplate(initialSelectedTemplate);
+        applyTemplate(templateFromPrev);
+      } else {
+        const latest = templates[0];
+        setSelectedTemplate(latest.id);
+        applyTemplate(latest);
+      }
+    } else {
+      const latest = templates[0];
+      setSelectedTemplate(latest.id);
+      applyTemplate(latest);
+    }
+    setHasInitialized(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, templates, hasInitialized]);
+
+  // Автоматичний перерахунок при зміні totalAmount (тільки якщо не змінено вручну)
+  useEffect(() => {
+    if (distributions.length === 0 || totalAmount <= 0 || manuallyModified) return;
+
+    const templateUsers = distributions.map((d) => ({
+      user_id: d.user_id,
+      shares: d.shares,
+    }));
+    const built = buildDistributionsFromShares(templateUsers, totalAmount);
+    const profileMap = new Map(distributions.map((d) => [d.user_id, d.profile]));
+    setDistributions(
+      built.map((d) => ({
+        ...d,
+        profile: profileMap.get(d.user_id),
+      }))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalAmount]);
+
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplate(templateId);
-    const template = templates.find(t => t.id === templateId);
+    const template = templates.find((t) => t.id === templateId);
     if (template) {
       applyTemplate(template);
+      setManuallyModified(false);
+      onManualModificationChange?.(false);
     }
   };
 
   const updateDistribution = (index: number, field: keyof PurchaseDistribution, value: number) => {
     const updated = [...distributions];
     updated[index] = { ...updated[index], [field]: value };
-    
-    // Якщо змінюються частки, перераховуємо суму
+
     if (field === 'shares') {
-      const totalShares = updated.reduce((sum, dist) => sum + dist.shares, 0);
-      updated[index].calculated_amount = totalShares > 0 ? (totalAmount * value) / totalShares : 0;
-      
-      // Перераховуємо суми для всіх користувачів
-      updated.forEach((dist, i) => {
-        if (i !== index) {
-          dist.calculated_amount = totalShares > 0 ? (totalAmount * dist.shares) / totalShares : 0;
-        }
-      });
+      const templateUsers = updated.map((d) => ({ user_id: d.user_id, shares: d.shares }));
+      const built = buildDistributionsFromShares(templateUsers, totalAmount);
+      const profileMap = new Map(updated.map((d) => [d.user_id, d.profile]));
+      const result = built.map((d) => ({
+        ...d,
+        profile: profileMap.get(d.user_id),
+      }));
+      setDistributions(result);
+    } else {
+      setDistributions(updated);
     }
-    
-    // Позначаємо як змінено вручну
+
     setManuallyModified(true);
     onManualModificationChange?.(true);
-    
-    setDistributions(updated);
   };
 
   const recalculateFromTemplate = () => {
-    const template = templates.find(t => t.id === selectedTemplate);
+    const template = templates.find((t) => t.id === selectedTemplate);
     if (template) {
       applyTemplate(template);
       setManuallyModified(false);
       onManualModificationChange?.(false);
       toast({
-        title: "Успіх",
-        description: "Розподіл перераховано за шаблоном",
+        title: 'Успіх',
+        description: 'Розподіл перераховано за шаблоном',
       });
     }
   };
 
-
-  const getTotalShares = () => {
-    return distributions.reduce((sum, dist) => sum + dist.shares, 0);
-  };
-
-
-  const getTotalCalculatedAmount = () => {
-    return distributions.reduce((sum, dist) => sum + dist.calculated_amount, 0);
-  };
-
   const removeUserFromDistribution = (userId: string) => {
-    const updatedDistributions = distributions.filter(dist => dist.user_id !== userId);
-    
-    if (updatedDistributions.length === 0) {
+    const remaining = distributions.filter((d) => d.user_id !== userId);
+
+    if (remaining.length === 0) {
       setDistributions([]);
       setManuallyModified(true);
       onManualModificationChange?.(true);
       return;
     }
 
-    // Перераховуємо відсотки та суми для решти користувачів з коректним округленням
-    const totalShares = updatedDistributions.reduce((sum, dist) => sum + dist.shares, 0);
-    
-    if (totalShares === 0) {
-      setDistributions([]);
-      setManuallyModified(true);
-      onManualModificationChange?.(true);
-      return;
-    }
-
-    // Розраховуємо відсотки з округленням до 2 знаків
-    const distributionsWithPercentages = updatedDistributions.map(dist => ({
-      ...dist,
-      percentage: Math.round((dist.shares / totalShares) * 10000) / 100,
-    }));
-
-    // Нормалізуємо відсотки до 100.00
-    const totalPercentage = distributionsWithPercentages.reduce((sum, dist) => sum + dist.percentage, 0);
-    if (totalPercentage !== 100) {
-      const difference = 100 - totalPercentage;
-      const maxSharesUser = distributionsWithPercentages.reduce((max, current) => 
-        current.shares > max.shares ? current : max
-      );
-      maxSharesUser.percentage = Math.round((maxSharesUser.percentage + difference) * 100) / 100;
-    }
-
-    // Розраховуємо суми з округленням
-    let totalCalculated = 0;
-    const recalculatedDistributions = distributionsWithPercentages.map((dist, index) => {
-      if (index === distributionsWithPercentages.length - 1) {
-        // Останньому присвоюємо залишок
-        return {
-          ...dist,
-          calculated_amount: Math.round((totalAmount - totalCalculated) * 100) / 100
-        };
-      } else {
-        const amount = Math.round((totalAmount * dist.percentage) / 100 * 100) / 100;
-        totalCalculated += amount;
-        return {
-          ...dist,
-          calculated_amount: amount
-        };
-      }
-    });
-    
-    setDistributions(recalculatedDistributions);
+    const templateUsers = remaining.map((d) => ({ user_id: d.user_id, shares: d.shares }));
+    const built = buildDistributionsFromShares(templateUsers, totalAmount);
+    const profileMap = new Map(remaining.map((d) => [d.user_id, d.profile]));
+    setDistributions(
+      built.map((d) => ({
+        ...d,
+        profile: profileMap.get(d.user_id),
+      }))
+    );
     setManuallyModified(true);
     onManualModificationChange?.(true);
-    
+
     toast({
-      title: "Користувача видалено",
-      description: "Розподіл автоматично перераховано для решти користувачів",
+      title: 'Користувача видалено',
+      description: 'Розподіл автоматично перераховано для решти користувачів',
     });
   };
 
-  // Експортуємо функції валідації через props
+  const totalShares = useMemo(
+    () => distributions.reduce((sum, dist) => sum + dist.shares, 0),
+    [distributions]
+  );
+
+  const totalCalculatedAmount = useMemo(
+    () => distributions.reduce((sum, dist) => sum + dist.calculated_amount, 0),
+    [distributions]
+  );
+
+  // Експортуємо валідаційні дані через onDistributionChange
   useEffect(() => {
-    const totalShares = getTotalShares();
     const validationData = {
-      totalShares: totalShares,
-      totalCalculatedAmount: getTotalCalculatedAmount(),
+      totalShares,
+      totalCalculatedAmount,
       isValidShares: totalShares > 0,
-      isValidAmount: Math.abs(getTotalCalculatedAmount() - totalAmount) <= 0.01,
-      selectedTemplate: selectedTemplate,
-      distributions
+      isValidAmount: Math.abs(totalCalculatedAmount - totalAmount) <= 0.01,
+      selectedTemplate,
+      distributions,
     };
-    
     onDistributionChange?.(distributions, validationData);
-  }, [distributions, totalAmount, selectedTemplate, onDistributionChange]);
+  }, [distributions, totalAmount, selectedTemplate, totalShares, totalCalculatedAmount, onDistributionChange]);
 
   if (loading) {
     return (
@@ -341,12 +267,8 @@ export const PurchaseDistributionStep = ({
                 Змінено вручну
               </Badge>
             )}
-            <Badge variant="outline">
-              {getTotalShares()} часток
-            </Badge>
-            <Badge variant="outline">
-              {getTotalCalculatedAmount().toFixed(2)} ₴
-            </Badge>
+            <Badge variant="outline">{totalShares} часток</Badge>
+            <Badge variant="outline">{totalCalculatedAmount.toFixed(2)} ₴</Badge>
           </div>
         </div>
       </CardHeader>
@@ -359,7 +281,7 @@ export const PurchaseDistributionStep = ({
                 <SelectValue placeholder="Оберіть шаблон" />
               </SelectTrigger>
               <SelectContent>
-                {templates.map(template => (
+                {templates.map((template) => (
                   <SelectItem key={template.id} value={template.id}>
                     {template.name} (з {new Date(template.effective_from).toLocaleDateString('uk-UA')})
                   </SelectItem>
@@ -367,10 +289,10 @@ export const PurchaseDistributionStep = ({
               </SelectContent>
             </Select>
           </div>
-          <Button 
+          <Button
             type="button"
-            variant="outline" 
-            size="sm" 
+            variant="outline"
+            size="sm"
             onClick={recalculateFromTemplate}
             disabled={!selectedTemplate}
             title="Перерахувати за шаблоном"
@@ -386,12 +308,10 @@ export const PurchaseDistributionStep = ({
             <span>Підсумок</span>
             <span>Дії</span>
           </div>
-          
+
           {distributions.map((distribution, index) => (
             <div key={distribution.user_id} className="grid grid-cols-4 gap-2 items-center">
-              <span className="text-sm font-medium">
-                {distribution.profile?.name}
-              </span>
+              <span className="text-sm font-medium">{distribution.profile?.name}</span>
               <Input
                 type="number"
                 min="1"
@@ -400,9 +320,7 @@ export const PurchaseDistributionStep = ({
                 onChange={(e) => updateDistribution(index, 'shares', parseInt(e.target.value) || 1)}
                 className="h-8"
               />
-              <span className="text-sm font-medium">
-                {distribution.calculated_amount.toFixed(2)} ₴
-              </span>
+              <span className="text-sm font-medium">{distribution.calculated_amount.toFixed(2)} ₴</span>
               <Button
                 type="button"
                 variant="outline"
@@ -417,20 +335,18 @@ export const PurchaseDistributionStep = ({
           ))}
         </div>
 
-        {getTotalShares() <= 0 && (
+        {totalShares <= 0 && (
           <div className="p-3 border border-destructive rounded-md bg-destructive/10">
             <p className="text-sm text-destructive">
-              Увага: Загальна кількість часток повинна бути більше 0. 
-              Поточна кількість: {getTotalShares()}
+              Увага: Загальна кількість часток повинна бути більше 0. Поточна кількість: {totalShares}
             </p>
           </div>
         )}
 
-        {Math.abs(getTotalCalculatedAmount() - totalAmount) > 0.01 && (
+        {Math.abs(totalCalculatedAmount - totalAmount) > 0.01 && (
           <div className="p-3 border border-yellow-500 rounded-md bg-yellow-50">
             <p className="text-sm text-yellow-800">
-              Сума розподілу ({getTotalCalculatedAmount().toFixed(2)} ₴) 
-              не збігається з загальною сумою покупки ({totalAmount.toFixed(2)} ₴)
+              Сума розподілу ({totalCalculatedAmount.toFixed(2)} ₴) не збігається з загальною сумою покупки ({totalAmount.toFixed(2)} ₴)
             </p>
           </div>
         )}
