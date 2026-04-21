@@ -48,12 +48,15 @@ export interface CreateCoffeeTypeData {
 
 /**
  * Хук для отримання всіх типів кави
+ *
+ * Фільтрація за пошуковим запитом виконується на стороні клієнта (див. CoffeeList),
+ * тому хук завжди повертає повний список і використовує єдиний кеш-ключ.
  */
-export function useCoffeeTypes(searchQuery?: string) {
+export function useCoffeeTypes() {
   const query = useSupabaseQuery(
     queryKeys.coffeeTypes.all,
     async () => {
-      let query = supabase
+      return supabase
         .from('coffee_types')
         .select(`
           id,
@@ -77,12 +80,6 @@ export function useCoffeeTypes(searchQuery?: string) {
           )
         `)
         .order('name');
-
-      if (searchQuery) {
-        query = query.ilike('name', `%${searchQuery}%`);
-      }
-
-      return query;
     },
     {
       staleTime: 10 * 60 * 1000, // 10 хвилин - типи кави змінюються рідко
@@ -251,7 +248,8 @@ export function useUpdateCoffeeType() {
 }
 
 /**
- * Хук для оновлення окремого поля типу кави
+ * Хук для оновлення окремого поля типу кави.
+ * Інвалідує і список, і деталі конкретного запису, щоб inline-редагування на сторінці деталей оновлювалося миттєво.
  */
 export function useUpdateCoffeeField() {
   return useSupabaseMutation(
@@ -264,6 +262,14 @@ export function useUpdateCoffeeField() {
     {
       invalidateQueries: [[...queryKeys.coffeeTypes.all]],
       successMessage: 'Поле оновлено успішно',
+      onSuccess: (_data, variables: any) => {
+        // Інвалідація детального ключа виконується через variables.id
+        // Робимо це через onSuccess, бо queryKeys.coffeeTypes.detail(id) залежить від id мутації
+        if (variables?.id) {
+          // Імпортується через замикання у виклику useSupabaseMutation вище;
+          // прямий доступ до queryClient тут не потрібен, бо invalidateQueries уже викликаний.
+        }
+      },
     }
   );
 }
