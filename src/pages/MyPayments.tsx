@@ -243,7 +243,7 @@ const MyPayments = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-primary">Мої розрахунки</h1>
           <Button 
-            onClick={refetch} 
+            onClick={() => refetch()} 
             variant="outline" 
             size="sm"
             className="flex items-center gap-2"
