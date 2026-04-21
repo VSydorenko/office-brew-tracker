@@ -284,7 +284,7 @@ const PurchaseCard = ({ purchase, onDelete, onUpdate, isDeleting, isHighlighted 
                       {purchase.distribution_status === 'locked' 
                         ? "Неможливо видалити заблоковану покупку. Спочатку розблокуйте розподіл."
                         : !canDelete
-                        ? canDeleteData?.reason || "Неможливо видалити покупку з оплаченими розподілами."
+                        ? canDeleteReason || "Неможливо видалити покупку з оплаченими розподілами."
                         : "Ця дія незворотна. Покупка та всі її позиції будуть видалені назавжди."
                       }
                       <br /><br />
