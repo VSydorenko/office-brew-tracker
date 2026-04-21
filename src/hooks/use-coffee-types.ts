@@ -2,6 +2,7 @@
  * React Query хуки для роботи з типами кави
  */
 import { useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseQuery, useSupabaseMutation, useRealtimeInvalidation } from './use-supabase-query';
 import { queryKeys } from '@/lib/query-client';
@@ -252,6 +253,8 @@ export function useUpdateCoffeeType() {
  * Інвалідує і список, і деталі конкретного запису, щоб inline-редагування на сторінці деталей оновлювалося миттєво.
  */
 export function useUpdateCoffeeField() {
+  const queryClient = useQueryClient();
+
   return useSupabaseMutation(
     async ({ id, field, value }: { id: string; field: string; value: any }) => {
       return supabase
@@ -262,13 +265,11 @@ export function useUpdateCoffeeField() {
     {
       invalidateQueries: [[...queryKeys.coffeeTypes.all]],
       successMessage: 'Поле оновлено успішно',
-      onSuccess: (_data, variables: any) => {
-        // Інвалідація детального ключа виконується через variables.id
-        // Робимо це через onSuccess, бо queryKeys.coffeeTypes.detail(id) залежить від id мутації
-        if (variables?.id) {
-          // Імпортується через замикання у виклику useSupabaseMutation вище;
-          // прямий доступ до queryClient тут не потрібен, бо invalidateQueries уже викликаний.
-        }
+      onSuccess: (_data, variables) => {
+        // Інвалідуємо ще й деталі цього запису, бо CoffeeDetail кешується окремо
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.coffeeTypes.detail(variables.id),
+        });
       },
     }
   );
