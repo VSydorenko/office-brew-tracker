@@ -11,9 +11,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import type { ReferenceTableName } from '@/hooks/use-reference-tables';
 
 interface ReferenceConfig {
-  tableName: string;
+  tableName: ReferenceTableName;
   displayName: string;
   icon: React.ReactNode;
 }
@@ -23,17 +24,11 @@ interface ReferenceTableManagerProps {
 }
 
 /**
- * Менеджер для управління довідковими таблицями
- * Відображає список елементів та дозволяє їх редагування
+ * Менеджер для управління довідковими таблицями.
+ * Дані оновлюються автоматично через React Query після мутацій.
  */
 export const ReferenceTableManager = ({ config }: ReferenceTableManagerProps) => {
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-
-  const handleItemUpdated = () => {
-    setRefreshTrigger(prev => prev + 1);
-    setIsAddDialogOpen(false);
-  };
 
   return (
     <Card className="shadow-coffee">
@@ -56,18 +51,14 @@ export const ReferenceTableManager = ({ config }: ReferenceTableManagerProps) =>
               </DialogHeader>
               <ReferenceItemForm
                 tableName={config.tableName}
-                onSuccess={handleItemUpdated}
+                onSuccess={() => setIsAddDialogOpen(false)}
               />
             </DialogContent>
           </Dialog>
         </div>
       </CardHeader>
       <CardContent>
-        <ReferenceItemList
-          tableName={config.tableName}
-          refreshTrigger={refreshTrigger}
-          onItemUpdated={handleItemUpdated}
-        />
+        <ReferenceItemList tableName={config.tableName} />
       </CardContent>
     </Card>
   );
