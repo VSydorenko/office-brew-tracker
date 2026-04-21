@@ -204,23 +204,6 @@ export function usePurchase(id: string) {
 }
 
 /**
- * Хук для отримання останніх покупок
- */
-export function useRecentPurchases(limit = 5) {
-  return useSupabaseQuery(
-    queryKeys.purchases.recent(limit),
-    async () => {
-      return supabase.rpc('get_recent_purchases_enriched', {
-        limit_n: limit,
-      });
-    },
-    {
-      staleTime: 1 * 60 * 1000, // 1 хвилина
-    }
-  );
-}
-
-/**
  * Хук для створення покупки
  */
 export function useCreatePurchase() {
@@ -513,30 +496,6 @@ export function useDeletePurchase() {
 }
 
 /**
- * Хук для пошуку покупок
- */
-export function useSearchPurchases(searchQuery?: string) {
-  const purchasesQuery = usePurchases();
-  
-  const filteredData = purchasesQuery.data && searchQuery?.trim() ? 
-    purchasesQuery.data.filter(purchase => 
-      purchase.buyer?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      purchase.driver?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      purchase.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      purchase.purchase_items?.some(item => 
-        item.coffee_types?.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ) ||
-      new Date(purchase.date).toLocaleDateString('uk-UA').includes(searchQuery) ||
-      purchase.total_amount.toString().includes(searchQuery)
-    ) : purchasesQuery.data;
-
-  return {
-    ...purchasesQuery,
-    data: filteredData
-  };
-}
-
-/**
  * Хук для отримання останньої ціни кави
  */
 export function useLatestCoffeePrice(coffeeId?: string) {
@@ -555,8 +514,6 @@ export function useLatestCoffeePrice(coffeeId?: string) {
     }
   );
 }
-
-// useCreateCoffeeType видалено — використовуйте useCreateCoffeeType з use-coffee-types.ts
 
 /**
  * Хук для перевірки можливості видалення покупки

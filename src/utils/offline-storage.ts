@@ -1,5 +1,6 @@
 /**
- * Утиліти для роботи з offline даними
+ * Утиліти для роботи з offline даними.
+ * Наразі використовується лише для читання/очищення черги (writers видалено як dead code).
  */
 
 interface OfflineData {
@@ -10,26 +11,6 @@ interface OfflineData {
 }
 
 const OFFLINE_KEY = 'brew_tracker_offline_data';
-
-/**
- * Зберігає дані для offline синхронізації
- */
-export const saveOfflineData = (type: string, data: any): void => {
-  try {
-    const existingData = getOfflineData();
-    const newItem: OfflineData = {
-      id: crypto.randomUUID(),
-      type,
-      data,
-      timestamp: Date.now()
-    };
-    
-    const updatedData = [...existingData, newItem];
-    localStorage.setItem(OFFLINE_KEY, JSON.stringify(updatedData));
-  } catch (error) {
-    console.error('Помилка збереження offline даних:', error);
-  }
-};
 
 /**
  * Отримує збережені offline дані
@@ -52,18 +33,5 @@ export const clearOfflineData = (): void => {
     localStorage.removeItem(OFFLINE_KEY);
   } catch (error) {
     console.error('Помилка очищення offline даних:', error);
-  }
-};
-
-/**
- * Видаляє конкретний offline запис
- */
-export const removeOfflineData = (id: string): void => {
-  try {
-    const existingData = getOfflineData();
-    const filteredData = existingData.filter(item => item.id !== id);
-    localStorage.setItem(OFFLINE_KEY, JSON.stringify(filteredData));
-  } catch (error) {
-    console.error('Помилка видалення offline даних:', error);
   }
 };
