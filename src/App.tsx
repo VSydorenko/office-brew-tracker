@@ -10,6 +10,7 @@ import Navigation from "@/components/Navigation";
 import BottomNavigation from "@/components/BottomNavigation";
 import { PWAInstallPrompt } from "@/components/ui/pwa-install-prompt";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
+import { OfflineSync } from "@/components/ui/offline-sync";
 import { createQueryClient } from "@/lib/query-client";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -35,6 +36,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <OfflineIndicator />
+          <OfflineSync />
           <BrowserRouter>
             <div className="min-h-screen flex flex-col">
               <Navigation />

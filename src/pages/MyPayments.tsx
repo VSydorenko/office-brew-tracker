@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,28 +6,51 @@ import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, TrendingUp, TrendingDown, User, ShoppingCart, Bell, BellOff, RefreshCw, ExternalLink } from 'lucide-react';
+import { CheckCircle, CheckCircle2, AlertCircle, TrendingUp, TrendingDown, User, ShoppingCart, Bell, BellOff, RefreshCw, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/components/ui/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { useNotifications } from '@/hooks/use-notifications';
 import { PaymentRecord } from '@/components/purchases/PaymentRecord';
-import { useSupabaseQuery, useSupabaseMutation, useRealtimeInvalidation } from '@/hooks/use-supabase-query';
+import { useSupabaseQuery, useSupabaseMutation } from '@/hooks/use-supabase-query';
 import { supabase } from '@/integrations/supabase/client';
+import { queryKeys } from '@/lib/query-client';
 
-/**
- * Об'єднаний хук: один запит до purchase_distributions для поточного користувача,
- * звідки похідно обчислюються "Мені винні" / "Я винен" / усі мої розподіли.
- * Замінює три окремі запити, які пересікались за даними.
- */
+// Користувацький хук для отримання даних по платежах
 const useMyPaymentsData = () => {
   const { user } = useAuth();
-
-  const query = useSupabaseQuery(
-    ['distributions', 'mine-combined', user?.id ?? 'anon'],
+  
+  // Запит для "Мені винні"
+  const owedToMeQuery = useSupabaseQuery(
+    queryKeys.distributions.myPayments,
     async () => {
       if (!user) return { data: [], error: null };
+      
+      return await supabase
+        .from('purchase_distributions')
+        .select(`
+          *,
+          purchases!inner(
+            id,
+            date,
+            total_amount,
+            buyer_id
+          ),
+          profiles!purchase_distributions_user_id_fkey(name, avatar_path, avatar_url, card_number, card_holder_name)
+        `)
+        .eq('purchases.buyer_id', user.id)
+        .neq('user_id', user.id)
+        .eq('is_paid', false)
+        .order('created_at', { ascending: false });
+    },
+    { requireAuth: true }
+  );
 
-      // Один запит: усі розподіли, де я учасник АБО я покупець
+  // Запит для "Я винен"
+  const iOweQuery = useSupabaseQuery(
+    ['distributions', 'i-owe'],
+    async () => {
+      if (!user) return { data: [], error: null };
+      
       return await supabase
         .from('purchase_distributions')
         .select(`
@@ -38,48 +61,50 @@ const useMyPaymentsData = () => {
             total_amount,
             buyer_id,
             profiles!purchases_buyer_id_fkey(name, avatar_path, avatar_url, card_number, card_holder_name)
-          ),
-          profiles!purchase_distributions_user_id_fkey(name, avatar_path, avatar_url, card_number, card_holder_name)
+          )
         `)
-        .or(`user_id.eq.${user.id},purchases.buyer_id.eq.${user.id}`)
+        .eq('user_id', user.id)
+        .neq('purchases.buyer_id', user.id)
+        .eq('is_paid', false)
         .order('created_at', { ascending: false });
     },
     { requireAuth: true }
   );
 
-  // Realtime: оновлюємо ці дані при змінах в розподілах
-  useRealtimeInvalidation('purchase_distributions', [
-    ['distributions', 'mine-combined', user?.id ?? 'anon'],
-  ]);
-
-  const allRecords = query.data || [];
-
-  // Похідні зрізи через useMemo — без додаткових запитів
-  const owedToMe = useMemo(
-    () =>
-      allRecords.filter(
-        (d: any) => d.purchases.buyer_id === user?.id && d.user_id !== user?.id && !d.is_paid
-      ),
-    [allRecords, user?.id]
-  );
-  const iOwe = useMemo(
-    () =>
-      allRecords.filter(
-        (d: any) => d.user_id === user?.id && d.purchases.buyer_id !== user?.id && !d.is_paid
-      ),
-    [allRecords, user?.id]
-  );
-  const allDistributions = useMemo(
-    () => allRecords.filter((d: any) => d.user_id === user?.id),
-    [allRecords, user?.id]
+  // Всі мої розподіли
+  const allDistributionsQuery = useSupabaseQuery(
+    ['distributions', 'all-mine'],
+    async () => {
+      if (!user) return { data: [], error: null };
+      
+      return await supabase
+        .from('purchase_distributions')
+        .select(`
+          *,
+          purchases!inner(
+            id,
+            date,
+            total_amount,
+            buyer_id,
+            profiles!purchases_buyer_id_fkey(name, avatar_path, avatar_url)
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+    },
+    { requireAuth: true }
   );
 
   return {
-    owedToMe,
-    iOwe,
-    allDistributions,
-    loading: query.isLoading,
-    refetch: query.refetch,
+    owedToMe: owedToMeQuery.data || [],
+    iOwe: iOweQuery.data || [],
+    allDistributions: allDistributionsQuery.data || [],
+    loading: owedToMeQuery.isLoading || iOweQuery.isLoading || allDistributionsQuery.isLoading,
+    refetch: () => {
+      owedToMeQuery.refetch();
+      iOweQuery.refetch();
+      allDistributionsQuery.refetch();
+    }
   };
 };
 
@@ -97,27 +122,27 @@ const MyPayments = () => {
     async (distributionId: string) => {
       return await supabase
         .from('purchase_distributions')
-        .update({
-          is_paid: true,
-          paid_at: new Date().toISOString(),
+        .update({ 
+          is_paid: true, 
+          paid_at: new Date().toISOString() 
         })
         .eq('id', distributionId);
     },
     {
       onSuccess: () => {
         toast({
-          title: 'Успіх',
-          description: 'Позначено як оплачено',
+          title: "Успіх",
+          description: "Позначено як оплачено",
         });
         refetch();
       },
-      onError: () => {
+      onError: (error) => {
         toast({
-          title: 'Помилка',
-          description: 'Не вдалося оновити статус оплати',
-          variant: 'destructive',
+          title: "Помилка",
+          description: "Не вдалося оновити статус оплати",
+          variant: "destructive",
         });
-      },
+      }
     }
   );
 
@@ -125,20 +150,21 @@ const MyPayments = () => {
     markAsPaidMutation.mutate(distributionId);
   };
 
-  // Похідна фільтрація для режиму "showAll" (включає вже оплачені)
-  const { filteredOwedToMe, filteredIOwe } = useMemo(() => {
+  // Фільтрація даних
+  const getFilteredData = () => {
     if (showAll) {
-      return {
-        filteredOwedToMe: allDistributions.filter(
-          (d: any) => d.purchases.buyer_id === user?.id && d.user_id !== user?.id
-        ),
-        filteredIOwe: allDistributions.filter(
-          (d: any) => d.purchases.buyer_id !== user?.id
-        ),
-      };
+      const myOwedToMe = allDistributions.filter(dist => 
+        dist.purchases.buyer_id === user?.id && dist.user_id !== user?.id
+      );
+      const myIOwe = allDistributions.filter(dist => 
+        dist.purchases.buyer_id !== user?.id
+      );
+      return { owedToMe: myOwedToMe, iOwe: myIOwe };
     }
-    return { filteredOwedToMe: owedToMe, filteredIOwe: iOwe };
-  }, [showAll, allDistributions, owedToMe, iOwe, user?.id]);
+    return { owedToMe, iOwe };
+  };
+
+  const { owedToMe: filteredOwedToMe, iOwe: filteredIOwe } = getFilteredData();
 
   // Групування по користувачах для "Мені винні"
   const groupOwedByUser = () => {
@@ -243,7 +269,7 @@ const MyPayments = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-primary">Мої розрахунки</h1>
           <Button 
-            onClick={() => refetch()} 
+            onClick={refetch} 
             variant="outline" 
             size="sm"
             className="flex items-center gap-2"

@@ -23,7 +23,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface Profile {
   id: string;
   name: string;
-  email?: string;
+  email: string;
 }
 
 interface CoffeeType {
@@ -646,16 +646,14 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
             </Button>
           )}
         </DrawerTrigger>
-        <DrawerContent className="max-h-[90vh] flex flex-col">
-          <DrawerHeader className="px-4">
+        <DrawerContent className="max-h-[90vh] overflow-y-auto px-4 pb-6">
+          <DrawerHeader className="px-0">
             <DrawerTitle className="flex items-center gap-2">
               <Coffee className="h-5 w-5" />
               {isEditMode ? 'Редагувати покупку' : 'Нова покупка'}
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-6 flex-1">
-            {renderFormContent()}
-          </div>
+          {renderFormContent()}
         </DrawerContent>
       </Drawer>
     );

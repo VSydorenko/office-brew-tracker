@@ -1,27 +1,38 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus } from 'lucide-react';
 
 interface LookupItem {
   id: string;
   name: string;
 }
 
-interface CoffeeFormProps {
-  onSuccess?: () => void;
-  children?: ReactNode;
+interface CoffeeEditType {
+  id: string;
+  name: string;
+  description?: string;
+  package_size?: string;
+  brand_id?: string;
+  variety_id?: string;
+  origin_id?: string;
+  processing_method_id?: string;
 }
 
-export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
-  const [open, setOpen] = useState(false);
+interface CoffeeEditDialogProps {
+  coffee: CoffeeEditType;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}
+
+export const CoffeeEditDialog = ({ coffee, open, onOpenChange, onSuccess }: CoffeeEditDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [brands, setBrands] = useState<LookupItem[]>([]);
   const [flavors, setFlavors] = useState<LookupItem[]>([]);
@@ -42,8 +53,30 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchLookupData();
-  }, []);
+    if (open) {
+      fetchLookupData();
+      initializeFormData();
+    }
+  }, [open, coffee]);
+
+  const initializeFormData = async () => {
+    // Fetch current coffee flavors
+    const { data: coffeeFlavors } = await supabase
+      .from('coffee_flavors')
+      .select('flavor_id')
+      .eq('coffee_type_id', coffee.id);
+
+    setFormData({
+      name: coffee.name || '',
+      brand_id: coffee.brand_id || '',
+      description: coffee.description || '',
+      package_size: coffee.package_size || '',
+      processing_method_id: coffee.processing_method_id || '',
+      variety_id: coffee.variety_id || '',
+      origin_id: coffee.origin_id || '',
+      flavor_ids: coffeeFlavors?.map(cf => cf.flavor_id) || [],
+    });
+  };
 
   const fetchLookupData = async () => {
     try {
@@ -89,7 +122,7 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
     try {
       setLoading(true);
       
-      // Insert coffee type
+      // Update coffee type
       const coffeeData = {
         name: formData.name,
         brand_id: formData.brand_id || null,
@@ -98,20 +131,28 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
         processing_method_id: formData.processing_method_id || null,
         variety_id: formData.variety_id || null,
         origin_id: formData.origin_id || null,
+        updated_at: new Date().toISOString(),
       };
       
-      const { data: coffeeResult, error: coffeeError } = await supabase
+      const { error: coffeeError } = await supabase
         .from('coffee_types')
-        .insert([coffeeData])
-        .select('id')
-        .single();
+        .update(coffeeData)
+        .eq('id', coffee.id);
 
       if (coffeeError) throw coffeeError;
 
-      // Insert flavors if selected
-      if (formData.flavor_ids.length > 0 && coffeeResult?.id) {
+      // Delete existing flavors
+      const { error: deleteError } = await supabase
+        .from('coffee_flavors')
+        .delete()
+        .eq('coffee_type_id', coffee.id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new flavors if selected
+      if (formData.flavor_ids.length > 0) {
         const flavorInserts = formData.flavor_ids.map(flavorId => ({
-          coffee_type_id: coffeeResult.id,
+          coffee_type_id: coffee.id,
           flavor_id: flavorId,
         }));
         
@@ -124,25 +165,15 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
 
       toast({
         title: "Успіх",
-        description: "Кава додана до каталогу",
+        description: "Каву оновлено",
       });
 
-      setFormData({ 
-        name: '', 
-        brand_id: '', 
-        description: '', 
-        package_size: '',
-        processing_method_id: '',
-        variety_id: '',
-        origin_id: '',
-        flavor_ids: []
-      });
-      setOpen(false);
-      onSuccess?.();
+      onOpenChange(false);
+      onSuccess();
     } catch (error: any) {
       toast({
         title: "Помилка",
-        description: error.message || "Не вдалося додати каву",
+        description: error.message || "Не вдалося оновити каву",
         variant: "destructive",
       });
     } finally {
@@ -160,23 +191,13 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children ? (
-          children as React.ReactElement
-        ) : (
-          <Button className="bg-gradient-coffee shadow-brew">
-            <Plus className="h-4 w-4 mr-2" />
-            Додати каву
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[95vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-primary">Додати новий тип кави</DialogTitle>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent mobileFullScreen className="max-w-2xl max-h-[95vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="p-4 md:p-6 border-b">
+          <DialogTitle className="text-lg md:text-xl text-primary">Редагувати каву</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto px-1">
-          <form onSubmit={handleSubmit} className="space-y-4 pb-20">
+        <div className="flex-1 overflow-auto p-4 md:p-6">
+          <form onSubmit={handleSubmit} className="space-y-6 pb-24 md:pb-28">
           <div className="space-y-2">
             <Label htmlFor="name">Назва кави *</Label>
             <Input
@@ -223,23 +244,6 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="processing">Обробка</Label>
-            <Select value={formData.processing_method_id} onValueChange={(value) => setFormData({ ...formData, processing_method_id: value === 'none' ? '' : value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Оберіть спосіб обробки" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Не вказано</SelectItem>
-                {processingMethods.map((method) => (
-                  <SelectItem key={method.id} value={method.id}>
-                    {method.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="origin">Походження</Label>
             <Select value={formData.origin_id} onValueChange={(value) => setFormData({ ...formData, origin_id: value === 'none' ? '' : value })}>
               <SelectTrigger>
@@ -250,6 +254,23 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
                 {origins.map((origin) => (
                   <SelectItem key={origin.id} value={origin.id}>
                     {origin.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="processing">Обробка</Label>
+            <Select value={formData.processing_method_id} onValueChange={(value) => setFormData({ ...formData, processing_method_id: value === 'none' ? '' : value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Оберіть спосіб обробки" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Не вказано</SelectItem>
+                {processingMethods.map((method) => (
+                  <SelectItem key={method.id} value={method.id}>
+                    {method.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -298,24 +319,25 @@ export const CoffeeForm = ({ onSuccess, children }: CoffeeFormProps) => {
           </form>
         </div>
 
-        {/* Sticky footer з кнопками */}
-        <div className="border-t bg-background p-4 mt-auto">
-          <div className="flex justify-end gap-2">
+        {/* Mobile-optimized sticky footer */}
+        <div className="border-t bg-background/95 backdrop-blur-sm p-4 md:p-6 sticky bottom-0 z-10">
+          <div className="flex flex-col md:flex-row justify-end gap-3 md:gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="order-2 md:order-1 h-12 md:h-10"
             >
               Скасувати
             </Button>
             <Button
               type="submit"
               disabled={loading}
-              className="bg-gradient-coffee"
+              className="bg-gradient-coffee order-1 md:order-2 h-12 md:h-10"
               onClick={handleSubmit}
             >
-              {loading ? 'Збереження...' : 'Додати каву'}
+              {loading ? 'Збереження...' : 'Зберегти зміни'}
             </Button>
           </div>
         </div>

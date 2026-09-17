@@ -2,7 +2,6 @@
  * React Query хуки для роботи з типами кави
  */
 import { useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseQuery, useSupabaseMutation, useRealtimeInvalidation } from './use-supabase-query';
 import { queryKeys } from '@/lib/query-client';
@@ -49,15 +48,12 @@ export interface CreateCoffeeTypeData {
 
 /**
  * Хук для отримання всіх типів кави
- *
- * Фільтрація за пошуковим запитом виконується на стороні клієнта (див. CoffeeList),
- * тому хук завжди повертає повний список і використовує єдиний кеш-ключ.
  */
-export function useCoffeeTypes() {
+export function useCoffeeTypes(searchQuery?: string) {
   const query = useSupabaseQuery(
     queryKeys.coffeeTypes.all,
     async () => {
-      return supabase
+      let query = supabase
         .from('coffee_types')
         .select(`
           id,
@@ -81,6 +77,12 @@ export function useCoffeeTypes() {
           )
         `)
         .order('name');
+
+      if (searchQuery) {
+        query = query.ilike('name', `%${searchQuery}%`);
+      }
+
+      return query;
     },
     {
       staleTime: 10 * 60 * 1000, // 10 хвилин - типи кави змінюються рідко
@@ -249,12 +251,9 @@ export function useUpdateCoffeeType() {
 }
 
 /**
- * Хук для оновлення окремого поля типу кави.
- * Інвалідує і список, і деталі конкретного запису, щоб inline-редагування на сторінці деталей оновлювалося миттєво.
+ * Хук для оновлення окремого поля типу кави
  */
 export function useUpdateCoffeeField() {
-  const queryClient = useQueryClient();
-
   return useSupabaseMutation(
     async ({ id, field, value }: { id: string; field: string; value: any }) => {
       return supabase
@@ -265,12 +264,6 @@ export function useUpdateCoffeeField() {
     {
       invalidateQueries: [[...queryKeys.coffeeTypes.all]],
       successMessage: 'Поле оновлено успішно',
-      onSuccess: (_data, variables) => {
-        // Інвалідуємо ще й деталі цього запису, бо CoffeeDetail кешується окремо
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.coffeeTypes.detail(variables.id),
-        });
-      },
     }
   );
 }
@@ -377,7 +370,7 @@ export function useCoffeePurchaseStatsMap() {
 
     (stats as CoffeePurchaseStat[]).forEach((stat) => {
       map.set(stat.coffee_type_id, {
-        lastPrice: Number(stat.last_price) || 0,
+        lastPrice: stat.last_price,
         lastPurchaseDate: stat.last_purchase_date,
       });
     });

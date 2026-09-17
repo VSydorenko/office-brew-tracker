@@ -6,11 +6,10 @@ import { useSupabaseQuery, useSupabaseMutation, useRealtimeInvalidation } from '
 import { queryKeys } from '@/lib/query-client';
 
 /**
- * Утилітарна функція для побудови розподілів з часток.
- * Забезпечує коректне округлення відсотків та сум — останній учасник
- * отримує залишок, щоб сума розподілу збігалася з totalAmount до копійки.
+ * Утилітарна функція для побудови розподілів з часток
+ * Забезпечує коректне округлення відсотків та сум
  */
-export function buildDistributionsFromShares(
+function buildDistributionsFromShares(
   templateUsers: Array<{ user_id: string; shares: number }>,
   totalAmount: number
 ): Array<{ user_id: string; shares: number; calculated_amount: number }> {
@@ -199,6 +198,23 @@ export function usePurchase(id: string) {
     },
     {
       enabled: !!id,
+      staleTime: 1 * 60 * 1000, // 1 хвилина
+    }
+  );
+}
+
+/**
+ * Хук для отримання останніх покупок
+ */
+export function useRecentPurchases(limit = 5) {
+  return useSupabaseQuery(
+    queryKeys.purchases.recent(limit),
+    async () => {
+      return supabase.rpc('get_recent_purchases_enriched', {
+        limit_n: limit,
+      });
+    },
+    {
       staleTime: 1 * 60 * 1000, // 1 хвилина
     }
   );
@@ -457,17 +473,34 @@ export function useUpdatePurchase() {
 }
 
 /**
- * Хук для видалення покупки.
- * Використовує серверну RPC `delete_purchase_cascade`, яка одним викликом
- * видаляє покупку та всі повʼязані записи (позиції, розподіли, історія змін суми).
+ * Хук для видалення покупки
  */
 export function useDeletePurchase() {
   return useSupabaseMutation(
     async (id: string) => {
-      const { error } = await supabase.rpc('delete_purchase_cascade', {
-        p_purchase_id: id,
-      });
-      return { data: null, error };
+      // Видаляємо розподіли
+      await supabase
+        .from('purchase_distributions')
+        .delete()
+        .eq('purchase_id', id);
+
+      // Видаляємо позиції
+      await supabase
+        .from('purchase_items')
+        .delete()
+        .eq('purchase_id', id);
+
+      // Видаляємо записи змін суми
+      await supabase
+        .from('purchase_amount_changes')
+        .delete()
+        .eq('purchase_id', id);
+
+      // Видаляємо покупку
+      return supabase
+        .from('purchases')
+        .delete()
+        .eq('id', id);
     },
     {
       invalidateQueries: [
@@ -477,6 +510,30 @@ export function useDeletePurchase() {
       successMessage: 'Покупку видалено успішно',
     }
   );
+}
+
+/**
+ * Хук для пошуку покупок
+ */
+export function useSearchPurchases(searchQuery?: string) {
+  const purchasesQuery = usePurchases();
+  
+  const filteredData = purchasesQuery.data && searchQuery?.trim() ? 
+    purchasesQuery.data.filter(purchase => 
+      purchase.buyer?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.driver?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      purchase.purchase_items?.some(item => 
+        item.coffee_types?.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ) ||
+      new Date(purchase.date).toLocaleDateString('uk-UA').includes(searchQuery) ||
+      purchase.total_amount.toString().includes(searchQuery)
+    ) : purchasesQuery.data;
+
+  return {
+    ...purchasesQuery,
+    data: filteredData
+  };
 }
 
 /**
@@ -499,8 +556,40 @@ export function useLatestCoffeePrice(coffeeId?: string) {
   );
 }
 
-// useCanDeletePurchase видалено: PurchaseList тепер обчислює canDelete локально
-// з уже завантажених purchase_distributions, без N+1 запитів.
+// useCreateCoffeeType видалено — використовуйте useCreateCoffeeType з use-coffee-types.ts
+
+/**
+ * Хук для перевірки можливості видалення покупки
+ */
+export function useCanDeletePurchase(purchaseId?: string) {
+  return useSupabaseQuery(
+    queryKeys.purchases.canDelete(purchaseId || ''),
+    async () => {
+      if (!purchaseId) return { data: { canDelete: false }, error: null };
+      
+      const { data: paidDistributions, error } = await supabase
+        .from('purchase_distributions')
+        .select('id')
+        .eq('purchase_id', purchaseId)
+        .eq('is_paid', true);
+
+      if (error) return { data: null, error };
+
+      const canDelete = !paidDistributions || paidDistributions.length === 0;
+      return { 
+        data: { 
+          canDelete, 
+          reason: canDelete ? null : 'Неможливо видалити покупку з оплаченими розподілами'
+        }, 
+        error: null 
+      };
+    },
+    {
+      enabled: !!purchaseId,
+      staleTime: 30 * 1000, // 30 секунд
+    }
+  );
+}
 
 /**
  * Хук для отримання template_id з останньої покупки користувача
@@ -513,198 +602,6 @@ export function useLastPurchaseTemplate() {
     },
     {
       staleTime: 1 * 60 * 1000, // 1 хвилина
-    }
-  );
-}
-
-/**
- * Хук для фіксації розподілу покупки (переведення в статус 'active')
- */
-export function useLockPurchase() {
-  return useSupabaseMutation(
-    async (purchaseId: string) => {
-      return supabase
-        .from('purchases')
-        .update({ distribution_status: 'active' })
-        .eq('id', purchaseId);
-    },
-    {
-      invalidateQueries: [
-        [...queryKeys.purchases.all],
-        [...queryKeys.dashboard.kpis()],
-      ],
-      successMessage: 'Розподіл зафіксовано',
-    }
-  );
-}
-
-/**
- * Хук для розблокування розподілу покупки (повернення в 'draft')
- */
-export function useUnlockPurchase() {
-  return useSupabaseMutation(
-    async (purchaseId: string) => {
-      return supabase
-        .from('purchases')
-        .update({
-          distribution_status: 'draft',
-          locked_at: null,
-          locked_by: null,
-        })
-        .eq('id', purchaseId);
-    },
-    {
-      invalidateQueries: [
-        [...queryKeys.purchases.all],
-        [...queryKeys.dashboard.kpis()],
-      ],
-      successMessage: 'Розподіл розблоковано',
-    }
-  );
-}
-
-/**
- * Хук для оновлення статусу оплати окремого розподілу
- */
-export function useUpdateDistributionPayment() {
-  return useSupabaseMutation(
-    async ({ distributionId, isPaid }: { distributionId: string; isPaid: boolean }) => {
-      return supabase
-        .from('purchase_distributions')
-        .update({
-          is_paid: isPaid,
-          paid_at: isPaid ? new Date().toISOString() : null,
-        })
-        .eq('id', distributionId);
-    },
-    {
-      invalidateQueries: [
-        [...queryKeys.purchases.all],
-        [...queryKeys.distributions.myPayments],
-      ],
-      showSuccessToast: false,
-    }
-  );
-}
-
-/**
- * Хук для перерозподілу сум по існуючих відсотках при зміні total_amount
- */
-export function useRedistributePurchase() {
-  return useSupabaseMutation(
-    async ({ purchaseId, newTotalAmount }: { purchaseId: string; newTotalAmount: number }) => {
-      const { data: distributions, error: fetchError } = await supabase
-        .from('purchase_distributions')
-        .select('*')
-        .eq('purchase_id', purchaseId);
-
-      if (fetchError) return { data: null, error: fetchError };
-      if (!distributions || distributions.length === 0) {
-        return { data: null, error: { message: 'Розподіли не знайдено' } };
-      }
-
-      // Оновлюємо суми по існуючих відсотках
-      for (const dist of distributions) {
-        const newAmount = (newTotalAmount * (dist.percentage || 0)) / 100;
-        const { error: updateError } = await supabase
-          .from('purchase_distributions')
-          .update({
-            calculated_amount: newAmount,
-            adjusted_amount: null,
-            version: (dist.version || 1) + 1,
-            adjustment_type: 'reallocation',
-          })
-          .eq('id', dist.id);
-
-        if (updateError) return { data: null, error: updateError };
-      }
-
-      // Оновлюємо покупку
-      return supabase
-        .from('purchases')
-        .update({
-          total_amount: newTotalAmount,
-          distribution_status: 'active',
-          original_total_amount: null,
-        })
-        .eq('id', purchaseId);
-    },
-    {
-      invalidateQueries: [
-        [...queryKeys.purchases.all],
-        [...queryKeys.dashboard.kpis()],
-      ],
-      successMessage: 'Перерозподіл завершено',
-    }
-  );
-}
-
-/**
- * Хук для створення додаткових записів доплати/повернення при зміні суми
- */
-export function useCreateAdditionalPayments() {
-  return useSupabaseMutation(
-    async ({
-      purchaseId,
-      oldAmount,
-      newAmount,
-    }: {
-      purchaseId: string;
-      oldAmount: number;
-      newAmount: number;
-    }) => {
-      const { data: currentDistributions, error: fetchError } = await supabase
-        .from('purchase_distributions')
-        .select('*')
-        .eq('purchase_id', purchaseId);
-
-      if (fetchError) return { data: null, error: fetchError };
-      if (!currentDistributions || currentDistributions.length === 0) {
-        return { data: null, error: { message: 'Розподіли не знайдено' } };
-      }
-
-      const difference = newAmount - oldAmount;
-      const isIncrease = difference > 0;
-
-      const additionalPayments = currentDistributions.map((dist) => {
-        const additionalAmount = (Math.abs(difference) * (dist.percentage || 0)) / 100;
-        return {
-          purchase_id: purchaseId,
-          user_id: dist.user_id,
-          percentage: dist.percentage,
-          calculated_amount: additionalAmount,
-          adjusted_amount: null,
-          is_paid: false,
-          version: (dist.version || 1) + 1,
-          adjustment_type: isIncrease ? 'charge' : 'refund',
-          notes: isIncrease
-            ? `Доплата через збільшення суми покупки з ₴${oldAmount} до ₴${newAmount}`
-            : `Повернення через зменшення суми покупки з ₴${oldAmount} до ₴${newAmount}`,
-        };
-      });
-
-      const { error: insertError } = await supabase
-        .from('purchase_distributions')
-        .insert(additionalPayments);
-
-      if (insertError) return { data: null, error: insertError };
-
-      // Оновлюємо покупку
-      return supabase
-        .from('purchases')
-        .update({
-          total_amount: newAmount,
-          distribution_status: 'active',
-          original_total_amount: null,
-        })
-        .eq('id', purchaseId);
-    },
-    {
-      invalidateQueries: [
-        [...queryKeys.purchases.all],
-        [...queryKeys.dashboard.kpis()],
-      ],
-      successMessage: 'Записи доплати/повернення створено',
     }
   );
 }
