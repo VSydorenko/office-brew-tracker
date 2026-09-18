@@ -1,0 +1,27 @@
+{
+  "customizations": [
+    { "token": "--primary-glow", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--gradient-coffee", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--gradient-brew", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--gradient-warmth", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--shadow-coffee", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--shadow-brew", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--shadow-warmth", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--transition-brew", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--transition-coffee", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "bg-gradient-coffee", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "bg-gradient-brew", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "bg-gradient-warmth", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "shadow-coffee", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "shadow-brew", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "shadow-warmth", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "animate-slide-up", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "animate-slide-down", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "animate-fade-in", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "animate-scale-in", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "animate-accordion-down", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "animate-accordion-up", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "breakpoint-xs", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "container", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" }
+  ]
+}
