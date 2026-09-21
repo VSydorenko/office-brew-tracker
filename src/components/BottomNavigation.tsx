@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from '@/lib/router-compat';
 import { ShoppingCart, Coffee, Receipt, User, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBottomNavigation } from '@/contexts/BottomNavigationContext';

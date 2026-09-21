@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from '@/lib/router-compat';
 import { useToast } from '@/hooks/use-toast';
 import { usePurchases, useDeletePurchase, useCanDeletePurchase } from '@/hooks/use-purchases';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';

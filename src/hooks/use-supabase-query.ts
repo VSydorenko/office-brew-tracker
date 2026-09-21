@@ -1,7 +1,8 @@
 /**
  * Кастомні хуки для роботи з Supabase через React Query
  */
-import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions, UseQueryResult } from '@tanstack/react-query';
+import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/ui/auth-provider';
 import { toast } from '@/hooks/use-toast';
@@ -44,17 +45,19 @@ export function useAuthenticatedQuery<T>(
 /**
  * Базовий хук для Supabase запитів
  */
-export function useSupabaseQuery<T>(
+export function useSupabaseQuery<T, TResult = T>(
   queryKey: readonly unknown[],
   queryFn: () => Promise<{ data: T | null; error: any }>,
-  options?: Omit<SupabaseQueryOptions<T>, 'queryKey'> & {
-    select?: (data: { data: T | null; error: any }) => T;
+  options?: Omit<SupabaseQueryOptions<T>, 'queryKey' | 'select'> & {
+    /** Отримує сирі рядки (T | null), а не обгортку { data, error } */
+    select?: (data: T | null) => TResult;
   }
-) {
+): UseQueryResult<TResult, Error> {
   const { user, loading: authLoading } = useAuth();
   const { requireAuth = true, select, ...queryOptions } = options || {};
 
-  return useQuery({
+  return useQuery<T | null, Error, TResult>({
+    ...(queryOptions as object),
     queryKey,
     queryFn: async () => {
       const result = await queryFn();
@@ -63,11 +66,10 @@ export function useSupabaseQuery<T>(
       }
       return result.data;
     },
-    select: select as any,
+    ...(select ? { select: select as (data: T | null) => TResult } : {}),
     enabled: requireAuth ? !!user && !authLoading && (queryOptions.enabled !== false) : (queryOptions.enabled !== false),
     staleTime: queryOptions.staleTime ?? 5 * 60 * 1000,
-    ...queryOptions,
-  });
+  } as never) as UseQueryResult<TResult, Error>;
 }
 
 /**
@@ -89,14 +91,14 @@ export function useSupabaseMutation<TData, TVariables = void>(
   } = options || {};
 
   return useMutation({
-    mutationFn: async (variables: TVariables) => {
+    mutationFn: async (variables: TVariables): Promise<TData> => {
       const result = await mutationFn(variables);
       if (result.error) {
         throw new Error(result.error.message || 'Помилка виконання операції');
       }
-      return result.data;
+      return result.data as TData;
     },
-    onSuccess: (data, variables, context) => {
+    onSuccess: (data, variables, onMutateResult, context) => {
       // Інвалідація запитів
       invalidateQueries.forEach(queryKey => {
         queryClient.invalidateQueries({ queryKey });
@@ -111,9 +113,9 @@ export function useSupabaseMutation<TData, TVariables = void>(
       }
 
       // Викликати користувацький onSuccess
-      onSuccess?.(data, variables, context);
+      (onSuccess as any)?.(data, variables, onMutateResult, context);
     },
-    onError: (error, variables, context) => {
+    onError: (error, variables, onMutateResult, context) => {
       // Показати тост помилки
       if (showErrorToast) {
         toast({
@@ -124,7 +126,7 @@ export function useSupabaseMutation<TData, TVariables = void>(
       }
 
       // Викликати користувацький onError
-      onError?.(error, variables, context);
+      (onError as any)?.(error, variables, onMutateResult, context);
     },
     ...mutationOptions,
   });
@@ -172,6 +174,3 @@ export function useRealtimeInvalidation(
     };
   }, [tableName, queryClient, JSON.stringify(queryKeysToInvalidate)]);
 }
-
-// Потрібен import React для useEffect
-import React from 'react';

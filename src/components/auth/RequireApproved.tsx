@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from '@/lib/router-compat';
 import { useAuth } from '@/components/ui/auth-provider';
 import { Coffee } from 'lucide-react';
 

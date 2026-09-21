@@ -1,0 +1,3 @@
+{"functions": [
+  {"name": "notify-purchase-changes", "classification": "webhook receiver", "signal": "database webhook payload shape (type/table/record/old_record), wildcard CORS, no call sites under src/", "outcome": "left"}
+]}
