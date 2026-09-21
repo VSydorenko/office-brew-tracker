@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from '@/lib/router-compat';
 import { useAuth } from '@/components/ui/auth-provider';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
