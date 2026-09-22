@@ -26,7 +26,7 @@ interface DistributionTemplate {
   name: string;
   effective_from: string;
   is_active: boolean;
-  total_shares?: number;
+  total_shares?: number | null;
   distribution_template_users: TemplateUser[];
 }
 
