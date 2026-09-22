@@ -15,8 +15,8 @@ import { format, parseISO } from 'date-fns';
 interface CoffeeType {
   id: string;
   name: string;
-  description?: string;
-  package_size?: string;
+  description?: string | null;
+  package_size?: string | null;
   created_at: string;
   brands?: { name: string } | null;
   coffee_varieties?: { name: string } | null;

@@ -33,21 +33,21 @@ import { Calendar, User, Car, Coffee, DollarSign, Trash2, Loader2, Edit, MoreVer
 
 interface PurchaseItem {
   quantity: number;
-  unit_price?: number;
-  coffee_types: { id: string; name: string; brand?: string };
+  unit_price?: number | null;
+  coffee_types: { id: string; name: string; brand?: string | null };
 }
 
 interface PurchaseDistribution {
   id: string;
   user_id: string;
-  shares?: number;
+  shares?: number | null;
   calculated_amount: number;
-  adjusted_amount?: number;
+  adjusted_amount?: number | null;
   is_paid: boolean;
-  paid_at?: string;
-  version?: number;
-  adjustment_type?: string;
-  profiles: { name: string; email: string; avatar_path?: string; avatar_url?: string };
+  paid_at?: string | null;
+  version?: number | null;
+  adjustment_type?: string | null;
+  profiles: { name: string; email: string; avatar_path?: string | null; avatar_url?: string | null };
 }
 
 interface PurchaseListItem {
