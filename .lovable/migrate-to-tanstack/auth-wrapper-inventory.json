@@ -1,0 +1,35 @@
+{
+  "library": "supabase",
+  "wrappers": [
+    {
+      "name": "RequireApproved",
+      "file": "src/components/auth/RequireApproved.tsx",
+      "behavior": "redirects unauthenticated users to /auth and unapproved users to /waiting-approval",
+      "props": [],
+      "usages": [
+        { "file": "/tmp/migrate-to-tanstack/App.tsx.bak", "line": 50, "openingTag": "<RequireApproved />", "props": [], "context": "<Route element={<RequireApproved />}>" }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "wrapper": "RequireApproved",
+      "sourceUsage": "/tmp/migrate-to-tanstack/App.tsx.bak:50 <Route element={<RequireApproved />}>",
+      "generatedIn": "src/routes/_protected.tsx",
+      "protectedRoutes": [
+        "/_protected/",
+        "/_protected/purchases",
+        "/_protected/coffee-catalog/",
+        "/_protected/coffee-catalog/$id",
+        "/_protected/consumption",
+        "/_protected/my-payments",
+        "/_protected/profile",
+        "/_protected/settings",
+        "/_protected/user-management"
+      ]
+    }
+  ],
+  "notes": [
+    "UserManagement.tsx and Navigation.tsx use isAdmin conditionals internally; they are not route wrappers and were left unchanged."
+  ]
+}

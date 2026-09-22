@@ -110,7 +110,7 @@ export function useProfilesPicker(search?: string, limit = 50, offset = 0) {
     queryKeys.profiles.picker(search),
     async () => {
       return supabase.rpc('get_profiles_for_picker', {
-        search: search || null,
+        search: (search ?? null) as unknown as string,
         limit_n: limit,
         offset_n: offset,
       });

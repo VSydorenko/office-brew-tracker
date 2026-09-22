@@ -15,7 +15,7 @@ interface Profile {
 
 interface TemplateUser {
   user_id: string;
-  shares: number;
+  shares: number | null;
   profile?: Profile;
 }
 
@@ -148,7 +148,7 @@ export const DistributionTemplateForm = ({ onSuccess, children, templateId }: Di
       return;
     }
 
-    const validUsers = templateUsers.filter(user => user.user_id && user.shares > 0);
+    const validUsers = templateUsers.filter(user => user.user_id && (user.shares ?? 0) > 0);
     if (validUsers.length === 0) {
       toast({
         title: "Помилка валідації",

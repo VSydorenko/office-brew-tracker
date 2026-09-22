@@ -9,8 +9,8 @@ import { format, parseISO } from 'date-fns';
 interface CoffeeType {
   id: string;
   name: string;
-  package_size?: string;
-  brand?: string;
+  package_size?: string | null;
+  brand?: string | null;
 }
 
 interface CoffeeComboboxProps {

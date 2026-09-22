@@ -33,34 +33,34 @@ import { Calendar, User, Car, Coffee, DollarSign, Trash2, Loader2, Edit, MoreVer
 
 interface PurchaseItem {
   quantity: number;
-  unit_price?: number;
-  coffee_types: { id: string; name: string; brand?: string };
+  unit_price?: number | null;
+  coffee_types: { id: string; name: string; brand?: string | null };
 }
 
 interface PurchaseDistribution {
   id: string;
   user_id: string;
-  shares?: number;
+  shares?: number | null;
   calculated_amount: number;
-  adjusted_amount?: number;
+  adjusted_amount?: number | null;
   is_paid: boolean;
-  paid_at?: string;
-  version?: number;
-  adjustment_type?: string;
-  profiles: { name: string; email: string; avatar_path?: string; avatar_url?: string };
+  paid_at?: string | null;
+  version?: number | null;
+  adjustment_type?: string | null;
+  profiles: { name: string; email: string; avatar_path?: string | null; avatar_url?: string | null };
 }
 
 interface PurchaseListItem {
   id: string;
   date: string;
   total_amount: number;
-  notes?: string;
+  notes?: string | null;
   buyer_id: string;
-  driver_id?: string;
-  distribution_status?: string;
-  locked_at?: string;
-  locked_by?: string;
-  original_total_amount?: number;
+  driver_id?: string | null;
+  distribution_status?: string | null;
+  locked_at?: string | null;
+  locked_by?: string | null;
+  original_total_amount?: number | null;
   buyer: { name: string };
   driver?: { name: string };
   purchase_items: PurchaseItem[];

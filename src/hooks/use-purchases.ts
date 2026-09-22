@@ -414,7 +414,7 @@ export function useUpdatePurchase() {
           if (templateResult.data && templateResult.data.distribution_template_users.length > 0) {
             // Використовуємо утилітарну функцію для коректного розрахунку
             distributionsToUse = buildDistributionsFromShares(
-              templateResult.data.distribution_template_users,
+              templateResult.data.distribution_template_users as { user_id: string; shares: number }[],
               data.total_amount || 0
             );
           }

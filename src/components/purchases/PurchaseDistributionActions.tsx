@@ -146,7 +146,7 @@ export const PurchaseDistributionActions = ({
 
       // Створити додаткові записи для кожного користувача
       const additionalPayments = currentDistributions.map(dist => {
-        const additionalAmount = (Math.abs(difference) * dist.percentage) / 100;
+        const additionalAmount = (Math.abs(difference) * (dist.percentage ?? 0)) / 100;
         
         return {
           purchase_id: purchaseId,
@@ -243,7 +243,7 @@ export const PurchaseDistributionActions = ({
       // Перераховуємо суми на основі відсотків та нової суми
       const updates = distributions.map(dist => ({
         id: dist.id,
-        calculated_amount: (newTotalAmount * dist.percentage) / 100,
+        calculated_amount: (newTotalAmount * (dist.percentage ?? 0)) / 100,
         version: (dist.version || 1) + 1
       }));
 

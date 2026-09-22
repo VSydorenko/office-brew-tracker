@@ -16,8 +16,8 @@ import { DistributionTemplateForm } from './DistributionTemplateForm';
 
 interface TemplateUser {
   user_id: string;
-  shares: number;
-  percentage: number;
+  shares: number | null;
+  percentage: number | null;
   profiles: {
     name: string;
     email: string;
@@ -30,7 +30,7 @@ interface DistributionTemplate {
   effective_from: string;
   is_active: boolean;
   created_at: string;
-  total_shares?: number;
+  total_shares?: number | null;
   distribution_template_users: TemplateUser[];
 }
 

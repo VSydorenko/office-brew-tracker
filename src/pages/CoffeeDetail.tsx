@@ -314,7 +314,7 @@ const CoffeeDetail = () => {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <SelectEdit
-                    value={coffee.brand_id}
+                    value={coffee.brand_id ?? undefined}
                     options={brands}
                     onSave={(value) => handleFieldUpdate('brand_id', value ?? null)}
                     onCreateNew={async (name) => {
@@ -326,7 +326,7 @@ const CoffeeDetail = () => {
                     searchPlaceholder="Пошук бренду..."
                   />
                   <SelectEdit
-                    value={coffee.variety_id}
+                    value={coffee.variety_id ?? undefined}
                     options={varieties}
                     onSave={(value) => handleFieldUpdate('variety_id', value ?? null)}
                     onCreateNew={async (name) => {
@@ -338,7 +338,7 @@ const CoffeeDetail = () => {
                     searchPlaceholder="Пошук різновиду..."
                   />
                   <SelectEdit
-                    value={coffee.origin_id}
+                    value={coffee.origin_id ?? undefined}
                     options={origins}
                     onSave={(value) => handleFieldUpdate('origin_id', value ?? null)}
                     onCreateNew={async (name) => {
@@ -350,7 +350,7 @@ const CoffeeDetail = () => {
                     searchPlaceholder="Пошук походження..."
                   />
                   <SelectEdit
-                    value={coffee.processing_method_id}
+                    value={coffee.processing_method_id ?? undefined}
                     options={processingMethods}
                     onSave={(value) => handleFieldUpdate('processing_method_id', value ?? null)}
                     onCreateNew={async (name) => {
@@ -412,7 +412,7 @@ const CoffeeDetail = () => {
             <div>
               <h4 className="font-medium mb-2">Опис:</h4>
               <InlineTextareaEdit
-                value={coffee.description}
+                value={coffee.description ?? undefined}
                 onSave={(value) => handleFieldUpdate('description', value)}
                 placeholder="Додати опис кави..."
               />

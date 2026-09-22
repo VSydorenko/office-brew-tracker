@@ -17,7 +17,7 @@ interface Profile {
 
 interface TemplateUser {
   user_id: string;
-  shares: number;
+  shares: number | null;
   profiles: Profile;
 }
 
@@ -26,7 +26,7 @@ interface DistributionTemplate {
   name: string;
   effective_from: string;
   is_active: boolean;
-  total_shares?: number;
+  total_shares?: number | null;
   distribution_template_users: TemplateUser[];
 }
 
@@ -146,11 +146,13 @@ export const PurchaseDistributionStep = ({
   };
 
   const applyTemplate = (template: DistributionTemplate) => {
-    const totalShares = template.total_shares || template.distribution_template_users.reduce((sum, user) => sum + user.shares, 0);
+    const totalShares =
+      template.total_shares ||
+      template.distribution_template_users.reduce((sum, user) => sum + (user.shares ?? 0), 0);
     const newDistributions = template.distribution_template_users.map(templateUser => ({
       user_id: templateUser.user_id,
-      shares: templateUser.shares,
-      calculated_amount: totalShares > 0 ? (totalAmount * templateUser.shares) / totalShares : 0,
+      shares: templateUser.shares ?? 0,
+      calculated_amount: totalShares > 0 ? (totalAmount * (templateUser.shares ?? 0)) / totalShares : 0,
       profile: templateUser.profiles
     }));
     setDistributions(newDistributions);

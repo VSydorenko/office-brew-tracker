@@ -258,7 +258,7 @@ export function useUpdateCoffeeField() {
     async ({ id, field, value }: { id: string; field: string; value: any }) => {
       return supabase
         .from('coffee_types')
-        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .update({ [field]: value, updated_at: new Date().toISOString() } as never)
         .eq('id', id);
     },
     {

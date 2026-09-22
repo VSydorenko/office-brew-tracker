@@ -125,7 +125,7 @@ export const PurchaseFormDialog = ({ onSuccess, purchaseId, children }: Purchase
         buyer_id: purchase.buyer_id,
         driver_id: purchase.driver_id || '',
       });
-      setPurchaseItems(purchase.purchase_items || []);
+      setPurchaseItems((purchase.purchase_items ?? []) as any);
       
       // Встановлюємо збережений template_id
       if (purchase.template_id) {
