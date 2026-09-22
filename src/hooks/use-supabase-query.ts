@@ -45,18 +45,21 @@ export function useAuthenticatedQuery<T>(
 /**
  * Базовий хук для Supabase запитів
  */
-export function useSupabaseQuery<T, TResult = T>(
+export function useSupabaseQuery<
+  TResponse extends { data: any; error: any },
+  TResult = NonNullable<TResponse['data']>,
+>(
   queryKey: readonly unknown[],
-  queryFn: () => Promise<{ data: T | null; error: any }>,
-  options?: Omit<SupabaseQueryOptions<T>, 'queryKey' | 'select'> & {
-    /** Отримує сирі рядки (T | null), а не обгортку { data, error } */
-    select?: (data: T | null) => TResult;
+  queryFn: () => PromiseLike<TResponse>,
+  options?: Omit<SupabaseQueryOptions<any>, 'queryKey' | 'select'> & {
+    /** Отримує сирі рядки (data), а не обгортку { data, error } */
+    select?: (data: TResponse['data']) => TResult;
   }
 ): UseQueryResult<TResult, Error> {
   const { user, loading: authLoading } = useAuth();
   const { requireAuth = true, select, ...queryOptions } = options || {};
 
-  return useQuery<T | null, Error, TResult>({
+  return useQuery<TResponse['data'], Error, TResult>({
     ...(queryOptions as object),
     queryKey,
     queryFn: async () => {
@@ -66,7 +69,7 @@ export function useSupabaseQuery<T, TResult = T>(
       }
       return result.data;
     },
-    ...(select ? { select: select as (data: T | null) => TResult } : {}),
+    ...(select ? { select } : {}),
     enabled: requireAuth ? !!user && !authLoading && (queryOptions.enabled !== false) : (queryOptions.enabled !== false),
     staleTime: queryOptions.staleTime ?? 5 * 60 * 1000,
   } as never) as UseQueryResult<TResult, Error>;
