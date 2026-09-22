@@ -10,8 +10,8 @@ import { useCoffeeTypes, CoffeeTypeWithDetails, useCoffeePurchaseStatsMap } from
 interface CoffeeType {
   id: string;
   name: string;
-  description?: string;
-  package_size?: string;
+  description?: string | null;
+  package_size?: string | null;
   created_at: string;
   brands?: { id: string; name: string } | null;
   coffee_varieties?: { id: string; name: string } | null;

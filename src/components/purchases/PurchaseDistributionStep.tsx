@@ -17,7 +17,7 @@ interface Profile {
 
 interface TemplateUser {
   user_id: string;
-  shares: number;
+  shares: number | null;
   profiles: Profile;
 }
 

@@ -14,10 +14,10 @@ interface Profile {
   id: string;
   name: string;
   email: string;
-  avatar_path?: string;
-  avatar_url?: string;
-  card_number?: string;
-  card_holder_name?: string;
+  avatar_path?: string | null;
+  avatar_url?: string | null;
+  card_number?: string | null;
+  card_holder_name?: string | null;
   created_at: string;
   updated_at: string;
 }
