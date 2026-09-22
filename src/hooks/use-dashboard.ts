@@ -79,8 +79,8 @@ export function useDashboardKPIs(startDate?: string, endDate?: string) {
     queryKeys.dashboard.kpis(startDate, endDate),
     async () => {
       return supabase.rpc('get_dashboard_kpis', {
-        start_date: startDate || null,
-        end_date: endDate || null,
+        start_date: (startDate ?? null) as unknown as string,
+        end_date: (endDate ?? null) as unknown as string,
       });
     },
     {
@@ -103,8 +103,8 @@ export function useSpendingTimeseries(startDate?: string, endDate?: string) {
     queryKeys.dashboard.spending(startDate, endDate),
     async () => {
       return supabase.rpc('get_spending_timeseries', {
-        start_date: startDate || null,
-        end_date: endDate || null,
+        start_date: (startDate ?? null) as unknown as string,
+        end_date: (endDate ?? null) as unknown as string,
       });
     },
     {
@@ -128,8 +128,8 @@ export function useTopCoffees(startDate?: string, endDate?: string, limit = 5) {
     queryKeys.dashboard.topCoffees(startDate, endDate),
     async () => {
       return supabase.rpc('get_top_coffees_by_qty', {
-        start_date: startDate || null,
-        end_date: endDate || null,
+        start_date: (startDate ?? null) as unknown as string,
+        end_date: (endDate ?? null) as unknown as string,
         limit_n: limit,
       });
     },
@@ -147,8 +147,8 @@ export function useTopDrivers(startDate?: string, endDate?: string, limit = 5) {
     queryKeys.dashboard.topDrivers(startDate, endDate),
     async () => {
       return supabase.rpc('get_top_drivers_with_monthly', {
-        start_date: startDate || null,
-        end_date: endDate || null,
+        start_date: (startDate ?? null) as unknown as string,
+        end_date: (endDate ?? null) as unknown as string,
         limit_n: limit,
       });
     },
@@ -222,8 +222,8 @@ export function useStatusBreakdown(startDate?: string, endDate?: string) {
     queryKeys.dashboard.statusBreakdown(startDate, endDate),
     async () => {
       return supabase.rpc('get_status_breakdown', {
-        start_date: startDate || null,
-        end_date: endDate || null,
+        start_date: (startDate ?? null) as unknown as string,
+        end_date: (endDate ?? null) as unknown as string,
       });
     },
     {

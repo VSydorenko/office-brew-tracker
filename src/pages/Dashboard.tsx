@@ -80,11 +80,11 @@ const Dashboard = () => {
   const { startDate, endDate } = useMemo(() => getRangeFromPeriod(period), [period]);
 
   // React Query хуки для отримання даних
-  const { data: kpisData, isLoading: kpisLoading } = useDashboardKPIs(startDate, endDate);
-  const { data: spending = [], isLoading: spendingLoading } = useSpendingTimeseries(startDate, endDate);
-  const { data: topCoffees = [], isLoading: topCoffeesLoading } = useTopCoffees(startDate, endDate, 5);
-  const { data: driversData = [], isLoading: driversLoading } = useTopDrivers(startDate, endDate, 5);
-  const { data: statusData = [], isLoading: statusLoading } = useStatusBreakdown(startDate, endDate);
+  const { data: kpisData, isLoading: kpisLoading } = useDashboardKPIs(startDate ?? undefined, endDate ?? undefined);
+  const { data: spending = [], isLoading: spendingLoading } = useSpendingTimeseries(startDate ?? undefined, endDate ?? undefined);
+  const { data: topCoffees = [], isLoading: topCoffeesLoading } = useTopCoffees(startDate ?? undefined, endDate ?? undefined, 5);
+  const { data: driversData = [], isLoading: driversLoading } = useTopDrivers(startDate ?? undefined, endDate ?? undefined, 5);
+  const { data: statusData = [], isLoading: statusLoading } = useStatusBreakdown(startDate ?? undefined, endDate ?? undefined);
   const { data: recent = [], isLoading: recentLoading } = useRecentPurchasesDashboard(5);
 
   // Отримуємо перший об'єкт з масиву KPI
