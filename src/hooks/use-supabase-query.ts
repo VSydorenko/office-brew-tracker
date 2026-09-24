@@ -152,7 +152,7 @@ export function useRealtimeInvalidation(
   // Використовуємо useEffect для підписки на зміни
   React.useEffect(() => {
     const channel = supabase
-      .channel(`${tableName}-realtime`)
+      .channel(`${tableName}-realtime-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         { 

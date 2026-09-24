@@ -31,7 +31,7 @@ export const useNotifications = () => {
 
     // Підписка на нові розподіли (нові борги)
     const distributionsChannel = supabase
-      .channel('purchase_distributions_changes')
+      .channel(`purchase_distributions_changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
@@ -68,7 +68,7 @@ export const useNotifications = () => {
 
     // Підписка на зміни статусу покупок
     const purchasesChannel = supabase
-      .channel('purchases_status_changes')
+      .channel(`purchases_status_changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
@@ -103,7 +103,7 @@ export const useNotifications = () => {
 
     // Підписка на зміни розподілів (доплати/повернення)
     const adjustmentsChannel = supabase
-      .channel('adjustments_changes')
+      .channel(`adjustments_changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {

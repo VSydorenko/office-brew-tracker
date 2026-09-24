@@ -64,7 +64,7 @@ export const NotificationCenter = () => {
 
   const setupRealtimeSubscription = () => {
     const channel = supabase
-      .channel('user_notifications')
+      .channel(`user_notifications-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
