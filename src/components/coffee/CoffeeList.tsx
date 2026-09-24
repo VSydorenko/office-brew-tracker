@@ -47,7 +47,7 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
       coffee_varieties: coffee.coffee_varieties,
       origins: coffee.origins,
       processing_methods: coffee.processing_methods,
-      coffee_flavors: coffee.coffee_flavors?.map(cf => ({ flavors: cf.flavors })) || [],
+      coffee_flavors: coffee.coffee_flavors?.map((cf: any) => ({ flavors: cf.flavors })) || [],
     }));
   }, [rawCoffees]);
 
