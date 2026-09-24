@@ -11,7 +11,7 @@ import {
   Navigate as TSNavigate,
   Outlet as TSOutlet,
 } from "@tanstack/react-router";
-import { useMemo, useCallback, forwardRef, type ComponentProps, type ReactNode } from "react";
+import { useMemo, useCallback, useRef, forwardRef, type ComponentProps, type ReactNode } from "react";
 
 // ---------- shared URL parsing ----------
 
@@ -163,12 +163,15 @@ export function Navigate({
   state?: unknown;
 }) {
   const { pathname, search, hash } = parseTo(to);
+  // Зберігаємо state зі стабільною референцією: новий обʼєкт на кожному
+  // рендері спричиняє нескінченний цикл навігації у TanStack Navigate.
+  const stateRef = useRef(state);
   return (
     <TSNavigate
       to={pathname as never}
       search={search as never}
       hash={hash}
-      state={state as never}
+      state={stateRef.current as never}
       replace={replace}
     />
   );
