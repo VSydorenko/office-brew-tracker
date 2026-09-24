@@ -146,8 +146,8 @@ export const CoffeeCard = ({ coffee, onCoffeeUpdated }: CoffeeCardProps) => {
         coffee={{
           id: coffee.id,
           name: coffee.name,
-          description: coffee.description,
-          package_size: coffee.package_size,
+          description: coffee.description ?? undefined,
+          package_size: coffee.package_size ?? undefined,
           brand_id: (coffee as any).brand_id,
           variety_id: (coffee as any).variety_id,
           processing_method_id: (coffee as any).processing_method_id,

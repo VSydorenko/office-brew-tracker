@@ -37,7 +37,7 @@ export const CoffeeList = ({ refreshTrigger }: CoffeeListProps) => {
   const coffees = useMemo(() => {
     if (!rawCoffees) return [];
     
-    return rawCoffees.map((coffee: CoffeeTypeWithDetails): CoffeeType => ({
+    return rawCoffees.map((coffee: any): CoffeeType => ({
       id: coffee.id,
       name: coffee.name,
       description: coffee.description,

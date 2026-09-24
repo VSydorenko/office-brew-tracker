@@ -62,7 +62,7 @@ interface PurchaseListItem {
   locked_by?: string | null;
   original_total_amount?: number | null;
   buyer: { name: string };
-  driver?: { name: string };
+  driver?: { name: string } | null;
   purchase_items: PurchaseItem[];
   purchase_distributions?: PurchaseDistribution[];
 }
