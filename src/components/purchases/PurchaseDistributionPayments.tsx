@@ -19,18 +19,18 @@ import { Check, CreditCard, Clock, Loader2 } from 'lucide-react';
 interface PurchaseDistribution {
   id: string;
   user_id: string;
-  shares?: number;
+  shares?: number | null;
   calculated_amount: number;
-  adjusted_amount?: number;
+  adjusted_amount?: number | null;
   is_paid: boolean;
-  paid_at?: string;
-  version?: number;
-  adjustment_type?: string;
+  paid_at?: string | null;
+  version?: number | null;
+  adjustment_type?: string | null;
   profiles: { 
     name: string; 
     email: string; 
-    avatar_path?: string; 
-    avatar_url?: string;
+    avatar_path?: string | null; 
+    avatar_url?: string | null;
     card_number?: string;
     card_holder_name?: string;
   };

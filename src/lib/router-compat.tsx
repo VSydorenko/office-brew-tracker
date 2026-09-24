@@ -8,10 +8,17 @@ import {
   useParams as tsParams,
   useRouter,
   Link as TSLink,
-  Navigate as TSNavigate,
   Outlet as TSOutlet,
 } from "@tanstack/react-router";
-import { useMemo, useCallback, forwardRef, type ComponentProps, type ReactNode } from "react";
+import {
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+  forwardRef,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 
 // ---------- shared URL parsing ----------
 
@@ -162,16 +169,16 @@ export function Navigate({
   replace?: boolean;
   state?: unknown;
 }) {
-  const { pathname, search, hash } = parseTo(to);
-  return (
-    <TSNavigate
-      to={pathname as never}
-      search={search as never}
-      hash={hash}
-      state={state as never}
-      replace={replace}
-    />
-  );
+  const navigate = useNavigate();
+  // Навігацію виконуємо рівно один раз, інакше виникає нескінченний цикл
+  const doneRef = useRef(false);
+  const stateRef = useRef(state);
+  useEffect(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    navigate(to, { replace, state: stateRef.current });
+  }, [navigate, to, replace]);
+  return null;
 }
 
 // ---------- Outlet ----------
