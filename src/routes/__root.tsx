@@ -6,6 +6,7 @@ import {
   Outlet,
   Scripts,
   useRouter,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -126,7 +127,7 @@ function NotFoundComponent() {
 /**
  * Запасний екран для помилок рендерингу React-дерева.
  */
-function RootErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function RootErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
 
   console.error(error);
