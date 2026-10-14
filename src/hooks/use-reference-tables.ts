@@ -4,28 +4,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { brandsQuery, varietiesQuery, originsQuery, processingMethodsQuery, flavorsQuery, type ReferenceItem } from '@/queries/reference';
 
-// Типи для довідників
-interface ReferenceItem {
-  id: string;
-  name: string;
-}
 
 // Brands
-export const useBrands = () => {
-  return useQuery({
-    queryKey: ['brands'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('brands')
-        .select('id, name')
-        .order('name');
-      
-      if (error) throw error;
-      return data as ReferenceItem[];
-    },
-  });
-};
+export const useBrands = () => useQuery(brandsQuery());
 
 export const useCreateBrand = () => {
   const queryClient = useQueryClient();
@@ -60,20 +43,7 @@ export const useCreateBrand = () => {
 };
 
 // Varieties
-export const useVarieties = () => {
-  return useQuery({
-    queryKey: ['coffee_varieties'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('coffee_varieties')
-        .select('id, name')
-        .order('name');
-      
-      if (error) throw error;
-      return data as ReferenceItem[];
-    },
-  });
-};
+export const useVarieties = () => useQuery(varietiesQuery());
 
 export const useCreateVariety = () => {
   const queryClient = useQueryClient();
@@ -108,20 +78,7 @@ export const useCreateVariety = () => {
 };
 
 // Origins
-export const useOrigins = () => {
-  return useQuery({
-    queryKey: ['origins'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('origins')
-        .select('id, name')
-        .order('name');
-      
-      if (error) throw error;
-      return data as ReferenceItem[];
-    },
-  });
-};
+export const useOrigins = () => useQuery(originsQuery());
 
 export const useCreateOrigin = () => {
   const queryClient = useQueryClient();
@@ -156,20 +113,7 @@ export const useCreateOrigin = () => {
 };
 
 // Processing Methods
-export const useProcessingMethods = () => {
-  return useQuery({
-    queryKey: ['processing_methods'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('processing_methods')
-        .select('id, name')
-        .order('name');
-      
-      if (error) throw error;
-      return data as ReferenceItem[];
-    },
-  });
-};
+export const useProcessingMethods = () => useQuery(processingMethodsQuery());
 
 export const useCreateProcessingMethod = () => {
   const queryClient = useQueryClient();
@@ -204,20 +148,7 @@ export const useCreateProcessingMethod = () => {
 };
 
 // Flavors
-export const useFlavors = () => {
-  return useQuery({
-    queryKey: ['flavors'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('flavors')
-        .select('id, name')
-        .order('name');
-      
-      if (error) throw error;
-      return data as ReferenceItem[];
-    },
-  });
-};
+export const useFlavors = () => useQuery(flavorsQuery());
 
 export const useCreateFlavor = () => {
   const queryClient = useQueryClient();
