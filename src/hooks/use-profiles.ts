@@ -2,7 +2,10 @@
  * React Query хуки для роботи з профілями користувачів
  */
 import { supabase } from '@/integrations/supabase/client';
-import { useSupabaseQuery, useSupabaseMutation, useRealtimeInvalidation } from './use-supabase-query';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/components/ui/auth-provider';
+import { profilesQuery, currentProfileQuery, profileQuery, profilesPickerQuery } from '@/queries/profiles';
+import { useSupabaseMutation, useRealtimeInvalidation } from './use-supabase-query';
 import { queryKeys } from '@/lib/query-client';
 
 /**
@@ -41,22 +44,10 @@ export interface UpdateProfileData {
  * Хук для отримання всіх профілів (тільки для адмінів)
  */
 export function useProfiles() {
-  const query = useSupabaseQuery(
-    queryKeys.profiles.all,
-    async () => {
-      return supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-    },
-    {
-      staleTime: 2 * 60 * 1000, // 2 хвилини
-    }
-  );
-
+  const { user, loading } = useAuth();
+  const query = useQuery({ ...profilesQuery(), enabled: !!user && !loading });
   // Realtime оновлення для профілів
   useRealtimeInvalidation('profiles', [[...queryKeys.profiles.all]]);
-
   return query;
 }
 
@@ -64,61 +55,24 @@ export function useProfiles() {
  * Хук для отримання профілю поточного користувача
  */
 export function useCurrentProfile() {
-  return useSupabaseQuery(
-    queryKeys.profiles.detail('current'),
-    async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Користувач не авторизований');
-
-      return supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-    },
-    {
-      staleTime: 1 * 60 * 1000, // 1 хвилина
-    }
-  );
+  const { user, loading } = useAuth();
+  return useQuery({ ...currentProfileQuery(), enabled: !!user && !loading });
 }
 
 /**
  * Хук для отримання профілю за ID
  */
 export function useProfile(id: string) {
-  return useSupabaseQuery(
-    queryKeys.profiles.detail(id),
-    async () => {
-      return supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', id)
-        .single();
-    },
-    {
-      enabled: !!id,
-      staleTime: 5 * 60 * 1000, // 5 хвилин
-    }
-  );
+  const { user, loading } = useAuth();
+  return useQuery({ ...profileQuery(id), enabled: !!id && !!user && !loading });
 }
 
 /**
  * Хук для отримання профілів для селектора (з пагінацією)
  */
 export function useProfilesPicker(search?: string, limit = 50, offset = 0) {
-  return useSupabaseQuery(
-    queryKeys.profiles.picker(search),
-    async () => {
-      return supabase.rpc('get_profiles_for_picker', {
-        search: (search ?? null) as unknown as string,
-        limit_n: limit,
-        offset_n: offset,
-      });
-    },
-    {
-      staleTime: 5 * 60 * 1000, // 5 хвилин
-    }
-  );
+  const { user, loading } = useAuth();
+  return useQuery({ ...profilesPickerQuery(search, limit, offset), enabled: !!user && !loading });
 }
 
 /**
