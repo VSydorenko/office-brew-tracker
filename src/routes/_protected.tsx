@@ -6,5 +6,7 @@ import RequireApproved from "@/components/auth/RequireApproved";
  * Пряма трансляція <Route element={<RequireApproved />}> з попереднього App.tsx.
  */
 export const Route = createFileRoute("/_protected")({
+  // Сесія зберігається в браузері, тому захищені сторінки рендеряться лише на клієнті
+  ssr: false,
   component: () => <RequireApproved />,
 });
